@@ -56,6 +56,41 @@ RANDOM_SEED = 217
 CHECKPOINT_DIR = "checkpoints"
 OUTPUT_DIR = "feature_selection_outputs"
 
+# =============================================================================
+# CLINICAL MUST-KEEP FEATURES
+# =============================================================================
+# These features are preserved regardless of their statistical ranking.
+# They represent clinically important or interpretable signals that should
+# always be available in the final model for clinical decision-making.
+#
+# To add a feature: Include the exact column name as it appears in the data.
+# To disable: Set CLINICAL_MUST_KEEP_FEATURES = [] (empty list)
+# =============================================================================
+CLINICAL_MUST_KEEP_FEATURES = [
+    # Weight loss indicators - cardinal sign of CRC
+    'HAS_RAPID_WEIGHT_LOSS',
+    'MAX_WEIGHT_LOSS_PCT_60D',
+    'WEIGHT_LOSS_FLAG_6M',
+
+    # GI bleeding - high-specificity CRC symptom
+    'HAS_GI_BLEEDING',
+    'HAS_RECTAL_BLEEDING',
+
+    # Anemia - common CRC presentation
+    'HAS_IRON_DEFICIENCY_ANEMIA',
+    'HEMOGLOBIN_LATEST',
+
+    # Age - fundamental risk factor
+    'AGE',
+
+    # Change in bowel habits - classic CRC symptom
+    'HAS_BOWEL_HABIT_CHANGE',
+]
+
+# Number of CV folds for feature selection stability
+N_CV_FOLDS = 3
+CV_FEATURE_THRESHOLD = 0.67  # Keep features appearing in >= 67% of folds (2/3)
+
 print("="*70)
 print("CONFIGURATION")
 print("="*70)
@@ -65,6 +100,9 @@ print(f"MIN_FEATURES_THRESHOLD: {MIN_FEATURES_THRESHOLD}")
 print(f"MAX_VAL_AUPRC_DROP: {MAX_VAL_AUPRC_DROP}")
 print(f"MAX_GAP_INCREASE: {MAX_GAP_INCREASE}")
 print(f"RANDOM_SEED: {RANDOM_SEED}")
+print(f"N_CV_FOLDS: {N_CV_FOLDS}")
+print(f"CV_FEATURE_THRESHOLD: {CV_FEATURE_THRESHOLD}")
+print(f"CLINICAL_MUST_KEEP_FEATURES: {len(CLINICAL_MUST_KEEP_FEATURES)} features")
 print("="*70)
 
 # COMMAND ----------
@@ -126,36 +164,137 @@ def ensure_directories():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     print(f"✓ Directories verified: {CHECKPOINT_DIR}/, {OUTPUT_DIR}/")
 
-def get_checkpoint_path(name):
-    """Get full path for a checkpoint file."""
-    return os.path.join(CHECKPOINT_DIR, f"{name}.pkl")
+def get_checkpoint_dir(name):
+    """Get directory path for a checkpoint (each checkpoint is a directory)."""
+    return os.path.join(CHECKPOINT_DIR, name)
 
 def save_checkpoint(name, data):
-    """Save a checkpoint with the given name."""
-    path = get_checkpoint_path(name)
-    with open(path, 'wb') as f:
-        pickle.dump(data, f)
+    """
+    Save a checkpoint with format-appropriate storage:
+    - XGBoost models: JSON format (portable across versions)
+    - DataFrames: Parquet format (efficient, portable)
+    - Other data: JSON for simple types, pickle for complex types
+    """
+    checkpoint_dir = get_checkpoint_dir(name)
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    metadata = {'keys': []}
+
+    for key, value in data.items():
+        metadata['keys'].append(key)
+
+        if isinstance(value, XGBClassifier):
+            # Save XGBoost model as JSON
+            model_path = os.path.join(checkpoint_dir, f"{key}.json")
+            value.save_model(model_path)
+
+        elif isinstance(value, pd.DataFrame):
+            # Save DataFrame as Parquet
+            parquet_path = os.path.join(checkpoint_dir, f"{key}.parquet")
+            value.to_parquet(parquet_path, index=False)
+
+        elif isinstance(value, np.ndarray):
+            # Save numpy arrays as .npy
+            npy_path = os.path.join(checkpoint_dir, f"{key}.npy")
+            np.save(npy_path, value)
+
+        elif isinstance(value, (list, dict, str, int, float, bool, type(None))):
+            # Save simple types as JSON
+            json_path = os.path.join(checkpoint_dir, f"{key}.json")
+            with open(json_path, 'w') as f:
+                json.dump(value, f, indent=2, default=str)
+
+        else:
+            # Fallback to pickle for complex types (scipy linkage, etc.)
+            pkl_path = os.path.join(checkpoint_dir, f"{key}.pkl")
+            with open(pkl_path, 'wb') as f:
+                pickle.dump(value, f)
+
+    # Save metadata
+    with open(os.path.join(checkpoint_dir, "_metadata.json"), 'w') as f:
+        json.dump(metadata, f)
+
     print(f"✓ CHECKPOINT SAVED: {name}")
 
 def load_checkpoint(name):
     """Load a checkpoint by name. Returns None if not found."""
-    path = get_checkpoint_path(name)
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
+    checkpoint_dir = get_checkpoint_dir(name)
+
+    # Check for new format (directory-based)
+    if os.path.isdir(checkpoint_dir):
+        metadata_path = os.path.join(checkpoint_dir, "_metadata.json")
+        if not os.path.exists(metadata_path):
+            return None
+
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+
+        data = {}
+        for key in metadata['keys']:
+            # Try each format in order
+            json_path = os.path.join(checkpoint_dir, f"{key}.json")
+            parquet_path = os.path.join(checkpoint_dir, f"{key}.parquet")
+            npy_path = os.path.join(checkpoint_dir, f"{key}.npy")
+            pkl_path = os.path.join(checkpoint_dir, f"{key}.pkl")
+
+            if key == 'model' and os.path.exists(json_path):
+                # Load XGBoost model
+                model = XGBClassifier()
+                model.load_model(json_path)
+                data[key] = model
+            elif os.path.exists(parquet_path):
+                # Load DataFrame
+                data[key] = pd.read_parquet(parquet_path)
+            elif os.path.exists(npy_path):
+                # Load numpy array
+                data[key] = np.load(npy_path)
+            elif os.path.exists(json_path):
+                # Load JSON
+                with open(json_path, 'r') as f:
+                    data[key] = json.load(f)
+            elif os.path.exists(pkl_path):
+                # Load pickle
+                with open(pkl_path, 'rb') as f:
+                    data[key] = pickle.load(f)
+
         print(f"✓ CHECKPOINT LOADED: {name}")
         return data
+
+    # Fallback: check for legacy pickle format
+    legacy_path = os.path.join(CHECKPOINT_DIR, f"{name}.pkl")
+    if os.path.exists(legacy_path):
+        print(f"⚠ Loading legacy pickle checkpoint: {name}")
+        with open(legacy_path, 'rb') as f:
+            data = pickle.load(f)
+        print(f"✓ CHECKPOINT LOADED: {name} (legacy format)")
+        return data
+
     return None
 
 def checkpoint_exists(name):
-    """Check if a checkpoint exists."""
-    return os.path.exists(get_checkpoint_path(name))
+    """Check if a checkpoint exists (new or legacy format)."""
+    checkpoint_dir = get_checkpoint_dir(name)
+    legacy_path = os.path.join(CHECKPOINT_DIR, f"{name}.pkl")
+    return os.path.isdir(checkpoint_dir) or os.path.exists(legacy_path)
 
 def list_checkpoints():
-    """List all existing checkpoints."""
+    """List all existing checkpoints (new and legacy formats)."""
     if not os.path.exists(CHECKPOINT_DIR):
         return []
-    checkpoints = [f.replace('.pkl', '') for f in os.listdir(CHECKPOINT_DIR) if f.endswith('.pkl')]
+
+    checkpoints = set()
+
+    # New format: directories
+    for item in os.listdir(CHECKPOINT_DIR):
+        item_path = os.path.join(CHECKPOINT_DIR, item)
+        if os.path.isdir(item_path) and os.path.exists(os.path.join(item_path, "_metadata.json")):
+            checkpoints.add(item)
+
+    # Legacy format: .pkl files
+    for f in os.listdir(CHECKPOINT_DIR):
+        if f.endswith('.pkl'):
+            checkpoints.add(f.replace('.pkl', ''))
+
     return sorted(checkpoints)
 
 def get_latest_checkpoint():
@@ -204,11 +343,18 @@ def get_latest_checkpoint():
     return None, "start"
 
 def clear_checkpoints():
-    """Clear all checkpoints to start fresh."""
+    """Clear all checkpoints to start fresh (handles both new and legacy formats)."""
+    import shutil
+
     if os.path.exists(CHECKPOINT_DIR):
-        for f in os.listdir(CHECKPOINT_DIR):
-            if f.endswith('.pkl'):
-                os.remove(os.path.join(CHECKPOINT_DIR, f))
+        for item in os.listdir(CHECKPOINT_DIR):
+            item_path = os.path.join(CHECKPOINT_DIR, item)
+            if os.path.isdir(item_path):
+                # New format: remove entire checkpoint directory
+                shutil.rmtree(item_path)
+            elif item.endswith('.pkl'):
+                # Legacy format: remove pickle file
+                os.remove(item_path)
         print("✓ All checkpoints cleared")
 
 def display_checkpoint_status():
@@ -476,6 +622,85 @@ else:
     })
 
 print(f"\n✓ Data ready: {len(df_pandas):,} observations, {len(feature_cols)} features")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Step 1.1b: Create CV Folds for Feature Selection Stability
+# MAGIC
+# MAGIC To ensure feature selection stability, we run the selection process across multiple
+# MAGIC cross-validation folds. Features that are consistently selected across folds are more
+# MAGIC likely to be genuinely important rather than artifacts of a particular train/val split.
+# MAGIC
+# MAGIC **Approach:**
+# MAGIC - Test set (Q6) remains fixed as temporal holdout
+# MAGIC - Q0-Q5 data is split into 3 folds using StratifiedGroupKFold
+# MAGIC - Feature selection runs on each fold
+# MAGIC - Final features = those selected in ≥2/3 folds (67% threshold)
+
+# COMMAND ----------
+
+from sklearn.model_selection import StratifiedGroupKFold
+
+# Check if we can skip this step
+if checkpoint_exists("step1_1b_cv_folds") and not START_FRESH:
+    print(">>> Loading from checkpoint: step1_1b_cv_folds")
+    cv_checkpoint = load_checkpoint("step1_1b_cv_folds")
+    cv_fold_assignments = cv_checkpoint['cv_fold_assignments']
+else:
+    print("="*70)
+    print("STEP 1.1b: CREATE CV FOLDS FOR FEATURE SELECTION")
+    print("="*70)
+
+    # Separate test (Q6) from train/val pool (existing split)
+    test_mask = df_pandas['SPLIT'] == 'test'
+    trainval_mask = df_pandas['SPLIT'].isin(['train', 'val'])
+
+    print(f"Test set (fixed): {test_mask.sum():,} observations")
+    print(f"Train/Val pool: {trainval_mask.sum():,} observations")
+
+    # Get patient-level labels for SGKF
+    trainval_df = df_pandas[trainval_mask].copy()
+    patient_labels = trainval_df.groupby('PAT_ID')['FUTURE_CRC_EVENT'].max().reset_index()
+    patient_labels.columns = ['PAT_ID', 'label']
+
+    print(f"Unique patients in train/val: {len(patient_labels):,}")
+    print(f"Positive patients: {patient_labels['label'].sum():,}")
+
+    # Create 3-fold SGKF
+    sgkf = StratifiedGroupKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=RANDOM_SEED)
+
+    X_dummy = np.zeros(len(patient_labels))
+    y = patient_labels['label'].values
+    groups = patient_labels['PAT_ID'].values
+
+    # Store fold assignments for each patient
+    cv_fold_assignments = {}
+    for fold_idx, (train_idx, val_idx) in enumerate(sgkf.split(X_dummy, y, groups)):
+        train_patients = set(patient_labels.iloc[train_idx]['PAT_ID'].values)
+        val_patients = set(patient_labels.iloc[val_idx]['PAT_ID'].values)
+
+        cv_fold_assignments[fold_idx] = {
+            'train_patients': train_patients,
+            'val_patients': val_patients
+        }
+
+        # Calculate stats
+        train_obs = trainval_df[trainval_df['PAT_ID'].isin(train_patients)]
+        val_obs = trainval_df[trainval_df['PAT_ID'].isin(val_patients)]
+
+        print(f"\nFold {fold_idx + 1}:")
+        print(f"  Train: {len(train_patients):,} patients, {len(train_obs):,} observations")
+        print(f"  Val:   {len(val_patients):,} patients, {len(val_obs):,} observations")
+        print(f"  Train event rate: {train_obs['FUTURE_CRC_EVENT'].mean()*100:.4f}%")
+        print(f"  Val event rate:   {val_obs['FUTURE_CRC_EVENT'].mean()*100:.4f}%")
+
+    # Save checkpoint
+    save_checkpoint("step1_1b_cv_folds", {
+        'cv_fold_assignments': cv_fold_assignments
+    })
+
+print(f"\n✓ CV folds created: {N_CV_FOLDS} folds for feature selection stability")
 
 # COMMAND ----------
 
@@ -764,6 +989,22 @@ print(f"\n✓ Baseline model ready: Val AUPRC = {baseline_metrics['val']['auprc'
 
 # MAGIC %md
 # MAGIC ## Step 1.5: Compute SHAP with 2:1 Positive Weighting
+# MAGIC
+# MAGIC ### Why SHAP is Computed on Validation Data
+# MAGIC
+# MAGIC We compute SHAP values on the validation set rather than the training set for two reasons:
+# MAGIC
+# MAGIC 1. **Avoid overfitting to training quirks**: SHAP on training data would reflect feature
+# MAGIC    contributions to training patterns, including any noise the model memorized. Validation
+# MAGIC    data provides a cleaner signal of generalizable feature importance.
+# MAGIC
+# MAGIC 2. **Consistent with early stopping**: The model was trained with early stopping on validation
+# MAGIC    performance, so its learned structure is already optimized for validation. SHAP on
+# MAGIC    validation reflects the model's actual generalization behavior.
+# MAGIC
+# MAGIC **Tradeoff**: The validation set has fewer positive cases (~1/3 of training), so importance
+# MAGIC estimates have higher variance for rare features. We mitigate this by keeping all positive
+# MAGIC cases in the SHAP computation.
 
 # COMMAND ----------
 
@@ -813,6 +1054,14 @@ else:
     print("STEP 1.6: SELECT CLUSTER REPRESENTATIVES")
     print("="*70)
 
+    # Identify which clinical must-keep features exist in the data
+    valid_must_keep = [f for f in CLINICAL_MUST_KEEP_FEATURES if f in feature_cols]
+    missing_must_keep = [f for f in CLINICAL_MUST_KEEP_FEATURES if f not in feature_cols]
+
+    if missing_must_keep:
+        print(f"⚠ Clinical must-keep features not found in data: {missing_must_keep}")
+    print(f"Clinical must-keep features to preserve: {len(valid_must_keep)}")
+
     # Merge cluster assignments with SHAP importance
     cluster_importance = cluster_df.merge(importance_df, on='Feature')
 
@@ -848,6 +1097,24 @@ else:
                 'SHAP_Ratio': row['SHAP_Ratio'],
                 'Selection_Reason': f"Top by SHAP_Ratio in cluster of {cluster_size}"
             })
+
+    # Add clinical must-keep features that weren't already selected
+    for feat in valid_must_keep:
+        if feat not in selected_features:
+            # Get the feature's importance info
+            feat_info = importance_df[importance_df['Feature'] == feat]
+            feat_cluster = cluster_df[cluster_df['Feature'] == feat]['Cluster'].values[0]
+
+            selected_features.append(feat)
+            selection_records.append({
+                'Feature': feat,
+                'Cluster': feat_cluster,
+                'Cluster_Size': len(cluster_df[cluster_df['Cluster'] == feat_cluster]),
+                'SHAP_Combined': feat_info['SHAP_Combined'].values[0] if len(feat_info) > 0 else 0,
+                'SHAP_Ratio': feat_info['SHAP_Ratio'].values[0] if len(feat_info) > 0 else 0,
+                'Selection_Reason': "Clinical must-keep feature"
+            })
+            print(f"  + Added clinical must-keep: {feat}")
 
     selection_df = pd.DataFrame(selection_records)
 
@@ -1140,6 +1407,10 @@ while stop_reason is None:
     protected = set(iter_importance_df[iter_importance_df['SHAP_Ratio'] >= median_ratio]['Feature'])
     candidates = candidates - protected
 
+    # Never remove clinical must-keep features
+    clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in current_features)
+    candidates = candidates - clinical_protected
+
     # Sort candidates by importance (remove lowest first)
     candidate_df = iter_importance_df[iter_importance_df['Feature'].isin(candidates)].sort_values('SHAP_Combined')
 
@@ -1149,8 +1420,9 @@ while stop_reason is None:
     print(f"  Near-zero importance: {len(zero_importance)}")
     print(f"  Negative-biased ratio: {len(neg_biased)}")
     print(f"  Bottom {bottom_pct*100:.0f}%: {len(bottom_features)}")
-    print(f"  Meeting 2+ criteria: {len(candidates)}")
+    print(f"  Meeting 2+ criteria (after protections): {len(candidates)}")
     print(f"  Protected (top 50% ratio): {len(protected)}")
+    print(f"  Protected (clinical must-keep): {len(clinical_protected)}")
     print(f"  Final candidates: {len(features_to_remove)}")
 
     # =========================================================================
@@ -1438,6 +1710,171 @@ Checkpoints saved to: {CHECKPOINT_DIR}/
   (Can be used to resume if notebook is interrupted)
 """)
 print("="*70)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ---
+# MAGIC # Cross-Validation Stability Analysis
+# MAGIC ---
+# MAGIC
+# MAGIC This section runs a simplified feature selection on the remaining CV folds to assess
+# MAGIC stability. Features that are consistently selected across folds are more robust.
+
+# COMMAND ----------
+
+print("="*70)
+print("CV STABILITY ANALYSIS")
+print("="*70)
+print(f"Running feature selection on {N_CV_FOLDS - 1} additional folds...")
+print(f"Stability threshold: features must appear in ≥{CV_FEATURE_THRESHOLD*100:.0f}% of folds")
+
+# Track features selected in each fold
+# Fold 0 is the main pipeline result
+fold_selected_features = {0: set(final_features)}
+
+# Test set indices (fixed across folds)
+test_mask = df_pandas['SPLIT'] == 'test'
+X_test = df_pandas.loc[test_mask].copy()
+y_test = df_pandas.loc[test_mask, 'FUTURE_CRC_EVENT'].copy()
+
+# Run on remaining folds (1 and 2)
+for fold_idx in range(1, N_CV_FOLDS):
+    print(f"\n{'='*50}")
+    print(f"FOLD {fold_idx + 1} / {N_CV_FOLDS}")
+    print(f"{'='*50}")
+
+    # Get train/val split for this fold
+    fold_train_patients = cv_fold_assignments[fold_idx]['train_patients']
+    fold_val_patients = cv_fold_assignments[fold_idx]['val_patients']
+
+    # Create masks
+    trainval_mask = df_pandas['SPLIT'].isin(['train', 'val'])
+    fold_train_mask = trainval_mask & df_pandas['PAT_ID'].isin(fold_train_patients)
+    fold_val_mask = trainval_mask & df_pandas['PAT_ID'].isin(fold_val_patients)
+
+    X_fold_train = df_pandas.loc[fold_train_mask].copy()
+    y_fold_train = df_pandas.loc[fold_train_mask, 'FUTURE_CRC_EVENT'].copy()
+    X_fold_val = df_pandas.loc[fold_val_mask].copy()
+    y_fold_val = df_pandas.loc[fold_val_mask, 'FUTURE_CRC_EVENT'].copy()
+
+    print(f"  Train: {len(y_fold_train):,} obs, {y_fold_train.sum():,} events")
+    print(f"  Val: {len(y_fold_val):,} obs, {y_fold_val.sum():,} events")
+
+    # Calculate scale_pos_weight for this fold
+    fold_scale_pos_weight = (y_fold_train == 0).sum() / (y_fold_train == 1).sum()
+
+    # Train baseline model on this fold (using clustering features from main pipeline)
+    print("\n  Training model on cluster representatives...")
+    fold_model = train_xgboost_model(
+        X_fold_train, y_fold_train, X_fold_val, y_fold_val,
+        phase1_features, fold_scale_pos_weight
+    )
+
+    # Compute SHAP on this fold's validation set
+    print("  Computing SHAP values...")
+    fold_importance_df = compute_shap_values(fold_model, X_fold_val, y_fold_val, phase1_features)
+
+    # Identify removal candidates (same logic as main pipeline)
+    zero_threshold = 0.0002
+    ratio_threshold = 0.2
+    bottom_pct = 0.15
+
+    zero_importance = set(fold_importance_df[fold_importance_df['SHAP_Combined'] < zero_threshold]['Feature'])
+    neg_biased = set(fold_importance_df[fold_importance_df['SHAP_Ratio'] < ratio_threshold]['Feature'])
+    importance_cutoff = fold_importance_df['SHAP_Combined'].quantile(bottom_pct)
+    bottom_features = set(fold_importance_df[fold_importance_df['SHAP_Combined'] < importance_cutoff]['Feature'])
+
+    # Features meeting 2+ criteria
+    candidates = (
+        (zero_importance & neg_biased) |
+        (zero_importance & bottom_features) |
+        (neg_biased & bottom_features)
+    )
+
+    # Never remove protected features
+    median_ratio = fold_importance_df['SHAP_Ratio'].median()
+    protected = set(fold_importance_df[fold_importance_df['SHAP_Ratio'] >= median_ratio]['Feature'])
+    clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in phase1_features)
+    candidates = candidates - protected - clinical_protected
+
+    # Remove candidates from phase1_features to get this fold's selection
+    fold_features = [f for f in phase1_features if f not in candidates]
+
+    print(f"  Features selected: {len(fold_features)}")
+    fold_selected_features[fold_idx] = set(fold_features)
+
+    # Quick validation
+    fold_val_metrics = evaluate_model(fold_model, X_fold_val, y_fold_val, phase1_features, f"  Fold {fold_idx + 1} Val")
+
+# Compute stability statistics
+print("\n" + "="*70)
+print("STABILITY ANALYSIS RESULTS")
+print("="*70)
+
+# Count how many folds each feature appears in
+feature_fold_counts = {}
+all_features = set()
+for fold_idx, features in fold_selected_features.items():
+    all_features.update(features)
+
+for feat in all_features:
+    count = sum(1 for fold_features in fold_selected_features.values() if feat in fold_features)
+    feature_fold_counts[feat] = count
+
+# Categorize by stability
+stable_features = [f for f, count in feature_fold_counts.items() if count >= N_CV_FOLDS * CV_FEATURE_THRESHOLD]
+unstable_features = [f for f, count in feature_fold_counts.items() if count < N_CV_FOLDS * CV_FEATURE_THRESHOLD]
+
+print(f"\nFeature stability summary:")
+print(f"  Total unique features selected across folds: {len(all_features)}")
+print(f"  Stable features (≥{int(N_CV_FOLDS * CV_FEATURE_THRESHOLD)}/{N_CV_FOLDS} folds): {len(stable_features)}")
+print(f"  Unstable features (<{int(N_CV_FOLDS * CV_FEATURE_THRESHOLD)}/{N_CV_FOLDS} folds): {len(unstable_features)}")
+
+# Show unstable features
+if unstable_features:
+    print(f"\n  Unstable features (may be overfitting artifacts):")
+    for feat in sorted(unstable_features)[:20]:
+        count = feature_fold_counts[feat]
+        in_final = "✓" if feat in final_features else " "
+        print(f"    [{in_final}] {feat}: {count}/{N_CV_FOLDS} folds")
+    if len(unstable_features) > 20:
+        print(f"    ... and {len(unstable_features) - 20} more")
+
+# Check overlap with final features from main pipeline
+final_stable = [f for f in final_features if f in stable_features]
+final_unstable = [f for f in final_features if f in unstable_features]
+
+print(f"\n  Final features from main pipeline: {len(final_features)}")
+print(f"    - Stable: {len(final_stable)} ({len(final_stable)/len(final_features)*100:.1f}%)")
+print(f"    - Unstable: {len(final_unstable)} ({len(final_unstable)/len(final_features)*100:.1f}%)")
+
+# Save stability report
+stability_report = {
+    'n_folds': N_CV_FOLDS,
+    'threshold': CV_FEATURE_THRESHOLD,
+    'stable_features': sorted(stable_features),
+    'unstable_features': sorted(unstable_features),
+    'feature_fold_counts': feature_fold_counts,
+    'final_stable': sorted(final_stable),
+    'final_unstable': sorted(final_unstable)
+}
+
+stability_path = os.path.join(OUTPUT_DIR, "cv_stability_report.json")
+with open(stability_path, 'w') as f:
+    json.dump(stability_report, f, indent=2)
+print(f"\n✓ Saved stability report: {stability_path}")
+
+# Optionally update final features to only include stable ones
+print(f"\n{'='*70}")
+print("RECOMMENDATION")
+print("="*70)
+if len(final_unstable) > 0:
+    print(f"Consider reviewing the {len(final_unstable)} unstable features in the final set.")
+    print("These may be overfitting to the specific train/val split.")
+    print(f"For a more robust model, use only the {len(final_stable)} stable features.")
+else:
+    print("All final features are stable across CV folds. Feature selection is robust.")
 
 # COMMAND ----------
 

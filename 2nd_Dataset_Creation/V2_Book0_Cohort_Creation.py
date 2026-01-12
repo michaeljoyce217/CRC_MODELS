@@ -3121,6 +3121,24 @@ df_with_quarter.groupBy("quarters_since_study_start").agg(
 # MAGIC
 # MAGIC #### What to Watch For
 # MAGIC Train should have ~70% of Q0-Q5 patients. Event rates should be similar across TRAIN and VAL.
+# MAGIC
+# MAGIC #### Patient-Level Stratification Logic
+# MAGIC
+# MAGIC StratifiedGroupKFold stratifies by **patient-level** labels, not observation-level labels. A patient
+# MAGIC is labeled "positive" if ANY of their observations has FUTURE_CRC_EVENT=1.
+# MAGIC
+# MAGIC **Example**: A patient with 12 monthly observations where only month 11 has FUTURE_CRC_EVENT=1:
+# MAGIC - Patient-level label: 1 (positive)
+# MAGIC - Observation-level: 11 negatives, 1 positive
+# MAGIC
+# MAGIC **Why this is correct**:
+# MAGIC 1. The patient-level label ensures the entire patient goes to one split (no data leakage)
+# MAGIC 2. Stratification preserves the proportion of "ever-positive" patients across splits
+# MAGIC 3. The model will see both the negative and positive observations during training, learning
+# MAGIC    the temporal progression toward CRC
+# MAGIC
+# MAGIC **Implication**: "Positive patient" rate (~1.4%) differs from "positive observation" rate
+# MAGIC (~0.4%) because positive patients contribute multiple observations, most of which are negative.
 
 # COMMAND ----------
 
