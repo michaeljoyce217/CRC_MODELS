@@ -158,6 +158,9 @@ spark.conf.set("spark.sql.session.timeZone", "America/Chicago")
 # Get catalog from environment
 trgt_cat = os.environ.get('trgt_cat', 'dev')
 
+# Track overall pipeline start time
+PIPELINE_START_TIME = time.time()
+
 print("="*70)
 print("ENVIRONMENT INITIALIZED")
 print("="*70)
@@ -435,11 +438,31 @@ else:
 
 # COMMAND ----------
 
+def print_stage(stage_name, stage_num=None, total_stages=None):
+    """Print a prominent stage marker with timestamp."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    if stage_num and total_stages:
+        header = f"[{timestamp}] STAGE {stage_num}/{total_stages}: {stage_name}"
+    else:
+        header = f"[{timestamp}] {stage_name}"
+    print("\n" + "="*70)
+    print(header)
+    print("="*70)
+
+def print_progress(message, indent=2):
+    """Print a progress message with timestamp."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    prefix = " " * indent
+    print(f"{prefix}[{timestamp}] {message}")
+
 def train_xgboost_model(X_train, y_train, X_val, y_val, feature_cols, scale_pos_weight):
     """
     Train an XGBoost model with conservative hyperparameters.
     Returns the trained model.
     """
+    print_progress(f"Training XGBoost with {len(feature_cols)} features...")
+    print_progress(f"Train: {len(y_train):,} obs, {int(y_train.sum()):,} events | Val: {len(y_val):,} obs, {int(y_val.sum()):,} events")
+
     params = {
         'max_depth': 4,
         'min_child_weight': 50,
@@ -457,12 +480,15 @@ def train_xgboost_model(X_train, y_train, X_val, y_val, feature_cols, scale_pos_
         'early_stopping_rounds': 100
     }
 
+    start_time = time.time()
     model = XGBClassifier(**params)
     model.fit(
         X_train[feature_cols], y_train,
         eval_set=[(X_val[feature_cols], y_val)],
         verbose=False
     )
+    elapsed = time.time() - start_time
+    print_progress(f"Model trained in {elapsed:.1f}s (best iteration: {model.best_iteration})")
 
     return model
 
@@ -497,7 +523,8 @@ def compute_shap_values(model, X_val, y_val, feature_cols):
     Compute SHAP values separately for positive and negative cases.
     Returns importance_pos, importance_neg, importance_combined, importance_ratio.
     """
-    print("  Computing SHAP values...")
+    overall_start = time.time()
+    print_progress("Starting SHAP computation...")
 
     # Get indices for positive and negative cases
     pos_mask = y_val == 1
@@ -506,35 +533,40 @@ def compute_shap_values(model, X_val, y_val, feature_cols):
     n_pos = pos_mask.sum()
     n_neg = neg_mask.sum()
 
-    print(f"    Positive cases: {n_pos:,}")
-    print(f"    Negative cases: {n_neg:,}")
+    print_progress(f"Positive cases: {n_pos:,} | Negative cases: {n_neg:,}")
 
     # Create explainer
+    print_progress("Creating TreeExplainer...")
     explainer = shap.TreeExplainer(model)
 
     # Compute SHAP for positive cases
-    print("    Computing SHAP for positive cases...")
+    print_progress(f"Computing SHAP for {n_pos:,} positive cases (this may take a while)...")
     start = time.time()
     X_pos = X_val.loc[pos_mask, feature_cols]
     shap_values_pos = explainer.shap_values(X_pos)
-    print(f"    Completed in {time.time() - start:.1f}s")
+    elapsed_pos = time.time() - start
+    print_progress(f"Positive cases complete in {elapsed_pos:.1f}s ({n_pos/elapsed_pos:.0f} cases/sec)")
 
     # Compute SHAP for negative cases (sample if too large)
-    print("    Computing SHAP for negative cases...")
-    start = time.time()
     X_neg = X_val.loc[neg_mask, feature_cols]
 
     # Sample negative cases if there are too many (>50k)
     if len(X_neg) > 50000:
-        print(f"    Sampling 50,000 from {len(X_neg):,} negative cases...")
+        print_progress(f"Sampling 50,000 from {len(X_neg):,} negative cases for SHAP...")
         X_neg_sample = X_neg.sample(n=50000, random_state=RANDOM_SEED)
+        n_neg_shap = 50000
     else:
         X_neg_sample = X_neg
+        n_neg_shap = len(X_neg)
 
+    print_progress(f"Computing SHAP for {n_neg_shap:,} negative cases...")
+    start = time.time()
     shap_values_neg = explainer.shap_values(X_neg_sample)
-    print(f"    Completed in {time.time() - start:.1f}s")
+    elapsed_neg = time.time() - start
+    print_progress(f"Negative cases complete in {elapsed_neg:.1f}s ({n_neg_shap/elapsed_neg:.0f} cases/sec)")
 
     # Calculate importance metrics
+    print_progress("Calculating importance metrics...")
     importance_pos = np.abs(shap_values_pos).mean(axis=0)
     importance_neg = np.abs(shap_values_neg).mean(axis=0)
 
@@ -555,7 +587,8 @@ def compute_shap_values(model, X_val, y_val, feature_cols):
 
     importance_df['Rank'] = range(1, len(importance_df) + 1)
 
-    print(f"  ✓ SHAP computation complete")
+    total_elapsed = time.time() - overall_start
+    print_progress(f"SHAP computation complete in {total_elapsed:.1f}s total")
 
     return importance_df
 
@@ -596,27 +629,29 @@ def update_tracking_csv(iteration_data):
 
 # Check if we can skip this step
 if checkpoint_exists("step1_1_data") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_1_data")
+    print_stage("STEP 1.1: LOAD DATA (from checkpoint)", 1, 7)
+    print_progress("Loading from checkpoint: step1_1_data")
     data_checkpoint = load_checkpoint("step1_1_data")
     df_pandas = data_checkpoint['df_pandas']
     feature_cols = data_checkpoint['feature_cols']
     scale_pos_weight = data_checkpoint['scale_pos_weight']
+    print_progress(f"Loaded {len(df_pandas):,} observations, {len(feature_cols)} features")
 else:
-    print("="*70)
-    print("STEP 1.1: LOAD DATA")
-    print("="*70)
+    print_stage("STEP 1.1: LOAD DATA", 1, 7)
 
     # Load wide feature table with SPLIT column
-    print("Loading data from Spark...")
+    print_progress("Querying data from Spark (this may take a few minutes for large datasets)...")
 
+    load_start = time.time()
     df_spark = spark.sql(f'''
     SELECT *
     FROM {trgt_cat}.clncl_ds.herald_eda_train_wide_cleaned
     ''')
 
     # Convert to Pandas
-    print("Converting to Pandas...")
+    print_progress("Converting Spark DataFrame to Pandas (may take a while for large datasets)...")
     df_pandas = df_spark.toPandas()
+    print_progress(f"Data loaded in {time.time() - load_start:.1f}s")
 
     # Convert datetime
     df_pandas['END_DTTM'] = pd.to_datetime(df_pandas['END_DTTM'])
@@ -742,26 +777,26 @@ print(f"\n✓ CV folds created: {N_CV_FOLDS} folds for feature selection stabili
 
 # Check if we can skip this step
 if checkpoint_exists("step1_2_correlation") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_2_correlation")
+    print_stage("STEP 1.2: COMPUTE CORRELATION MATRIX (from checkpoint)", 2, 7)
+    print_progress("Loading from checkpoint: step1_2_correlation")
     corr_checkpoint = load_checkpoint("step1_2_correlation")
     corr_matrix = corr_checkpoint['corr_matrix']
     dist_matrix = corr_checkpoint['dist_matrix']
+    print_progress(f"Loaded correlation matrix: {corr_matrix.shape}")
 else:
-    print("="*70)
-    print("STEP 1.2: COMPUTE CORRELATION MATRIX")
-    print("="*70)
+    print_stage("STEP 1.2: COMPUTE CORRELATION MATRIX", 2, 7)
 
     # Filter to training data only
     train_mask = df_pandas['SPLIT'] == 'train'
     df_train = df_pandas.loc[train_mask, feature_cols]
 
-    print(f"Computing Spearman correlation on {len(df_train):,} training observations...")
-    print(f"Features: {len(feature_cols)}")
+    print_progress(f"Computing Spearman correlation on {len(df_train):,} observations x {len(feature_cols)} features...")
+    print_progress("This is O(n*m^2) - may take several minutes for large feature sets...")
 
     start = time.time()
     corr_matrix = df_train.corr(method='spearman')
     elapsed = time.time() - start
-    print(f"✓ Correlation matrix computed in {elapsed:.1f}s")
+    print_progress(f"Correlation matrix computed in {elapsed:.1f}s")
 
     # Convert to distance matrix: distance = 1 - |correlation|
     dist_matrix = 1 - corr_matrix.abs()
@@ -783,33 +818,36 @@ print(f"\n✓ Correlation matrix ready: {corr_matrix.shape}")
 
 # Check if we can skip this step
 if checkpoint_exists("step1_3_clusters") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_3_clusters")
+    print_stage("STEP 1.3: DYNAMIC THRESHOLD SELECTION (from checkpoint)", 3, 7)
+    print_progress("Loading from checkpoint: step1_3_clusters")
     cluster_checkpoint = load_checkpoint("step1_3_clusters")
     linkage_matrix = cluster_checkpoint['linkage_matrix']
     chosen_threshold = cluster_checkpoint['chosen_threshold']
     cluster_labels = cluster_checkpoint['cluster_labels']
     cluster_df = cluster_checkpoint['cluster_df']
     threshold_results = cluster_checkpoint['threshold_results']
+    print_progress(f"Loaded clustering with threshold {chosen_threshold}, {len(np.unique(cluster_labels))} clusters")
 else:
-    print("="*70)
-    print("STEP 1.3: DYNAMIC THRESHOLD SELECTION")
-    print("="*70)
+    print_stage("STEP 1.3: DYNAMIC THRESHOLD SELECTION", 3, 7)
 
     # Convert distance matrix to condensed form for hierarchical clustering
     # Ensure diagonal is 0 and matrix is symmetric
+    print_progress("Converting distance matrix to condensed form...")
     dist_values = dist_matrix.values
     np.fill_diagonal(dist_values, 0)
     condensed_dist = squareform(dist_values)
 
     # Perform hierarchical clustering
-    print("Computing hierarchical clustering (average linkage)...")
+    print_progress("Computing hierarchical clustering (average linkage)...")
+    cluster_start = time.time()
     linkage_matrix = linkage(condensed_dist, method='average')
+    print_progress(f"Hierarchical clustering complete in {time.time() - cluster_start:.1f}s")
 
     # Test different thresholds
     thresholds = np.arange(THRESHOLD_MIN, THRESHOLD_MAX + THRESHOLD_STEP, THRESHOLD_STEP)
     threshold_results = []
 
-    print(f"\nTesting thresholds from {THRESHOLD_MIN} to {THRESHOLD_MAX}:")
+    print_progress(f"Testing {len(thresholds)} thresholds from {THRESHOLD_MIN} to {THRESHOLD_MAX}...")
     print("-"*60)
 
     for thresh in thresholds:
@@ -950,14 +988,14 @@ print(f"✓ Saved: {OUTPUT_DIR}/threshold_analysis.png")
 
 # Check if we can skip this step
 if checkpoint_exists("step1_4_baseline_model") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_4_baseline_model")
+    print_stage("STEP 1.4: TRAIN BASELINE MODEL (from checkpoint)", 4, 7)
+    print_progress("Loading from checkpoint: step1_4_baseline_model")
     baseline_checkpoint = load_checkpoint("step1_4_baseline_model")
     baseline_model = baseline_checkpoint['model']
     baseline_metrics = baseline_checkpoint['metrics']
+    print_progress(f"Loaded baseline model: Val AUPRC = {baseline_metrics['val']['auprc']:.4f}")
 else:
-    print("="*70)
-    print("STEP 1.4: TRAIN BASELINE MODEL (ALL FEATURES)")
-    print("="*70)
+    print_stage("STEP 1.4: TRAIN BASELINE MODEL (ALL FEATURES)", 4, 7)
 
     # Prepare data splits
     train_mask = df_pandas['SPLIT'] == 'train'
@@ -1044,13 +1082,14 @@ print(f"\n✓ Baseline model ready: Val AUPRC = {baseline_metrics['val']['auprc'
 
 # Check if we can skip this step
 if checkpoint_exists("step1_5_shap_phase1") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_5_shap_phase1")
+    print_stage("STEP 1.5: COMPUTE SHAP VALUES (from checkpoint)", 5, 7)
+    print_progress("Loading from checkpoint: step1_5_shap_phase1")
     shap_checkpoint = load_checkpoint("step1_5_shap_phase1")
     importance_df = shap_checkpoint['importance_df']
+    print_progress(f"Loaded SHAP importance for {len(importance_df)} features")
 else:
-    print("="*70)
-    print("STEP 1.5: COMPUTE SHAP VALUES (2:1 POSITIVE WEIGHTING)")
-    print("="*70)
+    print_stage("STEP 1.5: COMPUTE SHAP VALUES (2:1 POSITIVE WEIGHTING)", 5, 7)
+    print_progress("NOTE: SHAP computation is the slowest step - may take 10-30+ minutes")
 
     # Use validation set for SHAP
     val_mask = df_pandas['SPLIT'] == 'val'
@@ -1079,14 +1118,14 @@ print(f"\n✓ SHAP values computed for {len(importance_df)} features")
 
 # Check if we can skip this step
 if checkpoint_exists("step1_6_cluster_representatives") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_6_cluster_representatives")
+    print_stage("STEP 1.6: SELECT CLUSTER REPRESENTATIVES (from checkpoint)", 6, 7)
+    print_progress("Loading from checkpoint: step1_6_cluster_representatives")
     rep_checkpoint = load_checkpoint("step1_6_cluster_representatives")
     selected_features = rep_checkpoint['selected_features']
     selection_df = rep_checkpoint['selection_df']
+    print_progress(f"Loaded {len(selected_features)} selected features")
 else:
-    print("="*70)
-    print("STEP 1.6: SELECT CLUSTER REPRESENTATIVES")
-    print("="*70)
+    print_stage("STEP 1.6: SELECT CLUSTER REPRESENTATIVES", 6, 7)
 
     # Identify which clinical must-keep features exist in the data
     valid_must_keep = [f for f in CLINICAL_MUST_KEEP_FEATURES if f in feature_cols]
@@ -1191,15 +1230,15 @@ print(f"\n✓ Selected {len(selected_features)} cluster representatives")
 
 # Check if we can skip this step
 if checkpoint_exists("step1_7_phase1_complete") and not START_FRESH:
-    print(">>> Loading from checkpoint: step1_7_phase1_complete")
+    print_stage("STEP 1.7: PHASE 1 VALIDATION GATE (from checkpoint)", 7, 7)
+    print_progress("Loading from checkpoint: step1_7_phase1_complete")
     phase1_checkpoint = load_checkpoint("step1_7_phase1_complete")
     phase1_features = phase1_checkpoint['phase1_features']
     phase1_metrics = phase1_checkpoint['phase1_metrics']
     phase1_passed = phase1_checkpoint['phase1_passed']
+    print_progress(f"Phase 1 complete: {len(phase1_features)} features, passed={phase1_passed}")
 else:
-    print("="*70)
-    print("STEP 1.7: PHASE 1 VALIDATION GATE")
-    print("="*70)
+    print_stage("STEP 1.7: PHASE 1 VALIDATION GATE", 7, 7)
 
     # Prepare data
     train_mask = df_pandas['SPLIT'] == 'train'
@@ -1300,9 +1339,7 @@ print(f"\n✓ Phase 1 complete: {len(phase1_features)} features")
 
 # COMMAND ----------
 
-print("="*70)
-print("PHASE 2: ITERATIVE SHAP WINNOWING")
-print("="*70)
+print_stage("PHASE 2: ITERATIVE SHAP WINNOWING")
 
 # Initialize Phase 2
 current_features = phase1_features.copy()
@@ -1323,7 +1360,7 @@ if phase2_checkpoints and not START_FRESH:
 
     if iter_nums:
         last_iter = max(iter_nums)
-        print(f">>> Found Phase 2 checkpoint at iteration {last_iter}. Resuming...")
+        print_progress(f"Found Phase 2 checkpoint at iteration {last_iter}. Resuming...")
 
         last_checkpoint = load_checkpoint(f"step2_iter{last_iter}_complete")
         current_features = last_checkpoint['current_features']
@@ -1332,12 +1369,13 @@ if phase2_checkpoints and not START_FRESH:
         # Check if we should stop
         if last_checkpoint.get('stop_triggered', False):
             stop_reason = last_checkpoint.get('stop_reason', 'Unknown')
-            print(f">>> Previous iteration triggered stop: {stop_reason}")
+            print_progress(f"Previous iteration triggered stop: {stop_reason}")
 
-print(f"\nStarting Phase 2 from iteration {iteration}")
-print(f"Current features: {len(current_features)}")
-print(f"Max removals per iteration: {MAX_REMOVALS_PER_ITERATION}")
-print(f"Min features threshold: {MIN_FEATURES_THRESHOLD}")
+print_progress(f"Starting Phase 2 from iteration {iteration}")
+print_progress(f"Current features: {len(current_features)}")
+print_progress(f"Max removals per iteration: {MAX_REMOVALS_PER_ITERATION}")
+print_progress(f"Min features threshold: {MIN_FEATURES_THRESHOLD}")
+print_progress("Each iteration: Train model → Compute SHAP → Identify removals → Validate")
 print("="*70)
 
 # COMMAND ----------
@@ -1364,11 +1402,11 @@ y_test = df_pandas.loc[test_mask, 'FUTURE_CRC_EVENT'].copy()
 # Main iteration loop
 while stop_reason is None:
     iteration += 1
+    iter_start_time = time.time()
 
-    print(f"\n{'='*70}")
-    print(f"PHASE 2 - ITERATION {iteration}")
-    print(f"{'='*70}")
-    print(f"Current features: {len(current_features)}")
+    print_stage(f"PHASE 2 - ITERATION {iteration}")
+    print_progress(f"Current features: {len(current_features)}")
+    print_progress(f"Target: Remove up to {MAX_REMOVALS_PER_ITERATION} low-value features")
 
     # =========================================================================
     # Step 2.1: Train Model
@@ -1376,12 +1414,13 @@ while stop_reason is None:
     checkpoint_name = f"step2_iter{iteration}_model"
 
     if checkpoint_exists(checkpoint_name) and not START_FRESH:
-        print(f">>> Loading from checkpoint: {checkpoint_name}")
+        print_progress(f"Step 2.{iteration}.1: Loading model from checkpoint...")
         model_checkpoint = load_checkpoint(checkpoint_name)
         iter_model = model_checkpoint['model']
         iter_metrics = model_checkpoint['metrics']
+        print_progress(f"Model loaded: Val AUPRC = {iter_metrics['val']['auprc']:.4f}")
     else:
-        print(f"\nStep 2.{iteration}.1: Training model...")
+        print_progress(f"Step 2.{iteration}.1: Training model with {len(current_features)} features...")
 
         iter_model = train_xgboost_model(
             X_train, y_train, X_val, y_val,
@@ -1405,11 +1444,12 @@ while stop_reason is None:
     checkpoint_name = f"step2_iter{iteration}_shap"
 
     if checkpoint_exists(checkpoint_name) and not START_FRESH:
-        print(f">>> Loading from checkpoint: {checkpoint_name}")
+        print_progress(f"Step 2.{iteration}.2: Loading SHAP values from checkpoint...")
         shap_checkpoint = load_checkpoint(checkpoint_name)
         iter_importance_df = shap_checkpoint['importance_df']
+        print_progress(f"SHAP loaded for {len(iter_importance_df)} features")
     else:
-        print(f"\nStep 2.{iteration}.2: Computing SHAP values...")
+        print_progress(f"Step 2.{iteration}.2: Computing SHAP values (this is the slow step)...")
 
         iter_importance_df = compute_shap_values(iter_model, X_val, y_val, current_features)
 
@@ -1420,7 +1460,7 @@ while stop_reason is None:
     # =========================================================================
     # Step 2.3: Identify Removal Candidates
     # =========================================================================
-    print(f"\nStep 2.{iteration}.3: Identifying removal candidates...")
+    print_progress(f"Step 2.{iteration}.3: Identifying removal candidates...")
 
     # Calculate thresholds
     zero_threshold = 0.0002
@@ -1467,7 +1507,7 @@ while stop_reason is None:
     # =========================================================================
     # Step 2.4: Validation Gate
     # =========================================================================
-    print(f"\nStep 2.{iteration}.4: Validation gate check...")
+    print_progress(f"Step 2.{iteration}.4: Checking validation gates...")
 
     # Calculate metrics relative to baseline
     val_drop = (baseline_metrics['val']['auprc'] - iter_metrics['val']['auprc']) / baseline_metrics['val']['auprc']
@@ -1544,7 +1584,8 @@ while stop_reason is None:
             'stop_reason': None
         })
 
-        print(f"\n✓ Iteration {iteration} complete. Features: {len(previous_features)} → {len(current_features)}")
+        iter_elapsed = time.time() - iter_start_time
+        print_progress(f"Iteration {iteration} complete in {iter_elapsed:.1f}s. Features: {len(previous_features)} → {len(current_features)}")
 
 # COMMAND ----------
 
@@ -1559,9 +1600,7 @@ while stop_reason is None:
 
 # COMMAND ----------
 
-print("="*70)
-print("FINAL RESULTS")
-print("="*70)
+print_stage("FINAL RESULTS")
 
 final_features = current_features
 
@@ -1736,6 +1775,10 @@ if os.path.exists(tracking_path):
 
 # COMMAND ----------
 
+total_elapsed = time.time() - PIPELINE_START_TIME
+hours, remainder = divmod(total_elapsed, 3600)
+minutes, seconds = divmod(remainder, 60)
+
 print("="*70)
 print("FEATURE SELECTION COMPLETE")
 print("="*70)
@@ -1752,6 +1795,8 @@ Performance:
   - Final Test AUPRC: {final_metrics['test']['auprc']:.4f}
 
 Stop Reason: {stop_reason}
+
+Total Pipeline Time: {int(hours)}h {int(minutes)}m {int(seconds)}s
 
 Outputs saved to: {OUTPUT_DIR}/
   - final_features.txt
@@ -1779,11 +1824,10 @@ print("="*70)
 
 # COMMAND ----------
 
-print("="*70)
-print("CV STABILITY ANALYSIS")
-print("="*70)
-print(f"Running feature selection on {N_CV_FOLDS - 1} additional folds...")
-print(f"Stability threshold: features must appear in ≥{CV_FEATURE_THRESHOLD*100:.0f}% of folds")
+print_stage("CV STABILITY ANALYSIS (PHASE 3)")
+print_progress(f"Running feature selection on {N_CV_FOLDS - 1} additional folds...")
+print_progress(f"Stability threshold: features must appear in ≥{CV_FEATURE_THRESHOLD*100:.0f}% of folds")
+print_progress("This validates that feature selection is robust across different train/val splits")
 
 # Track features selected in each fold
 # Fold 0 is the main pipeline result
@@ -1796,9 +1840,11 @@ y_test = df_pandas.loc[test_mask, 'FUTURE_CRC_EVENT'].copy()
 
 # Run on remaining folds (1 and 2)
 for fold_idx in range(1, N_CV_FOLDS):
-    print(f"\n{'='*50}")
-    print(f"FOLD {fold_idx + 1} / {N_CV_FOLDS}")
-    print(f"{'='*50}")
+    fold_start_time = time.time()
+    print_progress(f"")
+    print_progress(f"{'='*50}")
+    print_progress(f"CV FOLD {fold_idx + 1} / {N_CV_FOLDS}")
+    print_progress(f"{'='*50}")
 
     # Get train/val split for this fold (convert lists to sets for efficient lookup)
     # Use string key because JSON converts int keys to strings
@@ -1815,8 +1861,8 @@ for fold_idx in range(1, N_CV_FOLDS):
     X_fold_val = df_pandas.loc[fold_val_mask].copy()
     y_fold_val = df_pandas.loc[fold_val_mask, 'FUTURE_CRC_EVENT'].copy()
 
-    print(f"  Train: {len(y_fold_train):,} obs, {y_fold_train.sum():,} events")
-    print(f"  Val: {len(y_fold_val):,} obs, {y_fold_val.sum():,} events")
+    print_progress(f"Train: {len(y_fold_train):,} obs, {int(y_fold_train.sum()):,} events")
+    print_progress(f"Val: {len(y_fold_val):,} obs, {int(y_fold_val.sum()):,} events")
 
     # Calculate scale_pos_weight for this fold
     n_pos_fold = (y_fold_train == 1).sum()
@@ -1825,14 +1871,14 @@ for fold_idx in range(1, N_CV_FOLDS):
     fold_scale_pos_weight = (y_fold_train == 0).sum() / n_pos_fold
 
     # Train baseline model on this fold (using clustering features from main pipeline)
-    print("\n  Training model on cluster representatives...")
+    print_progress(f"Training model on {len(phase1_features)} cluster representatives...")
     fold_model = train_xgboost_model(
         X_fold_train, y_fold_train, X_fold_val, y_fold_val,
         phase1_features, fold_scale_pos_weight
     )
 
     # Compute SHAP on this fold's validation set
-    print("  Computing SHAP values...")
+    print_progress("Computing SHAP values for this fold...")
     fold_importance_df = compute_shap_values(fold_model, X_fold_val, y_fold_val, phase1_features)
 
     # Identify removal candidates (same logic as main pipeline)
@@ -1861,11 +1907,14 @@ for fold_idx in range(1, N_CV_FOLDS):
     # Remove candidates from phase1_features to get this fold's selection
     fold_features = [f for f in phase1_features if f not in candidates]
 
-    print(f"  Features selected: {len(fold_features)}")
+    print_progress(f"Features selected: {len(fold_features)}")
     fold_selected_features[fold_idx] = set(fold_features)
 
     # Quick validation
-    fold_val_metrics = evaluate_model(fold_model, X_fold_val, y_fold_val, phase1_features, f"  Fold {fold_idx + 1} Val")
+    fold_val_metrics = evaluate_model(fold_model, X_fold_val, y_fold_val, phase1_features, f"Fold {fold_idx + 1} Val")
+
+    fold_elapsed = time.time() - fold_start_time
+    print_progress(f"Fold {fold_idx + 1} complete in {fold_elapsed:.1f}s")
 
 # Compute stability statistics
 print("\n" + "="*70)

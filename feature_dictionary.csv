@@ -1,0 +1,154 @@
+FEATURE_NAME,SOURCE_NOTEBOOK,PROVENANCE,CLINICAL_RATIONALE,RISK_RATIO,FINAL_STATUS,REMOVAL_REASON
+# ===========================================
+# VITALS FEATURES (Book 1) - 24 features
+# ===========================================
+HAS_RAPID_WEIGHT_LOSS,Book1_Vitals,EDA,"Rapid weight loss (>5% in 60 days) shows 3.6x CRC risk elevation",3.6,KEPT,
+MAX_WEIGHT_LOSS_PCT_60D,Book1_Vitals,EDA,Quantitative measure of maximum weight loss in 60-day window,,KEPT,
+WEIGHT_LOSS_FLAG_6M,Book1_Vitals,EDA,Weight loss detected over 6-month comparison window,,KEPT,
+WEIGHT_LOSS_FLAG_12M,Book1_Vitals,EDA,Weight loss detected over 12-month comparison window,,KEPT,
+WEIGHT_CACHEXIA_INDICATOR,Book1_Vitals,Literature,Low BMI combined with weight loss suggests advanced disease,,KEPT,
+BMI_CATEGORY,Book1_Vitals,EDA,Clinical BMI categories (underweight/normal/overweight/obese),,KEPT,
+WEIGHT_QUARTILE,Book1_Vitals,EDA,Weight distribution quartile (anti-memorization transformed),,KEPT,
+BP_SYSTOLIC_LATEST,Book1_Vitals,EDA,Most recent systolic blood pressure,,KEPT,
+BP_DIASTOLIC_LATEST,Book1_Vitals,EDA,Most recent diastolic blood pressure,,KEPT,
+HAS_HYPERTENSION_FLAG,Book1_Vitals,Literature,Evidence-based hypertension threshold,,KEPT,
+PULSE_LATEST,Book1_Vitals,EDA,Most recent pulse measurement,,KEPT,
+HAS_TACHYCARDIA_FLAG,Book1_Vitals,Literature,Elevated heart rate indicator,,KEPT,
+TEMP_LATEST,Book1_Vitals,EDA,Most recent temperature measurement,,KEPT,
+HAS_FEVER_FLAG,Book1_Vitals,Literature,Fever indicator (>100.4F),,KEPT,
+RESP_RATE_LATEST,Book1_Vitals,EDA,Most recent respiratory rate,,KEPT,
+VITALS_RECENCY,Book1_Vitals,EDA,Days since last vital signs (ordinal binned),,KEPT,
+WEIGHT_TREND_6M,Book1_Vitals,EDA,Weight trajectory over 6 months,,KEPT,
+WEIGHT_TREND_12M,Book1_Vitals,EDA,Weight trajectory over 12 months,,KEPT,
+AGE_GROUP,Book1_Vitals,Literature,Age group categories (45-49/50-54/55-64/65-74/75+),,KEPT,
+IS_FEMALE,Book0_Cohort,Demographics,Sex indicator,,KEPT,
+HAS_PCP_AT_END,Book0_Cohort,EDA,Primary care provider engagement indicator,,KEPT,
+# Additional vitals features as identified in notebook...
+# ===========================================
+# ICD10 DIAGNOSIS FEATURES (Book 2) - 26 features
+# ===========================================
+HAS_GI_BLEEDING,Book2_ICD10,Literature,GI bleeding symptoms - 6.3x CRC risk,6.3,KEPT,
+HAS_RECTAL_BLEEDING,Book2_ICD10,Literature,Rectal bleeding specifically,,KEPT,
+HAS_IRON_DEFICIENCY_ANEMIA,Book2_ICD10,Literature,IDA shows elevated CRC risk,,KEPT,
+HAS_ANEMIA_ANY,Book2_ICD10,EDA,Any anemia diagnosis - 3.3x CRC risk,3.3,KEPT,
+HAS_BOWEL_HABIT_CHANGE,Book2_ICD10,Literature,Bowel habit changes - 3.1x CRC risk,3.1,KEPT,
+HAS_ABDOMINAL_PAIN,Book2_ICD10,Literature,Abdominal pain symptoms,,KEPT,
+HAS_UNEXPLAINED_WEIGHT_LOSS_DX,Book2_ICD10,Literature,Documented weight loss diagnosis,,KEPT,
+HAS_POLYPS_HISTORY,Book2_ICD10,Literature,History of polyps (D12/K63.5) - 3.5x risk,3.5,KEPT,
+HAS_IBD,Book2_ICD10,Literature,Inflammatory bowel disease - 2.3x risk,2.3,KEPT,
+HAS_DIABETES,Book2_ICD10,Literature,Diabetes as comorbidity/risk factor,,KEPT,
+HAS_OBESITY_DX,Book2_ICD10,Literature,Obesity diagnosis,,KEPT,
+ICD_FHX_CRC_COMBINED,Book2_ICD10,Literature,Family history of CRC (structured + ICD),,KEPT,
+ICD_GENETIC_RISK_COMPOSITE,Book2_ICD10,EDA,Genetic risk pattern composite,,REMOVED,Perfect correlation with ICD_FHX_CRC_COMBINED (rho=0.9997)
+CHARLSON_INDEX,Book2_ICD10,Literature,Charlson Comorbidity Index score,,KEPT,
+ELIXHAUSER_SCORE,Book2_ICD10,Literature,Elixhauser comorbidity score,,KEPT,
+SYMPTOM_TRIAD_FLAG,Book2_ICD10,EDA,Bleeding + anemia + bowel changes - 4.6x risk,4.6,KEPT,
+IDA_WITH_BLEEDING,Book2_ICD10,EDA,Iron deficiency anemia with bleeding - 4.8x risk,4.8,KEPT,
+SYMPTOM_ACCELERATION_RATIO,Book2_ICD10,EDA,Rate of symptom accumulation,,KEPT,
+DAYS_SINCE_LAST_GI_SYMPTOM,Book2_ICD10,EDA,Recency of GI symptoms (ordinal binned),,KEPT,
+# Additional ICD10 features...
+# ===========================================
+# SOCIAL FACTORS (Book 3) - ALL EXCLUDED
+# ===========================================
+SMOKING_STATUS,Book3_Social,EDA,Epic workflow artifact - 78% default 'never smoker',,EXCLUDED,Epic default bias - inverted risk relationship
+SMOKING_PACK_YEARS,Book3_Social,EDA,Only 4.23% quantitative data available,,EXCLUDED,95.77% missing - unreliable
+FORMER_SMOKER_FLAG,Book3_Social,EDA,Expected 20-25% prevalence but only 0.01%,,EXCLUDED,Workflow-corrupted data
+ALCOHOL_USE,Book3_Social,EDA,Similar workflow artifact issues,,EXCLUDED,Epic default bias
+DRUG_USE,Book3_Social,EDA,Similar workflow artifact issues,,EXCLUDED,Epic default bias
+# All 31 social factors excluded due to Epic workflow artifacts
+# ===========================================
+# LABORATORY FEATURES (Book 4) - Multiple features
+# ===========================================
+HEMOGLOBIN_LATEST,Book4_Labs,Literature,Latest hemoglobin value - key anemia marker,,KEPT,
+HEMOGLOBIN_VELOCITY,Book4_Labs,EDA,Rate of hemoglobin change per month,,KEPT,
+HEMOGLOBIN_ACCELERATION,Book4_Labs,EDA,Second derivative - 10.9x CRC risk,10.9,KEPT,
+HEMOGLOBIN_TRAJECTORY,Book4_Labs,EDA,Trajectory classification (rapid decline/stable/rising),,KEPT,
+HEMATOCRIT_LATEST,Book4_Labs,Literature,Latest hematocrit value,,KEPT,
+MCV_LATEST,Book4_Labs,Literature,Mean corpuscular volume - microcytic anemia indicator,,KEPT,
+RDW_LATEST,Book4_Labs,Literature,Red cell distribution width,,KEPT,
+PLATELET_LATEST,Book4_Labs,Literature,Platelet count,,KEPT,
+WBC_LATEST,Book4_Labs,Literature,White blood cell count,,KEPT,
+FERRITIN_LATEST,Book4_Labs,Literature,Iron stores indicator,,KEPT,
+IRON_LATEST,Book4_Labs,Literature,Serum iron level,,KEPT,
+TIBC_LATEST,Book4_Labs,Literature,Total iron binding capacity,,KEPT,
+ALBUMIN_LATEST,Book4_Labs,Literature,Nutritional/liver function marker,,KEPT,
+GLUCOSE_LATEST,Book4_Labs,Literature,Blood glucose level,,KEPT,
+CREATININE_LATEST,Book4_Labs,Literature,Kidney function marker,,KEPT,
+BUN_LATEST,Book4_Labs,Literature,Blood urea nitrogen,,KEPT,
+ALT_LATEST,Book4_Labs,Literature,Liver enzyme,,KEPT,
+AST_LATEST,Book4_Labs,Literature,Liver enzyme,,KEPT,
+ALP_LATEST,Book4_Labs,Literature,Alkaline phosphatase - can indicate metastasis,,KEPT,
+BILIRUBIN_LATEST,Book4_Labs,Literature,Liver function marker,,KEPT,
+CEA_LATEST,Book4_Labs,Literature,Carcinoembryonic antigen - tumor marker,,KEPT,
+# Lab velocity/trajectory features...
+# ===========================================
+# OUTPATIENT MEDICATIONS (Book 5.1) - 19 features
+# ===========================================
+HAS_IRON_SUPPLEMENT,Book5_1_OutpatientMeds,EDA,Iron supplementation - 4.9x CRC risk,4.9,KEPT,
+IRON_RECENCY,Book5_1_OutpatientMeds,EDA,Days since iron prescription (ordinal binned),,KEPT,
+IRON_COUNT_2Y,Book5_1_OutpatientMeds,EDA,Iron prescription count in 2 years,,KEPT,
+HAS_PPI,Book5_1_OutpatientMeds,EDA,Proton pump inhibitor use - 15.7% prevalence,,KEPT,
+PPI_RECENCY,Book5_1_OutpatientMeds,EDA,Days since PPI prescription (ordinal binned),,KEPT,
+HAS_HEMORRHOID_MED,Book5_1_OutpatientMeds,EDA,Hemorrhoid medications - 6.0x risk (16.8x if <30 days),6.0,KEPT,
+HEMORRHOID_RECENCY,Book5_1_OutpatientMeds,EDA,Days since hemorrhoid med (ordinal binned),,KEPT,
+HAS_LAXATIVE,Book5_1_OutpatientMeds,EDA,Laxative use - 2.2x CRC risk,2.2,KEPT,
+LAXATIVE_RECENCY,Book5_1_OutpatientMeds,EDA,Days since laxative (ordinal binned),,KEPT,
+HAS_ANTIDIARRHEAL,Book5_1_OutpatientMeds,EDA,Antidiarrheal use - 3.4x CRC risk,3.4,KEPT,
+ANTIDIARRHEAL_RECENCY,Book5_1_OutpatientMeds,EDA,Days since antidiarrheal (ordinal binned),,KEPT,
+HAS_NSAID,Book5_1_OutpatientMeds,Literature,NSAID use,,KEPT,
+HAS_STATIN,Book5_1_OutpatientMeds,Literature,Statin use,,KEPT,
+HAS_STEROID_ORAL,Book5_1_OutpatientMeds,EDA,Oral steroid use (97% of 'IBD meds' category),,KEPT,
+# Additional outpatient med features...
+# ===========================================
+# INPATIENT MEDICATIONS (Book 5.2) - 20 features
+# ===========================================
+INP_ANY_HOSPITALIZATION,Book5_2_InpatientMeds,EDA,Any hospitalization in lookback - critical risk indicator,,KEPT,
+INP_DAYS_SINCE_DISCHARGE,Book5_2_InpatientMeds,EDA,Recency of hospitalization (ordinal binned),,KEPT,
+INP_ACUTE_GI_BLEEDING,Book5_2_InpatientMeds,EDA,Iron + PPI pattern - managed hemorrhage - 1.86x risk,1.86,KEPT,
+INP_OBSTRUCTION_PATTERN,Book5_2_InpatientMeds,EDA,Laxatives + opioids - ileus/obstruction indicator,,KEPT,
+INP_SEVERE_INFECTION,Book5_2_InpatientMeds,EDA,Antibiotics + opioids - sepsis/abscess indicator,,KEPT,
+INP_HAS_IRON,Book5_2_InpatientMeds,EDA,Inpatient iron administration,,KEPT,
+INP_HAS_PPI,Book5_2_InpatientMeds,EDA,Inpatient PPI administration,,KEPT,
+INP_HAS_OPIOID,Book5_2_InpatientMeds,EDA,Inpatient opioid use - 20.7% prevalence,,KEPT,
+INP_HAS_ANTIBIOTIC,Book5_2_InpatientMeds,EDA,Inpatient antibiotic use,,KEPT,
+# Temporal risk: 0-7 days post-hospitalization = 11.6x baseline risk
+# Additional inpatient med features...
+# ===========================================
+# VISIT HISTORY (Book 6) - 23 features
+# ===========================================
+ED_VISIT_COUNT_12M,Book6_Visit,EDA,ED visits in past 12 months,,KEPT,
+ED_VISIT_RECENCY,Book6_Visit,EDA,Days since last ED visit (ordinal binned),,KEPT,
+HOSPITALIZATION_COUNT_12M,Book6_Visit,EDA,Hospitalizations in past 12 months,,KEPT,
+HOSPITALIZATION_LOS_TOTAL,Book6_Visit,EDA,Total length of stay,,KEPT,
+GI_SPECIALIST_VISIT_COUNT,Book6_Visit,EDA,GI specialist encounters,,KEPT,
+GI_SPECIALIST_RECENCY,Book6_Visit,EDA,Days since GI specialist visit (ordinal binned),,KEPT,
+PCP_VISIT_COUNT_12M,Book6_Visit,EDA,Primary care visits - Risk Ratio 2.55,2.55,KEPT,
+PCP_CONTINUITY_SCORE,Book6_Visit,EDA,Care continuity metric,,KEPT,
+ANY_GI_SYMPTOM_VISIT,Book6_Visit,EDA,Visit with GI symptoms documented,,KEPT,
+CARE_GAP_GI,Book6_Visit,EDA,GI symptoms (8.2%) but no GI specialist visit (0.9%),,KEPT,
+PREVENTIVE_CARE_ENGAGEMENT,Book6_Visit,EDA,Preventive care visit patterns,,KEPT,
+NO_SHOW_COUNT,Book6_Visit,EDA,Missed appointment count,,KEPT,
+UTILIZATION_INTENSITY_SCORE,Book6_Visit,EDA,Composite utilization metric,,KEPT,
+# Additional visit features...
+# ===========================================
+# PROCEDURES (Book 7) - 17 features
+# ===========================================
+HAS_RBC_TRANSFUSION,Book7_Procedures,EDA,Red blood cell transfusion - objective bleeding evidence,,KEPT,
+RBC_TRANSFUSION_COUNT_24M,Book7_Procedures,EDA,Transfusion count in 24 months,,KEPT,
+HAS_IRON_INFUSION,Book7_Procedures,EDA,IV iron infusion - anemia treatment,,KEPT,
+IRON_INFUSION_COUNT_24M,Book7_Procedures,EDA,Iron infusion count in 24 months,,KEPT,
+HAS_CT_ABDOMEN,Book7_Procedures,EDA,CT abdomen/pelvis imaging - 18.6% prevalence,,KEPT,
+CT_ABDOMEN_RECENCY,Book7_Procedures,EDA,Days since CT imaging (ordinal binned),,KEPT,
+HAS_MRI_ABDOMEN,Book7_Procedures,EDA,MRI abdomen/pelvis imaging,,KEPT,
+HAS_PET_SCAN,Book7_Procedures,EDA,PET scan - advanced imaging,,KEPT,
+HAS_EGD,Book7_Procedures,EDA,Upper endoscopy,,KEPT,
+HAS_HEMORRHOID_PROCEDURE,Book7_Procedures,EDA,Hemorrhoid treatment procedure,,KEPT,
+ANEMIA_TREATMENT_INTENSITY,Book7_Procedures,EDA,Composite: transfusions + iron infusions - 3-4x risk,3.5,KEPT,
+DIAGNOSTIC_CASCADE_SCORE,Book7_Procedures,EDA,Imaging without follow-up colonoscopy,,KEPT,
+OBJECTIVE_BLEEDING_EVIDENCE,Book7_Procedures,EDA,2.5% have transfusion/iron infusion but no colonoscopy,,KEPT,
+# Note: Colonoscopy deliberately excluded - successful screenings already excluded patients
+# ===========================================
+# COMPILATION FEATURES (Book 8)
+# ===========================================
+QUARTERS_SINCE_STUDY_START,Book8_Compilation,EDA,Prevalent case adjustment - event rate decline Q4 (0.49%) to Q6 (0.32%),,KEPT,
+VISIT_RECENCY_LAST_INPATIENT,Book8_Compilation,EDA,Last inpatient visit recency,,REMOVED,Constant feature (no variation)

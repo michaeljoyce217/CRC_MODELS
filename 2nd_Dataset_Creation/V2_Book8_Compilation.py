@@ -944,6 +944,150 @@ print("="*80)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## STEP 5b: Missingness Audit (SOP Compliance II.4.a)
+# MAGIC
+# MAGIC ### 🔍 What This Cell Does
+# MAGIC Reports percent missingness by feature for the final cleaned dataset. This audit is required per SOP Section II.4.a: "Identify Percent Missingness by variable (columns) and cases (rows)."
+# MAGIC
+# MAGIC ### Why This Matters
+# MAGIC - Documents data completeness for regulatory/compliance purposes
+# MAGIC - Identifies features that may need special handling during deployment
+# MAGIC - For rare event prediction, missingness patterns can be informative (selective ordering)
+# MAGIC
+# MAGIC ### SOP Thresholds (Reference)
+# MAGIC - **>5% missing in diseased cohort**: Flag for review
+# MAGIC - **>30% missing in diseased cohort**: Consider removal (but we preserve for rare events)
+
+# COMMAND ----------
+
+print("="*80)
+print("MISSINGNESS AUDIT (SOP COMPLIANCE II.4.a)")
+print("="*80)
+
+from pyspark.sql import functions as F
+
+# Load the cleaned table
+df_audit = spark.table("dev.clncl_ds.herald_eda_train_wide_cleaned")
+
+# Get feature columns (exclude identifiers and target)
+exclude_cols = ['PAT_ID', 'END_DTTM', 'FUTURE_CRC_EVENT', 'SPLIT']
+feature_cols = [c for c in df_audit.columns if c not in exclude_cols]
+
+total_rows = df_audit.count()
+positive_rows = df_audit.filter(F.col('FUTURE_CRC_EVENT') == 1).count()
+
+print(f"\nDataset: {total_rows:,} total rows | {positive_rows:,} positive cases")
+print(f"Features audited: {len(feature_cols)}")
+
+# Calculate missingness for each feature
+print("\n" + "-"*80)
+print("FEATURE MISSINGNESS SUMMARY")
+print("-"*80)
+
+missingness_stats = []
+
+for col_name in feature_cols:
+    # Overall missingness
+    overall_missing = df_audit.filter(F.col(col_name).isNull()).count()
+    overall_pct = (overall_missing / total_rows) * 100
+
+    # Missingness in positive cases (diseased cohort per SOP)
+    positive_missing = df_audit.filter(
+        (F.col('FUTURE_CRC_EVENT') == 1) & (F.col(col_name).isNull())
+    ).count()
+    positive_pct = (positive_missing / positive_rows) * 100 if positive_rows > 0 else 0
+
+    missingness_stats.append({
+        'feature': col_name,
+        'overall_missing_pct': overall_pct,
+        'positive_missing_pct': positive_pct,
+        'flag': 'HIGH' if positive_pct > 30 else ('REVIEW' if positive_pct > 5 else '')
+    })
+
+# Convert to pandas for display
+import pandas as pd
+miss_df = pd.DataFrame(missingness_stats)
+miss_df = miss_df.sort_values('positive_missing_pct', ascending=False)
+
+# Show features with >5% missingness in positive cases
+high_miss = miss_df[miss_df['positive_missing_pct'] > 5]
+print(f"\nFeatures with >5% missingness in positive cases: {len(high_miss)}")
+if len(high_miss) > 0:
+    print(high_miss[['feature', 'overall_missing_pct', 'positive_missing_pct', 'flag']].to_string(index=False))
+else:
+    print("  None - all features have <5% missingness in positive cases")
+
+# Show features with >30% missingness
+very_high_miss = miss_df[miss_df['positive_missing_pct'] > 30]
+print(f"\nFeatures with >30% missingness in positive cases: {len(very_high_miss)}")
+if len(very_high_miss) > 0:
+    print("  NOTE: Per SOP II.4.b, these would typically be removed.")
+    print("  DECISION: Retained because missingness is informative for rare event prediction.")
+    print(very_high_miss[['feature', 'overall_missing_pct', 'positive_missing_pct']].to_string(index=False))
+else:
+    print("  None")
+
+# Summary statistics
+print("\n" + "-"*80)
+print("MISSINGNESS DISTRIBUTION")
+print("-"*80)
+print(f"  Features with 0% missing:     {len(miss_df[miss_df['overall_missing_pct'] == 0])}")
+print(f"  Features with <5% missing:    {len(miss_df[miss_df['overall_missing_pct'] < 5])}")
+print(f"  Features with 5-30% missing:  {len(miss_df[(miss_df['overall_missing_pct'] >= 5) & (miss_df['overall_missing_pct'] < 30)])}")
+print(f"  Features with >30% missing:   {len(miss_df[miss_df['overall_missing_pct'] >= 30])}")
+
+# Row-level missingness (SOP II.4.a also asks for cases/rows)
+print("\n" + "-"*80)
+print("ROW-LEVEL MISSINGNESS")
+print("-"*80)
+
+# Count missing values per row
+from pyspark.sql.functions import sum as spark_sum, when, lit
+
+# Create expression to count nulls per row
+null_count_expr = spark_sum(
+    sum([when(F.col(c).isNull(), lit(1)).otherwise(lit(0)) for c in feature_cols])
+)
+
+row_miss = df_audit.withColumn(
+    'null_count',
+    sum([when(F.col(c).isNull(), lit(1)).otherwise(lit(0)) for c in feature_cols])
+)
+
+row_miss_stats = row_miss.agg(
+    F.avg('null_count').alias('avg_nulls_per_row'),
+    F.max('null_count').alias('max_nulls_per_row'),
+    F.min('null_count').alias('min_nulls_per_row'),
+    F.expr('percentile_approx(null_count, 0.5)').alias('median_nulls_per_row'),
+    F.expr('percentile_approx(null_count, 0.95)').alias('p95_nulls_per_row')
+).collect()[0]
+
+print(f"  Average nulls per row:  {row_miss_stats['avg_nulls_per_row']:.1f} / {len(feature_cols)} features")
+print(f"  Median nulls per row:   {row_miss_stats['median_nulls_per_row']} / {len(feature_cols)} features")
+print(f"  95th percentile:        {row_miss_stats['p95_nulls_per_row']} / {len(feature_cols)} features")
+print(f"  Max nulls in any row:   {row_miss_stats['max_nulls_per_row']} / {len(feature_cols)} features")
+
+print("\n" + "="*80)
+print("✓ MISSINGNESS AUDIT COMPLETE (SOP II.4.a)")
+print("="*80)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### 📊 Step 5b Conclusion: Missingness Audit
+# MAGIC
+# MAGIC **SOP Compliance**: This audit satisfies SOP Section II.4.a requirement to "Identify Percent Missingness by variable (columns) and cases (rows)."
+# MAGIC
+# MAGIC **Key Findings**:
+# MAGIC - Feature-level and row-level missingness documented
+# MAGIC - Features with >5% missingness in positive cases flagged for review
+# MAGIC - Features with >30% missingness documented but retained (missingness is informative for rare events)
+# MAGIC
+# MAGIC **Decision Rationale**: Per SOP II.4.b, features with >30% missingness would typically be removed. However, for rare event prediction (0.39% prevalence), missingness patterns can be highly predictive—a feature only measured when clinicians suspect a problem may be more valuable than routinely collected data. XGBoost handles missing values natively without imputation.
+
+# COMMAND ----------
+
 
 
 # COMMAND ----------

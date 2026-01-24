@@ -336,6 +336,18 @@ The actual stopping point depends on the data - we let the validation gate decid
 
 ---
 
+## Statistical Methods Rationale (SOP II.3.b Deviation)
+
+The SOP specifies ChiSquared (for categorical features) and ANOVA (for numerical features) as statistical methods for feature selection. This pipeline uses **Risk Ratios** and **Mutual Information** instead. This is a deliberate methodological choice, not an oversight.
+
+**Why p-value-based tests are inappropriate at this scale:** With N=831,000 observations, traditional hypothesis tests (ChiSquared, ANOVA) become meaningless. At this sample size, even trivially small effects achieve statistical significance (p < 0.001). A feature with Risk Ratio of 1.01—clinically irrelevant—would pass a ChiSquared test with flying colors simply because the massive sample size crushes sampling noise. The p-value answers "is this association unlikely due to chance?" but at N=831K, the answer is always "yes" for any non-zero effect, regardless of whether that effect matters clinically.
+
+**Why Risk Ratios and Mutual Information are superior for this use case:** Risk Ratios directly quantify *effect size*—a 3.6× risk elevation for rapid weight loss is clinically interpretable and actionable, while "p < 0.001" conveys no magnitude. Mutual Information captures the *information content* of features, including non-linear relationships that correlation-based tests miss. Both metrics scale appropriately with clinical relevance rather than sample size. The SOP lists Mutual Information as an acceptable method (II.3.b.i), and Risk Ratios are the standard effect size measure in epidemiology for categorical outcomes.
+
+**Bottom line:** ChiSquared and ANOVA would produce compliance checkboxes, not better feature selection. The current methodology identifies features that matter clinically, not just features that achieve arbitrary significance thresholds.
+
+---
+
 ## Commands to Resume
 
 ```bash
