@@ -163,6 +163,19 @@ Feature selection (Book 9) includes checkpoint recovery—interrupt anytime and 
 4. **Reproducibility**: Deterministic splits, seeded randomness, version-stable checkpoints
 5. **Test set discipline**: Evaluate once at final model, never during development
 
+## Statistical Methods Rationale
+
+This pipeline uses **Risk Ratios** and **Mutual Information** for feature selection rather than ChiSquared or ANOVA tests. This is a deliberate methodological choice.
+
+**Why p-value-based tests are inappropriate at this scale:** With N=831,000 observations, traditional hypothesis tests become meaningless. At this sample size, even trivially small effects achieve statistical significance (p < 0.001). A feature with Risk Ratio of 1.01—clinically irrelevant—would pass a ChiSquared test simply because the massive sample size crushes sampling noise. The p-value answers "is this association unlikely due to chance?" but at N=831K, the answer is always "yes" for any non-zero effect, regardless of clinical relevance.
+
+**Why Risk Ratios and Mutual Information are superior:**
+- **Risk Ratios** directly quantify *effect size*—a 3.6× risk elevation is clinically interpretable, while "p < 0.001" conveys no magnitude
+- **Mutual Information** captures *information content* including non-linear relationships that correlation-based tests miss
+- Both metrics scale with clinical relevance rather than sample size
+
+This approach identifies features that matter clinically, not just features that achieve arbitrary significance thresholds.
+
 ## Citation
 
 If you use this methodology, please cite:
