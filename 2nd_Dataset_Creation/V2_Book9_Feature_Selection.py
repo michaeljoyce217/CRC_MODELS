@@ -722,19 +722,37 @@ else:
     print(f"Test set (fixed): {test_mask.sum():,} observations")
     print(f"Train/Val pool: {trainval_mask.sum():,} observations")
 
-    # Get patient-level labels for SGKF
+    # Get patient-level labels for SGKF with MULTI-CLASS stratification by cancer type
+    # This matches Book 0's approach: 0=negative, 1=C18, 2=C19, 3=C20
     trainval_df = df_pandas[trainval_mask].copy()
-    patient_labels = trainval_df.groupby('PAT_ID')['FUTURE_CRC_EVENT'].max().reset_index()
-    patient_labels.columns = ['PAT_ID', 'label']
+
+    # Get patient-level outcome and cancer type
+    patient_outcome = trainval_df.groupby('PAT_ID')['FUTURE_CRC_EVENT'].max().reset_index()
+    patient_outcome.columns = ['PAT_ID', 'is_positive']
+
+    # For positive patients, get their cancer type from ICD10_GROUP
+    # ICD10_GROUP contains 'C18', 'C19', 'C20' for positive cases
+    positive_patients = trainval_df[trainval_df['FUTURE_CRC_EVENT'] == 1][['PAT_ID', 'ICD10_GROUP']].drop_duplicates('PAT_ID')
+
+    # Merge to get cancer type for positive patients
+    patient_labels = patient_outcome.merge(positive_patients, on='PAT_ID', how='left')
+
+    # Create multi-class stratification label: 0=neg, 1=C18, 2=C19, 3=C20
+    cancer_type_map = {'C18': 1, 'C19': 2, 'C20': 3}
+    patient_labels['strat_label'] = patient_labels.apply(
+        lambda row: cancer_type_map.get(row['ICD10_GROUP'], 0) if row['is_positive'] == 1 else 0,
+        axis=1
+    )
 
     print(f"Unique patients in train/val: {len(patient_labels):,}")
-    print(f"Positive patients: {patient_labels['label'].sum():,}")
+    print(f"Positive patients: {patient_labels['is_positive'].sum():,}")
+    print(f"Stratification classes: {patient_labels['strat_label'].value_counts().sort_index().to_dict()}")
 
     # Create 3-fold SGKF
     sgkf = StratifiedGroupKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=RANDOM_SEED)
 
     X_dummy = np.zeros(len(patient_labels))
-    y = patient_labels['label'].values
+    y = patient_labels['strat_label'].values  # Multi-class: 0=neg, 1=C18, 2=C19, 3=C20
     groups = patient_labels['PAT_ID'].values
 
     # Store fold assignments for each patient (as lists for JSON serialization)
@@ -760,6 +778,12 @@ else:
         print(f"  Val:   {len(val_patients):,} patients, {len(val_obs):,} observations")
         print(f"  Train event rate: {train_obs['FUTURE_CRC_EVENT'].mean()*100:.4f}%")
         print(f"  Val event rate:   {val_obs['FUTURE_CRC_EVENT'].mean()*100:.4f}%")
+
+        # Show cancer type distribution in each fold (verifies multi-class stratification)
+        train_labels = patient_labels[patient_labels['PAT_ID'].isin(train_patients)]['strat_label'].value_counts().sort_index()
+        val_labels = patient_labels[patient_labels['PAT_ID'].isin(val_patients)]['strat_label'].value_counts().sort_index()
+        print(f"  Train cancer types: { {k: train_labels.get(k, 0) for k in [0,1,2,3]} }")
+        print(f"  Val cancer types:   { {k: val_labels.get(k, 0) for k in [0,1,2,3]} }")
 
     # Save checkpoint
     save_checkpoint("step1_1b_cv_folds", {
