@@ -34,10 +34,10 @@ METHODOLOGY_IMBALANCED/
 
 ### Phase 1: Book 0 - Cohort Creation with SGKF Splits (COMPLETE)
 
-Added train/val/test split assignments using StratifiedGroupKFold with **multi-class stratification by cancer type**:
-- **TEST (Q6)**: Last quarter of observations (temporal holdout)
-- **TRAIN (~67%)**: Q0-Q5 patients via SGKF
-- **VAL (~33%)**: Q0-Q5 patients via SGKF
+Added train/val/test split assignments using **patient-level** temporal + stratified splitting:
+- **TEST**: Patients with ANY Q6 observation → ALL their observations go to TEST (patient-level temporal holdout)
+- **TRAIN (~67%)**: Remaining patients (no Q6 observations) via SGKF
+- **VAL (~33%)**: Remaining patients (no Q6 observations) via SGKF
 
 **Stratification classes:**
 - 0 = Negative (no CRC diagnosis)
@@ -51,7 +51,11 @@ Key guarantees:
 - Rare subtypes (especially C19 rectosigmoid) proportionally represented
 - Random seed 217 for reproducibility
 
-Bug fixed: Changed `F.first("FUTURE_CRC_EVENT")` to `F.max("FUTURE_CRC_EVENT")` for correct patient-level stratification.
+**Why patient-level temporal split?** Patients often span multiple quarters (visits in Q3, Q4, Q5, AND Q6). If we split by observation quarter, a patient's Q0-Q5 history would be in TRAIN while their Q6 outcome is in TEST—causing data leakage. By assigning ALL observations from Q6 patients to TEST, we simulate true deployment where the model predicts on patients it has never seen.
+
+Bugs fixed:
+- Changed `F.first("FUTURE_CRC_EVENT")` to `F.max("FUTURE_CRC_EVENT")` for correct patient-level stratification
+- Changed observation-level temporal split to patient-level (fixed 72K+ patient train/test overlap)
 
 ### Phase 2: Books 1-8 - Train-Only Feature Selection (COMPLETE)
 
@@ -325,7 +329,7 @@ The actual stopping point depends on the data - we let the validation gate decid
 
 ## Key Technical Decisions
 
-1. **Temporal + Group Separation**: Q6 as temporal test set + SGKF for train/val with multi-class stratification by cancer type (C18/C19/C20)
+1. **Patient-Level Temporal Split**: Q6 patients (all their observations) as TEST + SGKF for remaining patients into train/val with multi-class stratification by cancer type (C18/C19/C20)
 2. **3-Fold CV**: For computational efficiency with ~171 features
 3. **Linear Code Style**: No nested functions - keep readable for debugging
 4. **Documentation**: "What This Cell Does" + "Conclusion" markdown cells
