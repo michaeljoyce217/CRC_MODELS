@@ -3049,15 +3049,15 @@ profile.show(200, truncate=False)
 # MAGIC ## SECTION 10: TRAIN/VALIDATION/TEST SPLIT ASSIGNMENT
 # MAGIC ---
 # MAGIC
-# MAGIC This section adds a `SPLIT` column to the final cohort table using a hybrid temporal + patient-level stratified split strategy:
+# MAGIC This section adds a `SPLIT` column to the final cohort table using a **patient-level** temporal + stratified split strategy:
 # MAGIC
-# MAGIC - **TEST**: Q6 (most recent quarter) - temporal holdout to simulate deployment
-# MAGIC - **TRAIN/VAL**: Q0-Q5 patients split using StratifiedGroupKFold (70/30) with **multi-class stratification by cancer type** to ensure:
-# MAGIC   - No patient appears in both train and validation
-# MAGIC   - **Cancer type distribution** (C18/C19/C20) preserved across splits
-# MAGIC   - Rare subtypes (especially C19 rectosigmoid) proportionally represented in both sets
+# MAGIC - **TEST**: Patients with ANY Q6 observation → ALL their observations go to TEST (patient-level temporal holdout)
+# MAGIC - **TRAIN/VAL**: Remaining patients (no Q6 observations) split using StratifiedGroupKFold (70/30) with **multi-class stratification by cancer type**
 # MAGIC
-# MAGIC **Stratification classes:**
+# MAGIC **Why patient-level temporal split?**
+# MAGIC Patients often span multiple quarters. If we split by observation quarter, a patient's Q0-Q5 history would be in TRAIN while their Q6 outcome is in TEST - causing data leakage. By assigning ALL observations from Q6 patients to TEST, we simulate true deployment where the model predicts on patients it has never seen.
+# MAGIC
+# MAGIC **Stratification classes (for TRAIN/VAL split):**
 # MAGIC - 0 = Negative (no CRC diagnosis)
 # MAGIC - 1 = C18 (colon cancer)
 # MAGIC - 2 = C19 (rectosigmoid junction cancer)
@@ -3118,10 +3118,20 @@ df_with_quarter.groupBy("quarters_since_study_start").agg(
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### CELL SPLIT-2 - STRATIFIEDGROUPKFOLD FOR TRAIN/VAL SPLIT
+# MAGIC ### CELL SPLIT-2 - PATIENT-LEVEL TEMPORAL SPLIT + STRATIFIEDGROUPKFOLD
 # MAGIC
 # MAGIC #### 🔍 What This Cell Does
-# MAGIC Uses sklearn's StratifiedGroupKFold to split Q0-Q5 patients into TRAIN (70%) and VAL (30%) sets. The split is stratified by **cancer type** (C18/C19/C20) and grouped by PAT_ID to ensure no patient appears in both sets.
+# MAGIC 1. **Patient-level temporal split**: Identifies patients with ANY Q6 observation and assigns ALL their observations to TEST
+# MAGIC 2. **StratifiedGroupKFold**: Splits remaining patients into TRAIN (70%) and VAL (30%), stratified by cancer type
+# MAGIC
+# MAGIC #### Why Patient-Level Temporal Split for TEST
+# MAGIC Patients often span multiple quarters (e.g., visits in Q3, Q4, Q5, AND Q6). If we split by observation quarter:
+# MAGIC - Q6 observations → TEST
+# MAGIC - Q0-Q5 observations → TRAIN/VAL
+# MAGIC
+# MAGIC This causes **data leakage**: the model sees a patient's history in TRAIN while predicting their outcome in TEST.
+# MAGIC
+# MAGIC **Fix**: If a patient has ANY Q6 observation, ALL their observations (including Q0-Q5) go to TEST. This simulates true deployment where we predict on patients we've never seen before.
 # MAGIC
 # MAGIC #### Why Multi-Class Stratification by Cancer Type
 # MAGIC We stratify by a 4-class variable (negative, C18, C19, C20) rather than binary (negative, positive) to ensure:
@@ -3168,12 +3178,44 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import StratifiedGroupKFold
 
-# Separate Q6 (TEST) from Q0-Q5 (TRAIN/VAL pool)
-df_test = df_with_quarter.filter(F.col("quarters_since_study_start") == 6)
-df_trainval_pool = df_with_quarter.filter(F.col("quarters_since_study_start") < 6)
+# =============================================================================
+# PATIENT-LEVEL TEMPORAL SPLIT
+# =============================================================================
+# If a patient has ANY observation in Q6, ALL their observations go to TEST.
+# This prevents data leakage from seeing a patient's earlier history in TRAIN
+# while predicting their Q6 outcome in TEST.
+#
+# Previous bug: Splitting by observation quarter caused 72K+ patients to appear
+# in both TRAIN/VAL (their Q0-Q5 observations) and TEST (their Q6 observations).
+# =============================================================================
 
-print(f"TEST (Q6): {df_test.count():,} observations")
-print(f"TRAIN/VAL pool (Q0-Q5): {df_trainval_pool.count():,} observations")
+# Identify patients who have at least one observation in Q6
+q6_patients = df_with_quarter.filter(
+    F.col("quarters_since_study_start") == 6
+).select("PAT_ID").distinct()
+
+print(f"Patients with Q6 observations (TEST patients): {q6_patients.count():,}")
+
+# Mark all observations from Q6 patients
+df_with_quarter = df_with_quarter.join(
+    q6_patients.withColumn("is_q6_patient", F.lit(True)),
+    on="PAT_ID",
+    how="left"
+).fillna({"is_q6_patient": False})
+
+# Split: ALL observations from Q6 patients → TEST, everyone else → TRAIN/VAL pool
+df_test = df_with_quarter.filter(F.col("is_q6_patient") == True).drop("is_q6_patient")
+df_trainval_pool = df_with_quarter.filter(F.col("is_q6_patient") == False).drop("is_q6_patient")
+
+print(f"TEST: {df_test.count():,} observations from {df_test.select('PAT_ID').distinct().count():,} patients")
+print(f"TRAIN/VAL pool: {df_trainval_pool.count():,} observations from {df_trainval_pool.select('PAT_ID').distinct().count():,} patients")
+
+# Verify no patient overlap between TEST and TRAIN/VAL pools
+test_pats = set(df_test.select("PAT_ID").distinct().toPandas()["PAT_ID"])
+trainval_pats = set(df_trainval_pool.select("PAT_ID").distinct().toPandas()["PAT_ID"])
+overlap = len(test_pats.intersection(trainval_pats))
+print(f"\nPatient overlap check (TEST vs TRAIN/VAL pool): {overlap} (should be 0)")
+assert overlap == 0, f"ERROR: {overlap} patients appear in both TEST and TRAIN/VAL pool!"
 
 # =============================================================================
 # MULTI-CLASS STRATIFICATION BY CANCER TYPE
