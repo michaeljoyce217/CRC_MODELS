@@ -806,6 +806,7 @@ if checkpoint_exists("step1_2_correlation") and not START_FRESH:
     corr_checkpoint = load_checkpoint("step1_2_correlation")
     corr_matrix = corr_checkpoint['corr_matrix']
     dist_matrix = corr_checkpoint['dist_matrix']
+    feature_cols = corr_checkpoint['feature_cols']  # Use filtered feature list
     print_progress(f"Loaded correlation matrix: {corr_matrix.shape}")
 else:
     print_stage("STEP 1.2: COMPUTE CORRELATION MATRIX", 2, 7)
@@ -813,6 +814,33 @@ else:
     # Filter to training data only
     train_mask = df_pandas['SPLIT'] == 'train'
     df_train = df_pandas.loc[train_mask, feature_cols]
+
+    print_progress(f"Initial feature count: {len(feature_cols)}")
+
+    # ==========================================================================
+    # REMOVE ZERO-VARIANCE FEATURES
+    # ==========================================================================
+    # Spearman correlation is undefined for constant features (zero variance),
+    # which creates NaN values in the correlation matrix. This happens when
+    # the patient-level split moves different patients to train, causing some
+    # features that had variation in one cohort to become constant in another.
+    # ==========================================================================
+
+    variances = df_train.var()
+    zero_var_features = variances[variances == 0].index.tolist()
+
+    if zero_var_features:
+        print_progress(f"WARNING: Removing {len(zero_var_features)} zero-variance features:")
+        for f in zero_var_features[:10]:  # Show first 10
+            print_progress(f"  - {f}")
+        if len(zero_var_features) > 10:
+            print_progress(f"  ... and {len(zero_var_features) - 10} more")
+
+        # Update feature_cols to exclude zero-variance features
+        feature_cols = [c for c in feature_cols if c not in zero_var_features]
+        df_train = df_train[feature_cols]
+
+    print_progress(f"Features after variance filter: {len(feature_cols)}")
 
     print_progress(f"Computing Spearman correlation on {len(df_train):,} observations x {len(feature_cols)} features...")
     print_progress("This is O(n*m^2) - may take several minutes for large feature sets...")
@@ -822,16 +850,29 @@ else:
     elapsed = time.time() - start
     print_progress(f"Correlation matrix computed in {elapsed:.1f}s")
 
+    # Check for any remaining NaN (shouldn't happen after variance filter)
+    nan_count = corr_matrix.isna().sum().sum()
+    if nan_count > 0:
+        print_progress(f"WARNING: {nan_count} NaN values remain in correlation matrix")
+        # Drop features that still have NaN correlations
+        nan_features = corr_matrix.columns[corr_matrix.isna().all()].tolist()
+        if nan_features:
+            print_progress(f"Dropping {len(nan_features)} features with all-NaN correlations")
+            corr_matrix = corr_matrix.drop(index=nan_features, columns=nan_features)
+            feature_cols = [c for c in feature_cols if c not in nan_features]
+
     # Convert to distance matrix: distance = 1 - |correlation|
     dist_matrix = 1 - corr_matrix.abs()
 
-    # Save checkpoint
+    # Save checkpoint (include filtered feature_cols)
     save_checkpoint("step1_2_correlation", {
         'corr_matrix': corr_matrix,
-        'dist_matrix': dist_matrix
+        'dist_matrix': dist_matrix,
+        'feature_cols': feature_cols
     })
 
 print(f"\n✓ Correlation matrix ready: {corr_matrix.shape}")
+print(f"✓ Feature count after filtering: {len(feature_cols)}")
 
 # COMMAND ----------
 
@@ -855,10 +896,30 @@ else:
     print_stage("STEP 1.3: DYNAMIC THRESHOLD SELECTION", 3, 7)
 
     # Convert distance matrix to condensed form for hierarchical clustering
-    # Ensure diagonal is 0 and matrix is symmetric
     print_progress("Converting distance matrix to condensed form...")
-    dist_values = dist_matrix.values
+    dist_values = dist_matrix.values.copy()
+
+    # Diagnostic: check for issues
+    print_progress(f"  Matrix shape: {dist_values.shape}")
+    nan_count = np.isnan(dist_values).sum()
+    inf_count = np.isinf(dist_values).sum()
+    print_progress(f"  NaN count: {nan_count}, Inf count: {inf_count}")
+
+    # Fix any remaining NaN/Inf values (set to max distance = 1.0)
+    if nan_count > 0 or inf_count > 0:
+        print_progress("  Replacing NaN/Inf with 1.0 (max distance)")
+        dist_values = np.nan_to_num(dist_values, nan=1.0, posinf=1.0, neginf=1.0)
+
+    # Force symmetry by averaging with transpose (handles floating-point precision)
+    dist_values = (dist_values + dist_values.T) / 2
+
+    # Ensure diagonal is exactly 0
     np.fill_diagonal(dist_values, 0)
+
+    # Verify symmetry
+    max_asymmetry = np.max(np.abs(dist_values - dist_values.T))
+    print_progress(f"  Max asymmetry after fix: {max_asymmetry}")
+
     condensed_dist = squareform(dist_values)
 
     # Perform hierarchical clustering
