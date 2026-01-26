@@ -875,6 +875,12 @@ else:
 print(f"\n✓ Correlation matrix ready: {corr_matrix.shape}")
 print(f"✓ Feature count after filtering: {len(feature_cols)}")
 
+# Ensure feature_cols is synced with correlation matrix (safety check)
+if len(feature_cols) != len(dist_matrix.columns):
+    print(f"WARNING: feature_cols ({len(feature_cols)}) != dist_matrix columns ({len(dist_matrix.columns)})")
+    print("Syncing feature_cols with distance matrix columns...")
+    feature_cols = list(dist_matrix.columns)
+
 # COMMAND ----------
 
 # MAGIC %md
