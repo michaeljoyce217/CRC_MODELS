@@ -32,12 +32,12 @@ METHODOLOGY_IMBALANCED/
 
 ## Completed Work Summary
 
-### Phase 1: Book 0 - Cohort Creation with SGKF Splits (COMPLETE)
+### Phase 1: Book 0 - Cohort Creation with Stratified Patient Split (COMPLETE)
 
-Added train/val/test split assignments using **patient-level** temporal + stratified splitting:
-- **TEST**: Patients with ANY Q6 observation → ALL their observations go to TEST (patient-level temporal holdout)
-- **TRAIN (~67%)**: Remaining patients (no Q6 observations) via SGKF
-- **VAL (~33%)**: Remaining patients (no Q6 observations) via SGKF
+Added train/val/test split assignments using **stratified patient-level random split**:
+- **TRAIN (70%)**: Randomly selected patients, stratified by cancer type
+- **VAL (15%)**: Randomly selected patients, stratified by cancer type
+- **TEST (15%)**: Randomly selected patients, stratified by cancer type
 
 **Stratification classes:**
 - 0 = Negative (no CRC diagnosis)
@@ -46,16 +46,12 @@ Added train/val/test split assignments using **patient-level** temporal + strati
 - 3 = C20 (rectal cancer)
 
 Key guarantees:
-- NO patient appears in multiple splits (grouped by PAT_ID)
-- **Cancer type distribution (C18/C19/C20) preserved** across splits
-- Rare subtypes (especially C19 rectosigmoid) proportionally represented
+- NO patient appears in multiple splits (all observations from one patient go to same split)
+- **Cancer type distribution (C18/C19/C20) preserved** across all splits
+- **Similar positive rates** across train/val/test (no population bias)
 - Random seed 217 for reproducibility
 
-**Why patient-level temporal split?** Patients often span multiple quarters (visits in Q3, Q4, Q5, AND Q6). If we split by observation quarter, a patient's Q0-Q5 history would be in TRAIN while their Q6 outcome is in TEST—causing data leakage. By assigning ALL observations from Q6 patients to TEST, we simulate true deployment where the model predicts on patients it has never seen.
-
-Bugs fixed:
-- Changed `F.first("FUTURE_CRC_EVENT")` to `F.max("FUTURE_CRC_EVENT")` for correct patient-level stratification
-- Changed observation-level temporal split to patient-level (fixed 72K+ patient train/test overlap)
+**Why stratified random split (not temporal)?** A temporal split (Q6 patients → TEST) created population bias: patients active in Q6 had different characteristics than those who exited earlier, causing 0.7% positive rate in train vs 0.28% in test (2.5x difference). The stratified random split ensures balanced populations. Temporal analysis can still be done by evaluating per-quarter performance within each split.
 
 ### Phase 2: Books 1-8 - Train-Only Feature Selection (COMPLETE)
 
@@ -329,7 +325,7 @@ The actual stopping point depends on the data - we let the validation gate decid
 
 ## Key Technical Decisions
 
-1. **Patient-Level Temporal Split**: Q6 patients (all their observations) as TEST + SGKF for remaining patients into train/val with multi-class stratification by cancer type (C18/C19/C20)
+1. **Stratified Patient-Level Split**: 70/15/15 train/val/test split with multi-class stratification by cancer type (C18/C19/C20) - ensures balanced populations across splits
 2. **3-Fold CV**: For computational efficiency with ~171 features
 3. **Linear Code Style**: No nested functions - keep readable for debugging
 4. **Documentation**: "What This Cell Does" + "Conclusion" markdown cells
