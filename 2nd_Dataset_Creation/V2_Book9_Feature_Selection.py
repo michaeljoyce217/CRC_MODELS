@@ -806,7 +806,8 @@ if checkpoint_exists("step1_2_correlation") and not START_FRESH:
     corr_checkpoint = load_checkpoint("step1_2_correlation")
     corr_matrix = corr_checkpoint['corr_matrix']
     dist_matrix = corr_checkpoint['dist_matrix']
-    feature_cols = corr_checkpoint['feature_cols']  # Use filtered feature list
+    # Use filtered feature list from checkpoint, or fall back to correlation matrix columns
+    feature_cols = corr_checkpoint.get('feature_cols', list(corr_matrix.columns))
     print_progress(f"Loaded correlation matrix: {corr_matrix.shape}")
 else:
     print_stage("STEP 1.2: COMPUTE CORRELATION MATRIX", 2, 7)
