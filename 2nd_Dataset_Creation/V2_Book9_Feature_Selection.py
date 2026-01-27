@@ -1515,7 +1515,10 @@ while stop_reason is None:
         model_checkpoint = load_checkpoint(checkpoint_name)
         iter_model = model_checkpoint['model']
         iter_metrics = model_checkpoint['metrics']
-        print_progress(f"Model loaded: Val AUPRC = {iter_metrics['val']['auprc']:.4f}")
+        # Evaluate test if not in checkpoint (for older checkpoints)
+        if 'test' not in iter_metrics:
+            iter_metrics['test'] = evaluate_model(iter_model, X_test, y_test, current_features, "Test")
+        print_progress(f"Model loaded: Val AUPRC = {iter_metrics['val']['auprc']:.4f}, Test AUPRC = {iter_metrics['test']['auprc']:.4f}")
     else:
         print_progress(f"Step 2.{iteration}.1: Training model with {len(current_features)} features...")
 
@@ -1526,9 +1529,11 @@ while stop_reason is None:
 
         iter_metrics = {
             'train': evaluate_model(iter_model, X_train, y_train, current_features, "Train"),
-            'val': evaluate_model(iter_model, X_val, y_val, current_features, "Val")
+            'val': evaluate_model(iter_model, X_val, y_val, current_features, "Val"),
+            'test': evaluate_model(iter_model, X_test, y_test, current_features, "Test")  # Track for post-hoc analysis
         }
         iter_metrics['train_val_gap'] = iter_metrics['train']['auprc'] - iter_metrics['val']['auprc']
+        print(f"  Test AUPRC: {iter_metrics['test']['auprc']:.4f} (tracking only - not used for decisions)")
 
         save_checkpoint(checkpoint_name, {
             'model': iter_model,
@@ -1606,31 +1611,28 @@ while stop_reason is None:
     # =========================================================================
     print_progress(f"Step 2.{iteration}.4: Checking validation gates...")
 
-    # Calculate metrics relative to PREVIOUS iteration (not baseline!)
-    # The model starts overfitting; dropping features should IMPROVE val AUPRC
+    # Track metrics for post-hoc analysis (NOT used for stopping decisions)
     val_change = iter_metrics['val']['auprc'] - prev_metrics['val']['auprc']
+    test_change = iter_metrics['test']['auprc'] - prev_metrics.get('test', {}).get('auprc', iter_metrics['test']['auprc'])
     val_drop_from_baseline = (baseline_metrics['val']['auprc'] - iter_metrics['val']['auprc']) / baseline_metrics['val']['auprc']
-    gap_change = iter_metrics['train_val_gap'] - prev_metrics['train_val_gap']
 
-    print(f"  Val AUPRC: {iter_metrics['val']['auprc']:.4f} (change from prev: {val_change:+.4f}, from baseline: {val_drop_from_baseline*100:+.2f}%)")
-    print(f"  Train-Val Gap: {iter_metrics['train_val_gap']:.4f} (change from prev: {gap_change:+.4f})")
+    print(f"  Val AUPRC:  {iter_metrics['val']['auprc']:.4f} (change: {val_change:+.4f})")
+    print(f"  Test AUPRC: {iter_metrics['test']['auprc']:.4f} (change: {test_change:+.4f})")
+    print(f"  Train-Val Gap: {iter_metrics['train_val_gap']:.4f}")
     print(f"  Features remaining: {len(current_features)}")
 
-    # Check stop conditions - compare to PREVIOUS iteration
-    # Stop if val AUPRC drops significantly from previous (we're making it worse)
-    if val_change < -MAX_VAL_AUPRC_DROP * prev_metrics['val']['auprc']:
-        stop_reason = f"Val AUPRC dropped {-val_change:.4f} from previous iteration"
-    elif len(current_features) - len(features_to_remove) < MIN_FEATURES_THRESHOLD:
+    # Simple stop conditions - run until we hit limits
+    # Metrics are tracked but NOT used to influence stopping
+    if len(current_features) - len(features_to_remove) < MIN_FEATURES_THRESHOLD:
         stop_reason = f"Would go below {MIN_FEATURES_THRESHOLD} features"
     elif len(features_to_remove) == 0:
         stop_reason = "No features meet removal criteria"
-    # NOTE: Removed train-val gap check - high gap early is expected and should decrease
 
     # =========================================================================
     # Step 2.5: Log & Checkpoint
     # =========================================================================
 
-    # Update tracking CSV
+    # Update tracking CSV - includes test for post-hoc sweet spot analysis
     update_tracking_csv({
         'phase': 'phase2',
         'iteration': iteration,
@@ -1638,10 +1640,11 @@ while stop_reason is None:
         'n_removed': len(features_to_remove) if stop_reason is None else 0,
         'train_auprc': iter_metrics['train']['auprc'],
         'val_auprc': iter_metrics['val']['auprc'],
+        'test_auprc': iter_metrics['test']['auprc'],
         'train_val_gap': iter_metrics['train_val_gap'],
         'val_change_from_prev': val_change,
+        'test_change_from_prev': test_change,
         'val_drop_from_baseline': val_drop_from_baseline,
-        'gap_change_from_prev': gap_change,
         'stop_triggered': stop_reason is not None,
         'stop_reason': stop_reason if stop_reason else '',
         'timestamp': datetime.now().isoformat()
