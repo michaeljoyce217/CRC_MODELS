@@ -6,6 +6,98 @@ This project is improving the **feature selection methodology** for a **colorect
 
 **Current Status**: All notebooks complete. Ready to run pipeline in Databricks.
 
+---
+
+## FAILED APPROACHES (DO NOT REPEAT)
+
+This section documents approaches that were tried and FAILED during Book 9 development. Do not repeat these mistakes.
+
+### Failed Approach 1: Aggressive XGBoost Parameters
+
+**What we tried**: Using standard XGBoost parameters (max_depth=4, gamma=1.0, subsample=0.5, learning_rate=0.01)
+
+**What happened**: Models collapsed after a few iterations. Iteration 2 had 894 trees, iteration 3 had only 29 trees. The model couldn't learn anything, early stopping kicked in immediately.
+
+**Why it failed**: With 250:1 class imbalance, aggressive parameters cause overfitting and unstable models. When features are removed, the model destabilizes completely.
+
+**Correct approach**: Use VERY conservative parameters from original methodology (max_depth=2, gamma=2.0, subsample=0.3, learning_rate=0.005).
+
+---
+
+### Failed Approach 2: Percentile-Based Thresholds for Removal
+
+**What we tried**: "Remove features below 15th percentile SHAP" or "two-tier: 15th percentile standard, 5th percentile for last-in-cluster"
+
+**What happened**: When many features have SHAP values of exactly 0, the 15th percentile IS 0. Nothing is < 0, so nothing gets removed. Pipeline stalls after 1-2 iterations with "No features meet removal criteria."
+
+**Why it failed**: Percentile thresholds break when SHAP values cluster at 0. The threshold becomes 0, and the condition `shap < 0` is never true.
+
+**Correct approach**: Use the original multi-criteria approach: feature must meet 2+ of 3 criteria (near-zero SHAP < 0.0002, negative-biased ratio < 0.15, bottom 8%). This is more robust.
+
+---
+
+### Failed Approach 3: Rank-Based Removal ("Remove Bottom N")
+
+**What we tried**: "Remove bottom 15% of features by rank each iteration" regardless of their actual SHAP values.
+
+**What happened**: Blindly removed features that might have been valuable, destabilizing the model.
+
+**Why it failed**: Not all "bottom" features are useless. Some may have low SHAP but still be important. The original methodology's multi-criteria approach ensures only truly useless features are removed.
+
+**Correct approach**: Require features to meet 2+ of 3 criteria before removal.
+
+---
+
+### Failed Approach 4: Using CURRENT Cluster Sizes for Removal Caps
+
+**What we tried**: Recalculating cluster sizes each iteration based on remaining features.
+
+**What happened**: As features were removed, clusters shrank, making the removal caps more restrictive. An 8-feature cluster (cap=3) becomes a 5-feature cluster (cap=0) after removing 3 features.
+
+**Why it failed**: The cluster protection rules became so restrictive that nothing could be removed after a few iterations.
+
+**Correct approach**: Use ORIGINAL cluster sizes from Phase 1 (stored in selection_df). The original methodology reads from the cluster CSV file each iteration, always using original sizes.
+
+---
+
+### Failed Approach 5: Silhouette-Based Clustering Threshold Selection (Unconstrained)
+
+**What we tried**: Let silhouette optimization pick the threshold automatically.
+
+**What happened**: Silhouette optimization picked threshold ~0.5, creating 87 clusters for 172 features (average 2 features per cluster). With MIN_PER_CLUSTER=1, you're locked into keeping 87 features minimum.
+
+**Why it failed**: Too many tiny clusters = no room for Phase 2 winnowing. Cluster protection blocks almost all removals.
+
+**Correct approach**: Constrain threshold selection to [0.6, 0.85] range, targeting 40-70 clusters.
+
+---
+
+### Failed Approach 6: Fixed Clustering Threshold (0.75 or 0.7)
+
+**What we tried**: Hardcoding a specific threshold value.
+
+**What happened**: Different datasets may have different correlation structures. A fixed threshold that worked before may not work now.
+
+**Why it failed**: The original methodology had fewer features with a different correlation structure. Blindly copying the threshold is wrong.
+
+**Correct approach**: Use smart selection within constrained range [0.6, 0.85], targeting a specific cluster count (40-70), using silhouette as a tiebreaker.
+
+---
+
+### Summary: The Original Methodology Works
+
+The **original CRC_ITER1_MODEL-PREVALENCE.py** was a manual iterative process that worked successfully. Key elements:
+
+1. **Very conservative XGBoost** (max_depth=2, learning_rate=0.005, etc.)
+2. **Multi-criteria removal** (2+ of 3: near-zero, neg-biased, bottom 8%)
+3. **Cluster-specific caps** using ORIGINAL sizes
+4. **High-importance cluster protection** (top 20% max_shap = max 1 removal)
+5. **Global cap** of 30 removals per iteration
+
+The automated Book 9 now implements this exact logic.
+
+---
+
 ## Directory Structure
 
 ```
@@ -119,11 +211,9 @@ Create `V2_Book9_Feature_Selection.py` using a **Hybrid Two-Phase Approach**:
 
 ---
 
-### PHASE 1: Cluster-Based Reduction (Preserve Signal Diversity)
+### PHASE 1: Cluster-Based Reduction
 
-**Goal**: Remove redundant features while PRESERVING CLUSTER DIVERSITY. Each cluster represents a different type of predictive signal - losing a cluster means losing that signal type entirely.
-
-**Critical Principle**: Be CONSERVATIVE with cluster reduction. It's better to keep a few extra correlated features than to lose an entire signal type.
+**Goal**: Remove redundant features by clustering correlated features and selecting representatives.
 
 ```
 Step 1.1: Load Data
@@ -134,59 +224,69 @@ Step 1.1: Load Data
 Step 1.2: Compute Correlation Matrix
 ├── Spearman correlation (handles non-linear relationships)
 ├── Distance matrix: distance = 1 - |correlation|
-├── Remove zero-variance features first (undefined correlation)
 └── Compute on TRAINING DATA ONLY
 
-Step 1.3: Dynamic Threshold Selection
+Step 1.3: Smart Threshold Selection
 ├── Test thresholds: 0.50 to 0.90 in 0.05 increments
-├── Select threshold via silhouette score optimization
+├── Constrain to [0.60, 0.85] range
+├── Target 40-70 clusters
+├── Use silhouette optimization within constraints
 └── CHECKPOINT: Save clusters
 
-Step 1.4: Train Baseline Model
-├── XGBoost with scale_pos_weight for imbalance
-├── Early stopping on validation set
+Step 1.4: Train Baseline Model (CONSERVATIVE PARAMS)
+├── XGBoost with very conservative hyperparameters:
+│   ├── max_depth: 2 (very shallow)
+│   ├── gamma: 2.0 (high min loss reduction)
+│   ├── subsample: 0.3 (low row sampling)
+│   ├── colsample_bytree: 0.3 (low column sampling)
+│   ├── reg_alpha: 5.0 (L1 regularization)
+│   ├── reg_lambda: 50.0 (L2 regularization)
+│   ├── learning_rate: 0.005 (very slow)
+│   └── early_stopping_rounds: 150
 └── CHECKPOINT: Save baseline model and metrics
 
 Step 1.5: Compute SHAP with 2:1 Positive Weighting
 ├── TreeExplainer on baseline model
 ├── 2:1 weighting for positive cases
 ├── SHAP_Ratio = importance_pos / importance_neg
-└── SHAP_Ratio > 1 means feature helps identify POSITIVES (what we want!)
+└── CHECKPOINT: Save SHAP values
 
-Step 1.6: Select Cluster Representatives (ADAPTIVE - DROP AT MOST 1-2)
-├── For each cluster:
-│   ├── Size 1-2: Keep ALL features (too small to safely reduce)
-│   ├── Size 3-4: Keep top (size - 1), drop at most 1
-│   └── Size 5+: Keep top (size - 2), drop at most 2
-├── Sort by SHAP_Ratio descending (prefer positive-predictive features)
-└── This is CONSERVATIVE - preserves signal diversity
+Step 1.6: Select Cluster Representatives
+├── For each cluster, keep top features by SHAP_Ratio
+├── Drop at most 1-2 per cluster (conservative)
+└── CHECKPOINT: Save selection_df with ORIGINAL cluster sizes
 
 Step 1.7: Phase 1 Validation Gate
 ├── PASS if: val_auprc_drop < 10%
-├── If FAIL: Keep more per cluster
 └── CHECKPOINT: Save phase1_complete
 ```
 
-**WHY ADAPTIVE CLUSTER SELECTION**: A cluster of 9 features represents 9 correlated signals. Keeping only 1-2 throws away 7 features that might have been useful representatives of sub-patterns. Dropping at most 1-2 per cluster preserves diversity while still removing obvious redundancy.
-
 ---
 
-### PHASE 2: Surgical SHAP Winnowing (Preserve Cluster Diversity)
+### PHASE 2: Iterative SHAP Winnowing (Original Methodology)
 
-**Goal**: Remove ONLY features that contribute essentially NOTHING to positive class prediction, while preserving cluster diversity.
+**Based on CRC_ITER1_MODEL-PREVALENCE.py** - the proven manual approach, now automated.
 
-**Critical Principle for Rare Event Prediction (0.4% positive rate)**:
-- The goal is identifying the rare POSITIVE cases, not just optimizing AUPRC
-- Each cluster represents a different TYPE of predictive signal
-- Losing a cluster entirely = losing that signal type = potentially missing positives
-- Only remove features with truly near-zero contribution to positive identification
+**Removal Criteria**: Feature must meet **AT LEAST 2 of 3** criteria:
+1. Near-zero SHAP importance (< 0.0002)
+2. Negative-biased ratio (< 0.15)
+3. Bottom 8% by SHAP
+
+**Cluster-Specific Removal Caps** (using ORIGINAL cluster sizes from Phase 1):
+- Singleton (1 feature): max 1 removal
+- Small (2-3 features): max 2 removals, leave at least 1
+- Medium (4-7 features): max 2 removals, leave at least 3
+- Large (8+ features): max 3 removals, leave at least 5
+- High-importance clusters (top 20% by max SHAP): max 1 removal
+
+**Global Cap**: 30 removals per iteration
 
 ```
 For each iteration:
 
-Step 2.1: Train Model & Evaluate
-├── XGBoost with scale_pos_weight
-├── Track train, val, AND test AUPRC (test for post-hoc analysis only)
+Step 2.1: Train Model (Conservative XGBoost)
+├── Same conservative params as Phase 1
+├── Track train, val, AND test AUPRC
 └── CHECKPOINT: Save model and metrics
 
 Step 2.2: Compute SHAP with 2:1 Positive Weighting
@@ -194,122 +294,77 @@ Step 2.2: Compute SHAP with 2:1 Positive Weighting
 ├── SHAP_Ratio = importance_pos / importance_neg
 └── CHECKPOINT: Save SHAP values
 
-Step 2.3: SURGICAL Removal (Respect Cluster Structure)
-├── DYNAMIC THRESHOLD: 15th percentile of SHAP_Combined
-│   (adapts to actual distribution, not arbitrary fixed value)
-├── For each feature below threshold:
-│   ├── Skip if clinical must-keep
-│   ├── Skip if removing would leave cluster below MIN_PER_CLUSTER (1)
-│   └── Only then add to removal candidates
-├── This ensures:
-│   ├── Every cluster keeps at least 1 representative
-│   ├── Only features with near-zero signal are removed
-│   └── Cluster diversity (signal types) is preserved
-└── Cap at MAX_REMOVALS_PER_ITERATION (25)
+Step 2.3: Identify Removal Candidates (2+ of 3 Criteria)
+├── Calculate features meeting each criterion:
+│   ├── Near-zero SHAP (< 0.0002)
+│   ├── Negative-biased ratio (< 0.15)
+│   └── Bottom 8%
+├── Feature must meet 2+ criteria to be flagged
+├── Apply cluster-specific caps (using ORIGINAL sizes)
+├── Apply high-importance cluster protection
+├── Cap at 30 removals
+└── Clinical must-keep features always protected
 
-Step 2.4: Simple Stop Conditions
-├── Would go below MIN_FEATURES_THRESHOLD (30): STOP
-├── No features meet removal criteria: STOP (all remaining have signal)
-├── NOTE: Do NOT stop based on val AUPRC changes
-│   └── Track metrics for post-hoc sweet spot analysis instead
-└── Let it run to completion, then examine iteration_tracking.csv
+Step 2.4: Stop Conditions
+├── Would go below MIN_FEATURES_THRESHOLD (25): STOP
+├── No features meet 2+ criteria: STOP
+└── Otherwise: Remove features and continue
 
 Step 2.5: Log & Checkpoint
-├── Track: n_features, train_auprc, val_auprc, test_auprc per iteration
-├── After completion: plot n_features vs val/test AUPRC to find sweet spot
+├── Track: n_features, train/val/test AUPRC per iteration
 └── CHECKPOINT: Save iteration state
 ```
 
-**WHY THIS APPROACH**:
-1. Complex multi-criteria removal (2+ of 3 criteria, top 50% protected, etc.) was too strict - often removed ZERO features
-2. Comparing to baseline was wrong - early iterations naturally have high train-val gap that should DECREASE as features are removed
-3. The real goal is preserving signal diversity while removing true noise
-4. Post-hoc analysis of the metrics curve is better than trying to automate the stopping point
-
 ---
 
-### Metrics Tracking Strategy (Post-Hoc Analysis)
+### Key Parameters (Matching Original)
 
-| Metric | Purpose | Usage |
-|--------|---------|-------|
-| **Train AUPRC** | Overfitting indicator | Track per iteration |
-| **Val AUPRC** | Model quality | Track per iteration |
-| **Test AUPRC** | Generalization | Track per iteration (for analysis only) |
-| **Train-Val Gap** | Overfitting severity | Should DECREASE as features removed |
-
-**Key Principle**: Track ALL metrics but DON'T use them for automated stopping. Run the full sweep to MIN_FEATURES_THRESHOLD, then examine `iteration_tracking.csv` to find the sweet spot where val and test AUPRC are maximized.
-
-**Why not automated stopping?** Early iterations often have HIGH train-val gap (overfitting). The point of removing features is to REDUCE this gap. Stopping when gap is "too high" defeats the purpose. Let the process run and analyze the curve afterward.
-
----
-
-### Checkpoint System (Resumable Iterations)
-
-**Goal**: Stop anytime and resume without starting over.
-
-```
-checkpoints/
-├── step1_2_correlation.pkl      # After correlation matrix computed
-├── step1_3_clusters.pkl         # After clustering complete
-├── step1_4_baseline_model.pkl   # After baseline model trained
-├── step1_5_shap_phase1.pkl      # After Phase 1 SHAP computed
-├── step1_7_phase1_complete.pkl  # After Phase 1 validation gate
-├── step2_iter1_model.pkl        # After iteration 1 model
-├── step2_iter1_shap.pkl         # After iteration 1 SHAP
-├── step2_iter1_complete.pkl     # After iteration 1 complete
-├── step2_iter2_model.pkl        # ...and so on
-└── iteration_tracking.csv       # Running log (always updated)
+**XGBoost (Conservative)**:
+```python
+max_depth = 2
+min_child_weight = 50
+gamma = 2.0
+subsample = 0.3
+colsample_bytree = 0.3
+colsample_bylevel = 0.5
+reg_alpha = 5.0
+reg_lambda = 50.0
+learning_rate = 0.005
+early_stopping_rounds = 150
 ```
 
-**On notebook startup:**
-1. Scan for existing checkpoints
-2. Display: "Found checkpoint at Phase 2, Iteration 3. Resume? [Y/n]"
-3. If resume: Load checkpoint and continue
-4. If fresh: Clear checkpoints directory and start over
+**Removal Criteria**:
+```python
+ZERO_SHAP_THRESHOLD = 0.0002
+NEG_BIAS_RATIO_THRESHOLD = 0.15
+BOTTOM_PERCENTILE = 8
+MAX_REMOVALS_PER_ITERATION = 30
+MIN_FEATURES_THRESHOLD = 25
+```
 
-**You can kill the notebook anytime** - just re-run and it picks up from the last checkpoint.
-
----
-
-### Key Improvements Over Original
-
-| Aspect | Original | New |
-|--------|----------|-----|
-| **SHAP Weighting** | 2:1 | 2:1 (same; model handles imbalance via scale_pos_weight) |
-| **Clustering Threshold** | Fixed 0.7 | Fixed 0.75 (targets ~50-60 clusters; silhouette optimization created too many small clusters) |
-| **Cluster Representative Selection** | Keep 1 per cluster | ADAPTIVE: drop at most 1-2 per cluster (preserves diversity) |
-| **Phase 2 Removal Logic** | Complex multi-criteria (2+ of 3) | TWO-TIER: 15th percentile for standard, 5th percentile for last-in-cluster |
-| **SHAP Threshold** | Fixed 0.0002 | Dynamic two-tier: p15 standard, p5 for cluster elimination |
-| **Stop Criterion** | Automated gates | Run full sweep to MIN_FEATURES (25), analyze post-hoc for sweet spot |
-| **Cluster Protection** | Implicit | Two-tier: clusters can be eliminated, but only if last feature is truly useless (p5) |
-| **Resumability** | None (start over) | Granular checkpoints after each step |
-
-### Critical Lessons Learned
-
-1. **Cluster diversity = signal diversity**: Each cluster represents a different type of predictive signal. Losing a cluster entirely means losing that signal type. Be CONSERVATIVE with reduction.
-
-2. **Rare event prediction requires surgical precision**: With 0.4% positive rate, every feature that helps identify positives matters. Don't blindly drop "bottom N" - only remove features with truly ZERO contribution.
-
-3. **Dynamic thresholds > fixed values**: A fixed threshold like 0.002 is arbitrary. The 15th percentile adapts to actual SHAP distribution each iteration.
-
-4. **Post-hoc analysis > automated stopping**: Complex stopping rules (gap thresholds, val drop thresholds) often trigger prematurely or at wrong times. Better to run the full sweep and examine the metrics curve to find the sweet spot.
-
-5. **Protect cluster structure explicitly**: Every cluster should keep at least 1 representative. This is a hard constraint, not a soft preference.
+**Clustering**:
+```python
+MIN_CLUSTERING_THRESHOLD = 0.60
+MAX_CLUSTERING_THRESHOLD = 0.85
+TARGET_CLUSTER_RANGE = (40, 70)
+```
 
 ---
 
 ### Expected Outcome
 
 ```
-Starting:     171 features
-After Phase 1: ~70-80 features (cluster representatives)
-After Phase 2: ~40-60 features (validation-gated)
+Starting:     ~170 features
+After Phase 1: ~100-130 features (40-70 clusters)
+After Phase 2: 25-50 features (iterates until 2+ criteria not met)
 
-Iterations breakdown:
-  Phase 2, Iter 1: 75 → 55 features (-20)
-  Phase 2, Iter 2: 55 → 35 features (-20)
-  Phase 2, Iter 3: STOP (val_auprc_drop > 5%)
-  Final: Revert to 55 features
+Each iteration removes 10-30 features that meet 2+ of:
+  - Near-zero SHAP (< 0.0002)
+  - Negative-biased (ratio < 0.15)
+  - Bottom 8%
+
+Stops when remaining features are all "valuable" (don't meet criteria)
+or reaches MIN_FEATURES_THRESHOLD (25).
 ```
 
 The actual stopping point depends on the data - we let the validation gate decide.
