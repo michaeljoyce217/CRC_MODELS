@@ -1564,47 +1564,24 @@ while stop_reason is None:
     # =========================================================================
     print_progress(f"Step 2.{iteration}.3: Identifying removal candidates...")
 
-    # Calculate thresholds
-    zero_threshold = 0.0002
-    ratio_threshold = 0.2
-    bottom_pct = 0.15
+    # Simple approach: remove bottom N features by SHAP importance each iteration
+    # Sort by SHAP_Combined (lowest first)
+    sorted_features = iter_importance_df.sort_values('SHAP_Combined')
 
-    # Identify features meeting each criterion
-    zero_importance = set(iter_importance_df[iter_importance_df['SHAP_Combined'] < zero_threshold]['Feature'])
-    neg_biased = set(iter_importance_df[iter_importance_df['SHAP_Ratio'] < ratio_threshold]['Feature'])
-
-    importance_cutoff = iter_importance_df['SHAP_Combined'].quantile(bottom_pct)
-    bottom_features = set(iter_importance_df[iter_importance_df['SHAP_Combined'] < importance_cutoff]['Feature'])
-
-    # Features meeting 2+ criteria
-    candidates = (
-        (zero_importance & neg_biased) |
-        (zero_importance & bottom_features) |
-        (neg_biased & bottom_features)
-    )
-
-    # Never remove features in top 50% by importance_ratio
-    median_ratio = iter_importance_df['SHAP_Ratio'].median()
-    protected = set(iter_importance_df[iter_importance_df['SHAP_Ratio'] >= median_ratio]['Feature'])
-    candidates = candidates - protected
-
-    # Never remove clinical must-keep features
+    # Protect clinical must-keep features
     clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in current_features)
-    candidates = candidates - clinical_protected
 
-    # Sort candidates by importance (remove lowest first)
-    candidate_df = iter_importance_df[iter_importance_df['Feature'].isin(candidates)].sort_values('SHAP_Combined')
+    # Remove bottom features (up to MAX_REMOVALS_PER_ITERATION), skipping protected
+    features_to_remove = []
+    for _, row in sorted_features.iterrows():
+        if len(features_to_remove) >= MAX_REMOVALS_PER_ITERATION:
+            break
+        if row['Feature'] not in clinical_protected:
+            features_to_remove.append(row['Feature'])
 
-    # Cap at MAX_REMOVALS_PER_ITERATION
-    features_to_remove = candidate_df.head(MAX_REMOVALS_PER_ITERATION)['Feature'].tolist()
-
-    print(f"  Near-zero importance: {len(zero_importance)}")
-    print(f"  Negative-biased ratio: {len(neg_biased)}")
-    print(f"  Bottom {bottom_pct*100:.0f}%: {len(bottom_features)}")
-    print(f"  Meeting 2+ criteria (after protections): {len(candidates)}")
-    print(f"  Protected (top 50% ratio): {len(protected)}")
+    print(f"  Total features: {len(current_features)}")
     print(f"  Protected (clinical must-keep): {len(clinical_protected)}")
-    print(f"  Final candidates: {len(features_to_remove)}")
+    print(f"  Removing bottom {len(features_to_remove)} by SHAP importance")
 
     # =========================================================================
     # Step 2.4: Validation Gate
