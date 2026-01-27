@@ -50,8 +50,10 @@ ZERO_SHAP_THRESHOLD = 0.0005     # Near-zero importance threshold (raised from 0
 NEG_BIAS_RATIO_THRESHOLD = 0.25  # Negative-bias ratio threshold (raised from 0.15)
 BOTTOM_PERCENTILE = 12           # Bottom percentile threshold (raised from 8)
 
-# Iteration limits
-MAX_REMOVALS_PER_ITERATION = 30  # Hard cap per iteration (original: 30)
+# Iteration limits - gradual reduction to prevent model destabilization
+MAX_REMOVALS_EARLY = 10          # Cap for iterations 1-5 (was 30, caused crashes)
+MAX_REMOVALS_LATE = 5            # Cap for iterations 6+ (finer control)
+LATE_PHASE_ITERATION = 5         # Switch to finer control after this iteration
 MIN_FEATURES_THRESHOLD = 25      # Target final feature count
 
 # Phase 1 validation gate
@@ -124,7 +126,8 @@ print(f"  ZERO_SHAP_THRESHOLD: {ZERO_SHAP_THRESHOLD}")
 print(f"  NEG_BIAS_RATIO_THRESHOLD: {NEG_BIAS_RATIO_THRESHOLD}")
 print(f"  BOTTOM_PERCENTILE: {BOTTOM_PERCENTILE}%")
 print(f"\nIteration Limits:")
-print(f"  MAX_REMOVALS_PER_ITERATION: {MAX_REMOVALS_PER_ITERATION}")
+print(f"  MAX_REMOVALS_EARLY (iter 1-{LATE_PHASE_ITERATION}): {MAX_REMOVALS_EARLY}")
+print(f"  MAX_REMOVALS_LATE (iter {LATE_PHASE_ITERATION+1}+): {MAX_REMOVALS_LATE}")
 print(f"  MIN_FEATURES_THRESHOLD: {MIN_FEATURES_THRESHOLD}")
 print(f"\nClustering:")
 print(f"  MIN_CLUSTERING_THRESHOLD: {MIN_CLUSTERING_THRESHOLD}")
@@ -1531,7 +1534,7 @@ if phase2_checkpoints and not START_FRESH:
 
 print_progress(f"Starting Phase 2 from iteration {iteration}")
 print_progress(f"Current features: {len(current_features)}")
-print_progress(f"Max removals per iteration: {MAX_REMOVALS_PER_ITERATION}")
+print_progress(f"Max removals: {MAX_REMOVALS_EARLY} (iter 1-{LATE_PHASE_ITERATION}), {MAX_REMOVALS_LATE} (iter {LATE_PHASE_ITERATION+1}+)")
 print_progress(f"Min features threshold: {MIN_FEATURES_THRESHOLD}")
 print_progress("Each iteration: Train model → Compute SHAP → Identify removals → Validate")
 print("="*70)
@@ -1562,9 +1565,12 @@ while stop_reason is None:
     iteration += 1
     iter_start_time = time.time()
 
+    # Determine max removals for this iteration (gradual reduction)
+    max_removals_this_iter = MAX_REMOVALS_EARLY if iteration <= LATE_PHASE_ITERATION else MAX_REMOVALS_LATE
+
     print_stage(f"PHASE 2 - ITERATION {iteration}")
     print_progress(f"Current features: {len(current_features)}")
-    print_progress(f"Target: Remove up to {MAX_REMOVALS_PER_ITERATION} low-value features")
+    print_progress(f"Target: Remove up to {max_removals_this_iter} low-value features")
 
     # =========================================================================
     # Step 2.1: Train Model
@@ -1761,16 +1767,16 @@ while stop_reason is None:
             priority_score = shap_val * 1000 + (0 if meets_all else 1)
             removals_by_priority.append((feat, shap_val, ratio_val, cluster_id, cluster_size, priority_score))
 
-    # Sort by priority score and apply global limit
+    # Sort by priority score and apply global limit (iteration-aware)
     removals_by_priority.sort(key=lambda x: x[5])
-    final_removals = removals_by_priority[:MAX_REMOVALS_PER_ITERATION]
+    final_removals = removals_by_priority[:max_removals_this_iter]
 
     features_to_remove = [feat for feat, _, _, _, _, _ in final_removals]
 
     # Summary statistics
     print(f"\n  Cluster-aware removal:")
     print(f"    Total flagged across clusters: {len(removals_by_priority)}")
-    print(f"    After global cap ({MAX_REMOVALS_PER_ITERATION}): {len(features_to_remove)}")
+    print(f"    After global cap ({max_removals_this_iter}): {len(features_to_remove)}")
     print(f"    Clinical protected: {len(clinical_protected)}")
 
     if features_to_remove:

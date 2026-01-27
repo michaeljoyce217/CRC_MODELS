@@ -338,7 +338,9 @@ early_stopping_rounds = 150
 ZERO_SHAP_THRESHOLD = 0.0005     # Raised from 0.0002 to continue winnowing past 65 features
 NEG_BIAS_RATIO_THRESHOLD = 0.25  # Raised from 0.15
 BOTTOM_PERCENTILE = 12           # Raised from 8
-MAX_REMOVALS_PER_ITERATION = 30
+MAX_REMOVALS_EARLY = 10          # Cap for iterations 1-5 (was 30, caused crashes)
+MAX_REMOVALS_LATE = 5            # Cap for iterations 6+ (finer control)
+LATE_PHASE_ITERATION = 5         # Switch to finer control after this iteration
 MIN_FEATURES_THRESHOLD = 25
 ```
 
