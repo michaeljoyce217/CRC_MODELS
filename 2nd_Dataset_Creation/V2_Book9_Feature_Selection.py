@@ -1563,26 +1563,27 @@ while stop_reason is None:
         })
 
     # =========================================================================
-    # Step 2.3: Identify Removal Candidates (Surgical Approach)
+    # Step 2.3: Identify Removal Candidates (RANK-BASED, not threshold-based)
     # =========================================================================
     print_progress(f"Step 2.{iteration}.3: Identifying removal candidates...")
 
-    # SURGICAL APPROACH for rare event prediction with TWO-TIER THRESHOLDS:
-    # 1. Standard features: Remove if below 15th percentile SHAP
-    # 2. Last-in-cluster features: Remove only if below 5th percentile (stricter)
-    #    - This allows dead-end clusters to be eliminated, but gives them benefit of doubt
-    #    - If the last feature in a cluster is STILL useless, the whole signal type was noise
-    # 3. Clinical must-keep features are always protected
+    # RANK-BASED REMOVAL - guaranteed to work even when SHAP values cluster at 0
+    #
+    # Previous approach used percentile THRESHOLDS (e.g., remove if SHAP < p15).
+    # Problem: When many features have SHAP=0, the p15 threshold IS 0, and
+    # nothing is < 0, so nothing gets removed. Pipeline stalls.
+    #
+    # New approach: Remove bottom N features by RANK each iteration.
+    # - Standard features (cluster count > 1): eligible for removal
+    # - Last-in-cluster features: only removed if in bottom 5% by RANK
+    # - Clinical must-keep: never removed
+    # - Cap at MAX_REMOVALS_PER_ITERATION
+    #
+    # This GUARANTEES progress until we hit MIN_FEATURES_THRESHOLD.
 
-    STANDARD_PERCENTILE = 0.15  # Bottom 15% for standard features
-    LAST_IN_CLUSTER_PERCENTILE = 0.05  # Bottom 5% for last feature in cluster (stricter)
-
-    # Dynamic thresholds based on actual SHAP distribution
-    STANDARD_THRESHOLD = iter_importance_df['SHAP_Combined'].quantile(STANDARD_PERCENTILE)
-    LAST_IN_CLUSTER_THRESHOLD = iter_importance_df['SHAP_Combined'].quantile(LAST_IN_CLUSTER_PERCENTILE)
-
-    print(f"  Standard threshold (p{int(STANDARD_PERCENTILE*100)}): {STANDARD_THRESHOLD:.6f}")
-    print(f"  Last-in-cluster threshold (p{int(LAST_IN_CLUSTER_PERCENTILE*100)}): {LAST_IN_CLUSTER_THRESHOLD:.6f}")
+    n_features = len(current_features)
+    STANDARD_REMOVAL_RATE = 0.15  # Remove up to bottom 15% of standard features
+    LAST_IN_CLUSTER_RANK_CUTOFF = 0.05  # Last-in-cluster only if in bottom 5% by rank
 
     # Get cluster assignments for current features
     current_selection = selection_df[selection_df['Feature'].isin(current_features)].copy()
@@ -1600,62 +1601,60 @@ while stop_reason is None:
     # Clinical must-keep features are always protected
     clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in current_features)
 
-    # Identify removal candidates with TWO-TIER logic:
-    # - Standard features: Must be below 15th percentile
-    # - Last-in-cluster: Must be below 5th percentile (stricter, more protected)
-    # - Clinical features: Never removed
-    features_to_remove = []
+    # Sort by SHAP_Combined (lowest first) and assign ranks
+    sorted_importance = iter_importance_with_cluster.sort_values('SHAP_Combined').reset_index(drop=True)
+    sorted_importance['rank'] = range(len(sorted_importance))
+    sorted_importance['rank_pct'] = sorted_importance['rank'] / len(sorted_importance)
 
-    # Sort by SHAP_Combined (lowest first) - remove least important first
-    sorted_importance = iter_importance_with_cluster.sort_values('SHAP_Combined')
+    # Calculate how many standard features we could remove (15% of current)
+    max_standard_removals = int(n_features * STANDARD_REMOVAL_RATE)
+    # But cap at MAX_REMOVALS_PER_ITERATION
+    target_removals = min(max_standard_removals, MAX_REMOVALS_PER_ITERATION)
+
+    print(f"  Target removals this iteration: {target_removals} (15% of {n_features} = {max_standard_removals}, capped at {MAX_REMOVALS_PER_ITERATION})")
+
+    features_to_remove = []
+    clusters_eliminated = []
 
     for _, row in sorted_importance.iterrows():
         feat = row['Feature']
         cluster = row['Cluster']
         shap_combined = row['SHAP_Combined']
-        shap_ratio = row['SHAP_Ratio']
+        rank_pct = row['rank_pct']
 
         # Skip if clinical protected
         if feat in clinical_protected:
             continue
 
-        # Determine which threshold to use based on cluster count
+        # Check cluster count
         current_cluster_count = cluster_counts.get(cluster, 0)
 
         if current_cluster_count == 1:
-            # This is the LAST feature in its cluster - use stricter threshold
-            # Only remove if it's truly useless (bottom 5%)
-            threshold = LAST_IN_CLUSTER_THRESHOLD
-            is_last_in_cluster = True
+            # LAST feature in cluster - only remove if in bottom 5% by rank
+            if rank_pct <= LAST_IN_CLUSTER_RANK_CUTOFF:
+                features_to_remove.append(feat)
+                cluster_counts[cluster] -= 1
+                clusters_eliminated.append(cluster)
+                print(f"    [CLUSTER ELIMINATED] {feat} (rank {row['rank']+1}/{n_features}, SHAP={shap_combined:.6f})")
+            # else: skip - protected as last-in-cluster
         else:
-            # Standard feature - use normal threshold (bottom 15%)
-            threshold = STANDARD_THRESHOLD
-            is_last_in_cluster = False
-
-        # Only remove if below the applicable threshold
-        if shap_combined < threshold:
+            # Standard feature - eligible for removal
             features_to_remove.append(feat)
-            cluster_counts[cluster] -= 1  # Update count for next iteration
+            cluster_counts[cluster] -= 1
 
-            if is_last_in_cluster:
-                print(f"    [CLUSTER ELIMINATED] {feat} (SHAP={shap_combined:.6f} < {threshold:.6f})")
-
-            if len(features_to_remove) >= MAX_REMOVALS_PER_ITERATION:
-                break
+        # Stop when we hit target
+        if len(features_to_remove) >= target_removals:
+            break
 
     # Summary statistics
-    n_below_standard = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < STANDARD_THRESHOLD])
-    n_below_strict = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < LAST_IN_CLUSTER_THRESHOLD])
     n_clusters = len(set(cluster_counts.keys()))
     n_at_one = sum(1 for c in cluster_counts.values() if c == 1)
-    n_eliminated = sum(1 for c in cluster_counts.values() if c == 0)
+    n_eliminated = len(clusters_eliminated)
 
     print(f"  Total features: {len(current_features)}")
     print(f"  Clusters represented: {n_clusters}")
     print(f"  Clusters with 1 feature (last remaining): {n_at_one}")
     print(f"  Clusters eliminated this iteration: {n_eliminated}")
-    print(f"  Features below standard threshold (p15): {n_below_standard}")
-    print(f"  Features below strict threshold (p5): {n_below_strict}")
     print(f"  Protected (clinical): {len(clinical_protected)}")
     print(f"  Removing this iteration: {len(features_to_remove)}")
 
@@ -1788,23 +1787,23 @@ final_metrics = {
     'val': evaluate_model(final_model, X_val, y_val, final_features, "Val")
 }
 
-# TEST SET EVALUATION - First and only evaluation on held-out test set
+# TEST SET EVALUATION - Final model
 print("\n" + "="*70)
-print("TEST SET EVALUATION (First and Only)")
+print("FINAL MODEL TEST SET EVALUATION")
 print("="*70)
-print("This is the first time the test set has been evaluated.")
-print("All feature selection decisions were made using validation data only.")
+print("Note: Test AUPRC was tracked at every iteration in iteration_tracking.csv")
+print("Use that file to find the optimal stopping point (sweet spot).")
 final_metrics['test'] = evaluate_model(final_model, X_test, y_test, final_features, "Test")
 
 print("\n" + "-"*70)
-print("COMPARISON: BASELINE vs FINAL (Validation)")
+print("COMPARISON: BASELINE vs FINAL")
 print("-"*70)
 print(f"{'Metric':<20} {'Baseline':>12} {'Final':>12} {'Change':>12}")
 print("-"*56)
 print(f"{'Features':<20} {len(feature_cols):>12} {len(final_features):>12} {len(final_features) - len(feature_cols):>+12}")
 print(f"{'Val AUPRC':<20} {baseline_metrics['val']['auprc']:>12.4f} {final_metrics['val']['auprc']:>12.4f} {final_metrics['val']['auprc'] - baseline_metrics['val']['auprc']:>+12.4f}")
+print(f"{'Test AUPRC':<20} {'--':>12} {final_metrics['test']['auprc']:>12.4f}")
 print(f"{'Train-Val Gap':<20} {baseline_metrics['train_val_gap']:>12.4f} {final_metrics['train']['auprc'] - final_metrics['val']['auprc']:>12.4f}")
-print(f"\n{'Test AUPRC (held out)':<20} {final_metrics['test']['auprc']:>12.4f}")
 
 # COMMAND ----------
 
