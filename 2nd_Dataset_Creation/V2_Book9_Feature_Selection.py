@@ -1570,7 +1570,11 @@ while stop_reason is None:
     # 3. Never leave a cluster with fewer than MIN_PER_CLUSTER representatives
 
     MIN_PER_CLUSTER = 1  # Minimum features to keep per cluster
-    ZERO_SHAP_THRESHOLD = 0.002  # Consider SHAP near-zero below this
+    LOW_SHAP_PERCENTILE = 0.15  # Consider bottom 15% as low-signal candidates
+
+    # Dynamic threshold: bottom 15th percentile of SHAP values
+    SHAP_THRESHOLD = iter_importance_df['SHAP_Combined'].quantile(LOW_SHAP_PERCENTILE)
+    print(f"  Dynamic SHAP threshold (p{int(LOW_SHAP_PERCENTILE*100)}): {SHAP_THRESHOLD:.6f}")
 
     # Get cluster assignments for current features
     current_selection = selection_df[selection_df['Feature'].isin(current_features)].copy()
@@ -1613,7 +1617,7 @@ while stop_reason is None:
 
         # Only remove if SHAP contribution is essentially zero
         # (near-zero importance AND not strongly positive-biased)
-        if shap_combined < ZERO_SHAP_THRESHOLD:
+        if shap_combined < SHAP_THRESHOLD:
             features_to_remove.append(feat)
             cluster_counts[cluster] -= 1  # Update count for next iteration
 
@@ -1621,16 +1625,16 @@ while stop_reason is None:
                 break
 
     # Summary statistics
-    n_zero_shap = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < ZERO_SHAP_THRESHOLD])
+    n_below_threshold = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < SHAP_THRESHOLD])
     n_clusters = len(cluster_counts)
     n_at_minimum = sum(1 for c in cluster_counts.values() if c <= MIN_PER_CLUSTER)
 
     print(f"  Total features: {len(current_features)}")
     print(f"  Clusters represented: {n_clusters}")
     print(f"  Clusters at minimum ({MIN_PER_CLUSTER}): {n_at_minimum}")
-    print(f"  Features with near-zero SHAP: {n_zero_shap}")
+    print(f"  Features below threshold: {n_below_threshold}")
     print(f"  Protected (clinical): {len(clinical_protected)}")
-    print(f"  Candidates for removal: {len(features_to_remove)}")
+    print(f"  Removable (after cluster protection): {len(features_to_remove)}")
 
     # =========================================================================
     # Step 2.4: Validation Gate
