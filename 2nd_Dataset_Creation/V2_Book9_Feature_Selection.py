@@ -1689,11 +1689,21 @@ while stop_reason is None:
     # -------------------------------------------------------------------------
     # Analyze flagged features by cluster with removal caps
     # -------------------------------------------------------------------------
+    # IMPORTANT: Use ORIGINAL cluster sizes from Phase 1 (stored in selection_df)
+    # not current sizes. This matches the original methodology which reads from
+    # the cluster CSV file each iteration.
+    # -------------------------------------------------------------------------
+
+    # Get original cluster sizes from selection_df (created in Phase 1)
+    original_cluster_sizes = selection_df.groupby('Cluster')['Cluster_Size'].first().to_dict()
+
     cluster_removal_candidates = {}
 
     for cluster_id in iter_importance_with_cluster['Cluster'].dropna().unique():
         cluster_features = iter_importance_with_cluster[iter_importance_with_cluster['Cluster'] == cluster_id]
-        cluster_size = len(cluster_features)
+
+        # Use ORIGINAL cluster size, not current size
+        cluster_size = original_cluster_sizes.get(cluster_id, len(cluster_features))
 
         # Find flagged features in this cluster
         flagged_in_cluster = list(set(cluster_features['Feature'].tolist()) & features_flagged)
@@ -1715,7 +1725,8 @@ while stop_reason is None:
         flagged_with_scores.sort(key=lambda x: (not x[3], x[1]))
 
         cluster_removal_candidates[cluster_id] = {
-            'size': cluster_size,
+            'size': cluster_size,  # Original size from Phase 1
+            'current_size': len(cluster_features),  # Current size for logging
             'flagged': flagged_with_scores,
             'max_shap': cluster_features['SHAP_Combined'].max()
         }
