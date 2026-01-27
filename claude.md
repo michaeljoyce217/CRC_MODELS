@@ -335,9 +335,9 @@ early_stopping_rounds = 150
 
 **Removal Criteria**:
 ```python
-ZERO_SHAP_THRESHOLD = 0.0002
-NEG_BIAS_RATIO_THRESHOLD = 0.15
-BOTTOM_PERCENTILE = 8
+ZERO_SHAP_THRESHOLD = 0.0005     # Raised from 0.0002 to continue winnowing past 65 features
+NEG_BIAS_RATIO_THRESHOLD = 0.25  # Raised from 0.15
+BOTTOM_PERCENTILE = 12           # Raised from 8
 MAX_REMOVALS_PER_ITERATION = 30
 MIN_FEATURES_THRESHOLD = 25
 ```
