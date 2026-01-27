@@ -1560,28 +1560,77 @@ while stop_reason is None:
         })
 
     # =========================================================================
-    # Step 2.3: Identify Removal Candidates
+    # Step 2.3: Identify Removal Candidates (Surgical Approach)
     # =========================================================================
     print_progress(f"Step 2.{iteration}.3: Identifying removal candidates...")
 
-    # Simple approach: remove bottom N features by SHAP importance each iteration
-    # Sort by SHAP_Combined (lowest first)
-    sorted_features = iter_importance_df.sort_values('SHAP_Combined')
+    # SURGICAL APPROACH for rare event prediction:
+    # 1. Preserve cluster diversity - each cluster represents a different signal type
+    # 2. Only remove features with near-zero contribution to POSITIVE class prediction
+    # 3. Never leave a cluster with fewer than MIN_PER_CLUSTER representatives
 
-    # Protect clinical must-keep features
+    MIN_PER_CLUSTER = 1  # Minimum features to keep per cluster
+    ZERO_SHAP_THRESHOLD = 0.0001  # Consider SHAP essentially zero below this
+
+    # Get cluster assignments for current features
+    current_selection = selection_df[selection_df['Feature'].isin(current_features)].copy()
+
+    # Count current features per cluster
+    cluster_counts = current_selection.groupby('Cluster').size().to_dict()
+
+    # Merge SHAP importance with cluster info
+    iter_importance_with_cluster = iter_importance_df.merge(
+        current_selection[['Feature', 'Cluster']],
+        on='Feature',
+        how='left'
+    )
+
+    # Clinical must-keep features are always protected
     clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in current_features)
 
-    # Remove bottom features (up to MAX_REMOVALS_PER_ITERATION), skipping protected
+    # Identify removal candidates:
+    # - Must have near-zero SHAP contribution to positive class
+    # - Must not be clinical protected
+    # - Must not leave cluster below MIN_PER_CLUSTER
     features_to_remove = []
-    for _, row in sorted_features.iterrows():
-        if len(features_to_remove) >= MAX_REMOVALS_PER_ITERATION:
-            break
-        if row['Feature'] not in clinical_protected:
-            features_to_remove.append(row['Feature'])
+
+    # Sort by SHAP_Combined (lowest first) - remove least important first
+    sorted_importance = iter_importance_with_cluster.sort_values('SHAP_Combined')
+
+    for _, row in sorted_importance.iterrows():
+        feat = row['Feature']
+        cluster = row['Cluster']
+        shap_combined = row['SHAP_Combined']
+        shap_ratio = row['SHAP_Ratio']
+
+        # Skip if clinical protected
+        if feat in clinical_protected:
+            continue
+
+        # Skip if removing would leave cluster below minimum
+        if cluster_counts.get(cluster, 0) <= MIN_PER_CLUSTER:
+            continue
+
+        # Only remove if SHAP contribution is essentially zero
+        # (near-zero importance AND not strongly positive-biased)
+        if shap_combined < ZERO_SHAP_THRESHOLD:
+            features_to_remove.append(feat)
+            cluster_counts[cluster] -= 1  # Update count for next iteration
+
+            if len(features_to_remove) >= MAX_REMOVALS_PER_ITERATION:
+                break
+
+    # Summary statistics
+    n_zero_shap = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < ZERO_SHAP_THRESHOLD])
+    n_clusters = len(cluster_counts)
+    n_at_minimum = sum(1 for c in cluster_counts.values() if c <= MIN_PER_CLUSTER)
 
     print(f"  Total features: {len(current_features)}")
-    print(f"  Protected (clinical must-keep): {len(clinical_protected)}")
-    print(f"  Removing bottom {len(features_to_remove)} by SHAP importance")
+    print(f"  Clusters represented: {n_clusters}")
+    print(f"  Clusters at minimum ({MIN_PER_CLUSTER}): {n_at_minimum}")
+    print(f"  Features with near-zero SHAP: {n_zero_shap}")
+    print(f"  Protected (clinical): {len(clinical_protected)}")
+    print(f"  Candidates for removal: {len(features_to_remove)}")
 
     # =========================================================================
     # Step 2.4: Validation Gate
