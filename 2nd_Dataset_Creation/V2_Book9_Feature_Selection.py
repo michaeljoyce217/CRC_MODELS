@@ -1241,13 +1241,13 @@ else:
         # Sort by importance_ratio (descending) - prefer features predictive of positives
         cluster_features = cluster_features.sort_values('SHAP_Ratio', ascending=False)
 
-        # Determine how many to keep
-        if cluster_size >= 8:
-            # Large cluster: keep top 2
-            n_keep = 2
+        # Determine how many to keep (adaptive: drop at most 1-2 per cluster)
+        if cluster_size <= 2:
+            n_keep = cluster_size  # Keep all for tiny clusters
+        elif cluster_size <= 4:
+            n_keep = cluster_size - 1  # Drop at most 1
         else:
-            # Small/medium cluster: keep top 1
-            n_keep = 1
+            n_keep = cluster_size - 2  # Drop at most 2 for larger clusters
 
         # Select top feature(s)
         kept = cluster_features.head(n_keep)
@@ -1437,6 +1437,7 @@ print_stage("PHASE 2: ITERATIVE SHAP WINNOWING")
 current_features = phase1_features.copy()
 iteration = 0
 stop_reason = None
+prev_metrics = phase1_metrics.copy()  # Track previous iteration for comparison
 
 # Check for existing Phase 2 checkpoints to resume
 phase2_checkpoints = [cp for cp in list_checkpoints() if cp.startswith("step2_iter") and cp.endswith("_complete")]
@@ -1457,6 +1458,10 @@ if phase2_checkpoints and not START_FRESH:
         last_checkpoint = load_checkpoint(f"step2_iter{last_iter}_complete")
         current_features = last_checkpoint['current_features']
         iteration = last_iter
+
+        # Update prev_metrics from checkpoint for comparison
+        if 'metrics' in last_checkpoint:
+            prev_metrics = last_checkpoint['metrics'].copy()
 
         # Check if we should stop
         if last_checkpoint.get('stop_triggered', False):
@@ -1601,23 +1606,25 @@ while stop_reason is None:
     # =========================================================================
     print_progress(f"Step 2.{iteration}.4: Checking validation gates...")
 
-    # Calculate metrics relative to baseline
-    val_drop = (baseline_metrics['val']['auprc'] - iter_metrics['val']['auprc']) / baseline_metrics['val']['auprc']
-    gap_increase = iter_metrics['train_val_gap'] - baseline_metrics['train_val_gap']
+    # Calculate metrics relative to PREVIOUS iteration (not baseline!)
+    # The model starts overfitting; dropping features should IMPROVE val AUPRC
+    val_change = iter_metrics['val']['auprc'] - prev_metrics['val']['auprc']
+    val_drop_from_baseline = (baseline_metrics['val']['auprc'] - iter_metrics['val']['auprc']) / baseline_metrics['val']['auprc']
+    gap_change = iter_metrics['train_val_gap'] - prev_metrics['train_val_gap']
 
-    print(f"  Val AUPRC: {iter_metrics['val']['auprc']:.4f} (drop from baseline: {val_drop*100:.2f}%)")
-    print(f"  Train-Val Gap: {iter_metrics['train_val_gap']:.4f} (change: {gap_increase:+.4f})")
+    print(f"  Val AUPRC: {iter_metrics['val']['auprc']:.4f} (change from prev: {val_change:+.4f}, from baseline: {val_drop_from_baseline*100:+.2f}%)")
+    print(f"  Train-Val Gap: {iter_metrics['train_val_gap']:.4f} (change from prev: {gap_change:+.4f})")
     print(f"  Features remaining: {len(current_features)}")
 
-    # Check stop conditions
-    if val_drop > MAX_VAL_AUPRC_DROP:
-        stop_reason = f"Val AUPRC drop {val_drop*100:.2f}% > {MAX_VAL_AUPRC_DROP*100}% threshold"
-    elif gap_increase > MAX_GAP_INCREASE:
-        stop_reason = f"Train-Val gap increase {gap_increase:.4f} > {MAX_GAP_INCREASE} threshold"
+    # Check stop conditions - compare to PREVIOUS iteration
+    # Stop if val AUPRC drops significantly from previous (we're making it worse)
+    if val_change < -MAX_VAL_AUPRC_DROP * prev_metrics['val']['auprc']:
+        stop_reason = f"Val AUPRC dropped {-val_change:.4f} from previous iteration"
     elif len(current_features) - len(features_to_remove) < MIN_FEATURES_THRESHOLD:
         stop_reason = f"Would go below {MIN_FEATURES_THRESHOLD} features"
     elif len(features_to_remove) == 0:
         stop_reason = "No features meet removal criteria"
+    # NOTE: Removed train-val gap check - high gap early is expected and should decrease
 
     # =========================================================================
     # Step 2.5: Log & Checkpoint
@@ -1632,8 +1639,9 @@ while stop_reason is None:
         'train_auprc': iter_metrics['train']['auprc'],
         'val_auprc': iter_metrics['val']['auprc'],
         'train_val_gap': iter_metrics['train_val_gap'],
-        'val_drop_from_baseline': val_drop,
-        'gap_increase': gap_increase,
+        'val_change_from_prev': val_change,
+        'val_drop_from_baseline': val_drop_from_baseline,
+        'gap_change_from_prev': gap_change,
         'stop_triggered': stop_reason is not None,
         'stop_reason': stop_reason if stop_reason else '',
         'timestamp': datetime.now().isoformat()
@@ -1675,6 +1683,9 @@ while stop_reason is None:
             'stop_triggered': False,
             'stop_reason': None
         })
+
+        # Update previous metrics for next iteration comparison
+        prev_metrics = iter_metrics.copy()
 
         iter_elapsed = time.time() - iter_start_time
         print_progress(f"Iteration {iteration} complete in {iter_elapsed:.1f}s. Features: {len(previous_features)} → {len(current_features)}")
