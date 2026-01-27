@@ -276,12 +276,12 @@ checkpoints/
 | Aspect | Original | New |
 |--------|----------|-----|
 | **SHAP Weighting** | 2:1 | 2:1 (same; model handles imbalance via scale_pos_weight) |
-| **Clustering Threshold** | Fixed 0.7 | Dynamic via silhouette score |
+| **Clustering Threshold** | Fixed 0.7 | Fixed 0.75 (targets ~50-60 clusters; silhouette optimization created too many small clusters) |
 | **Cluster Representative Selection** | Keep 1 per cluster | ADAPTIVE: drop at most 1-2 per cluster (preserves diversity) |
-| **Phase 2 Removal Logic** | Complex multi-criteria (2+ of 3) | SURGICAL: dynamic threshold + cluster protection |
-| **SHAP Threshold** | Fixed 0.0002 | Dynamic 15th percentile (adapts to data) |
-| **Stop Criterion** | Automated gates | Run full sweep, analyze post-hoc for sweet spot |
-| **Cluster Protection** | Implicit | Explicit: MIN_PER_CLUSTER = 1 (never lose signal type) |
+| **Phase 2 Removal Logic** | Complex multi-criteria (2+ of 3) | TWO-TIER: 15th percentile for standard, 5th percentile for last-in-cluster |
+| **SHAP Threshold** | Fixed 0.0002 | Dynamic two-tier: p15 standard, p5 for cluster elimination |
+| **Stop Criterion** | Automated gates | Run full sweep to MIN_FEATURES (25), analyze post-hoc for sweet spot |
+| **Cluster Protection** | Implicit | Two-tier: clusters can be eliminated, but only if last feature is truly useless (p5) |
 | **Resumability** | None (start over) | Granular checkpoints after each step |
 
 ### Critical Lessons Learned

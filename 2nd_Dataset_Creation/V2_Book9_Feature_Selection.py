@@ -40,7 +40,7 @@ AUTO_RESUME = True
 
 # Phase 2 iteration limits
 MAX_REMOVALS_PER_ITERATION = 25  # Cap at 20-25 features removed per iteration
-MIN_FEATURES_THRESHOLD = 30      # Never go below this many features
+MIN_FEATURES_THRESHOLD = 25      # Never go below this many features
 
 # Validation gate thresholds
 MAX_VAL_AUPRC_DROP = 0.05        # Stop if validation AUPRC drops > 5% from baseline
@@ -49,7 +49,13 @@ MAX_GAP_INCREASE = 0.02          # Stop if train-val gap increases > 0.02
 # Phase 1 validation gate (more lenient since we're removing redundancy)
 PHASE1_MAX_VAL_DROP = 0.10       # Allow up to 10% drop in Phase 1
 
-# Clustering threshold search range
+# Clustering threshold - FIXED at 0.75 to target ~50-60 clusters
+# Silhouette optimization was picking thresholds that created too many small clusters
+# (e.g., 87 clusters for 172 features), leaving no room for Phase 2 winnowing.
+# A threshold of 0.75 means features must correlate >= 0.75 to cluster together.
+FIXED_CLUSTERING_THRESHOLD = 0.75
+
+# Threshold search range (still used for visualization, but not for selection)
 THRESHOLD_MIN = 0.50
 THRESHOLD_MAX = 0.90
 THRESHOLD_STEP = 0.05
@@ -972,26 +978,23 @@ else:
 
     threshold_df = pd.DataFrame(threshold_results)
 
-    # Select best threshold:
-    # - Silhouette score > 0
-    # - Not too many singletons (< 80%)
-    # - Reasonable cluster count (not all singletons, not one giant cluster)
+    # USE FIXED THRESHOLD instead of silhouette optimization
+    # Silhouette optimization was creating too many small clusters (e.g., 87 clusters
+    # for 172 features), which blocks Phase 2 winnowing due to cluster protection.
+    # Fixed threshold of 0.75 targets ~50-60 clusters based on empirical analysis.
+    chosen_threshold = FIXED_CLUSTERING_THRESHOLD
+
+    # Show what silhouette would have chosen (for reference only)
     valid_thresholds = threshold_df[
         (threshold_df['silhouette'] > 0) &
         (threshold_df['pct_singletons'] < 80) &
         (threshold_df['n_clusters'] > 10)
     ]
-
     if len(valid_thresholds) > 0:
-        # Choose threshold with best silhouette among valid options
-        best_idx = valid_thresholds['silhouette'].idxmax()
-        chosen_threshold = valid_thresholds.loc[best_idx, 'threshold']
-    else:
-        # Fallback to 0.7 if no valid threshold found
-        print("\n⚠ No threshold met all criteria. Falling back to 0.7")
-        chosen_threshold = 0.7
+        silhouette_choice = valid_thresholds.loc[valid_thresholds['silhouette'].idxmax(), 'threshold']
+        print(f"\n  (Silhouette optimization would have chosen: {silhouette_choice})")
 
-    print(f"\n>>> CHOSEN THRESHOLD: {chosen_threshold}")
+    print(f"\n>>> USING FIXED THRESHOLD: {chosen_threshold}")
 
     # Get final cluster assignments
     cluster_labels = fcluster(linkage_matrix, t=chosen_threshold, criterion='distance')
@@ -1564,17 +1567,22 @@ while stop_reason is None:
     # =========================================================================
     print_progress(f"Step 2.{iteration}.3: Identifying removal candidates...")
 
-    # SURGICAL APPROACH for rare event prediction:
-    # 1. Preserve cluster diversity - each cluster represents a different signal type
-    # 2. Only remove features with near-zero contribution to POSITIVE class prediction
-    # 3. Never leave a cluster with fewer than MIN_PER_CLUSTER representatives
+    # SURGICAL APPROACH for rare event prediction with TWO-TIER THRESHOLDS:
+    # 1. Standard features: Remove if below 15th percentile SHAP
+    # 2. Last-in-cluster features: Remove only if below 5th percentile (stricter)
+    #    - This allows dead-end clusters to be eliminated, but gives them benefit of doubt
+    #    - If the last feature in a cluster is STILL useless, the whole signal type was noise
+    # 3. Clinical must-keep features are always protected
 
-    MIN_PER_CLUSTER = 1  # Minimum features to keep per cluster
-    LOW_SHAP_PERCENTILE = 0.15  # Consider bottom 15% as low-signal candidates
+    STANDARD_PERCENTILE = 0.15  # Bottom 15% for standard features
+    LAST_IN_CLUSTER_PERCENTILE = 0.05  # Bottom 5% for last feature in cluster (stricter)
 
-    # Dynamic threshold: bottom 15th percentile of SHAP values
-    SHAP_THRESHOLD = iter_importance_df['SHAP_Combined'].quantile(LOW_SHAP_PERCENTILE)
-    print(f"  Dynamic SHAP threshold (p{int(LOW_SHAP_PERCENTILE*100)}): {SHAP_THRESHOLD:.6f}")
+    # Dynamic thresholds based on actual SHAP distribution
+    STANDARD_THRESHOLD = iter_importance_df['SHAP_Combined'].quantile(STANDARD_PERCENTILE)
+    LAST_IN_CLUSTER_THRESHOLD = iter_importance_df['SHAP_Combined'].quantile(LAST_IN_CLUSTER_PERCENTILE)
+
+    print(f"  Standard threshold (p{int(STANDARD_PERCENTILE*100)}): {STANDARD_THRESHOLD:.6f}")
+    print(f"  Last-in-cluster threshold (p{int(LAST_IN_CLUSTER_PERCENTILE*100)}): {LAST_IN_CLUSTER_THRESHOLD:.6f}")
 
     # Get cluster assignments for current features
     current_selection = selection_df[selection_df['Feature'].isin(current_features)].copy()
@@ -1592,10 +1600,10 @@ while stop_reason is None:
     # Clinical must-keep features are always protected
     clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in current_features)
 
-    # Identify removal candidates:
-    # - Must have near-zero SHAP contribution to positive class
-    # - Must not be clinical protected
-    # - Must not leave cluster below MIN_PER_CLUSTER
+    # Identify removal candidates with TWO-TIER logic:
+    # - Standard features: Must be below 15th percentile
+    # - Last-in-cluster: Must be below 5th percentile (stricter, more protected)
+    # - Clinical features: Never removed
     features_to_remove = []
 
     # Sort by SHAP_Combined (lowest first) - remove least important first
@@ -1611,30 +1619,45 @@ while stop_reason is None:
         if feat in clinical_protected:
             continue
 
-        # Skip if removing would leave cluster below minimum
-        if cluster_counts.get(cluster, 0) <= MIN_PER_CLUSTER:
-            continue
+        # Determine which threshold to use based on cluster count
+        current_cluster_count = cluster_counts.get(cluster, 0)
 
-        # Only remove if SHAP contribution is essentially zero
-        # (near-zero importance AND not strongly positive-biased)
-        if shap_combined < SHAP_THRESHOLD:
+        if current_cluster_count == 1:
+            # This is the LAST feature in its cluster - use stricter threshold
+            # Only remove if it's truly useless (bottom 5%)
+            threshold = LAST_IN_CLUSTER_THRESHOLD
+            is_last_in_cluster = True
+        else:
+            # Standard feature - use normal threshold (bottom 15%)
+            threshold = STANDARD_THRESHOLD
+            is_last_in_cluster = False
+
+        # Only remove if below the applicable threshold
+        if shap_combined < threshold:
             features_to_remove.append(feat)
             cluster_counts[cluster] -= 1  # Update count for next iteration
+
+            if is_last_in_cluster:
+                print(f"    [CLUSTER ELIMINATED] {feat} (SHAP={shap_combined:.6f} < {threshold:.6f})")
 
             if len(features_to_remove) >= MAX_REMOVALS_PER_ITERATION:
                 break
 
     # Summary statistics
-    n_below_threshold = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < SHAP_THRESHOLD])
-    n_clusters = len(cluster_counts)
-    n_at_minimum = sum(1 for c in cluster_counts.values() if c <= MIN_PER_CLUSTER)
+    n_below_standard = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < STANDARD_THRESHOLD])
+    n_below_strict = len(iter_importance_df[iter_importance_df['SHAP_Combined'] < LAST_IN_CLUSTER_THRESHOLD])
+    n_clusters = len(set(cluster_counts.keys()))
+    n_at_one = sum(1 for c in cluster_counts.values() if c == 1)
+    n_eliminated = sum(1 for c in cluster_counts.values() if c == 0)
 
     print(f"  Total features: {len(current_features)}")
     print(f"  Clusters represented: {n_clusters}")
-    print(f"  Clusters at minimum ({MIN_PER_CLUSTER}): {n_at_minimum}")
-    print(f"  Features below threshold: {n_below_threshold}")
+    print(f"  Clusters with 1 feature (last remaining): {n_at_one}")
+    print(f"  Clusters eliminated this iteration: {n_eliminated}")
+    print(f"  Features below standard threshold (p15): {n_below_standard}")
+    print(f"  Features below strict threshold (p5): {n_below_strict}")
     print(f"  Protected (clinical): {len(clinical_protected)}")
-    print(f"  Removable (after cluster protection): {len(features_to_remove)}")
+    print(f"  Removing this iteration: {len(features_to_remove)}")
 
     # =========================================================================
     # Step 2.4: Validation Gate
