@@ -1570,7 +1570,7 @@ while stop_reason is None:
     # 3. Never leave a cluster with fewer than MIN_PER_CLUSTER representatives
 
     MIN_PER_CLUSTER = 1  # Minimum features to keep per cluster
-    ZERO_SHAP_THRESHOLD = 0.0001  # Consider SHAP essentially zero below this
+    ZERO_SHAP_THRESHOLD = 0.002  # Consider SHAP near-zero below this
 
     # Get cluster assignments for current features
     current_selection = selection_df[selection_df['Feature'].isin(current_features)].copy()
