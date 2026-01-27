@@ -38,24 +38,37 @@
 # Set to False to start fresh (will prompt to confirm clearing checkpoints)
 AUTO_RESUME = True
 
-# Phase 2 iteration limits
-MAX_REMOVALS_PER_ITERATION = 25  # Cap at 20-25 features removed per iteration
-MIN_FEATURES_THRESHOLD = 25      # Never go below this many features
+# =============================================================================
+# PHASE 2 REMOVAL CRITERIA (from original CRC_ITER1_MODEL-PREVALENCE.py)
+# =============================================================================
+# Feature must meet AT LEAST 2 of 3 criteria to be eligible for removal:
+#   1. Near-zero SHAP importance (< ZERO_SHAP_THRESHOLD)
+#   2. Negative-biased ratio (< NEG_BIAS_RATIO_THRESHOLD)
+#   3. Bottom percentile by SHAP (< BOTTOM_PERCENTILE)
+# =============================================================================
+ZERO_SHAP_THRESHOLD = 0.0002     # Near-zero importance threshold
+NEG_BIAS_RATIO_THRESHOLD = 0.15  # Negative-bias ratio threshold
+BOTTOM_PERCENTILE = 8            # Bottom percentile threshold
 
-# Validation gate thresholds
-MAX_VAL_AUPRC_DROP = 0.05        # Stop if validation AUPRC drops > 5% from baseline
-MAX_GAP_INCREASE = 0.02          # Stop if train-val gap increases > 0.02
+# Iteration limits
+MAX_REMOVALS_PER_ITERATION = 30  # Hard cap per iteration (original: 30)
+MIN_FEATURES_THRESHOLD = 25      # Target final feature count
 
-# Phase 1 validation gate (more lenient since we're removing redundancy)
+# Phase 1 validation gate
 PHASE1_MAX_VAL_DROP = 0.10       # Allow up to 10% drop in Phase 1
 
-# Clustering threshold - FIXED at 0.75 to target ~50-60 clusters
-# Silhouette optimization was picking thresholds that created too many small clusters
-# (e.g., 87 clusters for 172 features), leaving no room for Phase 2 winnowing.
-# A threshold of 0.75 means features must correlate >= 0.75 to cluster together.
-FIXED_CLUSTERING_THRESHOLD = 0.75
+# Visualization thresholds (reference lines in plots, not used for stopping)
+MAX_VAL_AUPRC_DROP = 0.05        # 5% drop reference line
+MAX_GAP_INCREASE = 0.02          # Gap increase reference line
 
-# Threshold search range (still used for visualization, but not for selection)
+# Clustering configuration
+# Use silhouette optimization, but constrain to reasonable range
+# Target: ~40-60 clusters for ~170 features (allows meaningful cluster reduction)
+MIN_CLUSTERING_THRESHOLD = 0.60  # Floor - prevents too many tiny clusters
+MAX_CLUSTERING_THRESHOLD = 0.85  # Ceiling - prevents too few giant clusters
+TARGET_CLUSTER_RANGE = (40, 70)  # Prefer thresholds giving this many clusters
+
+# Threshold search range
 THRESHOLD_MIN = 0.50
 THRESHOLD_MAX = 0.90
 THRESHOLD_STEP = 0.05
@@ -103,17 +116,23 @@ N_CV_FOLDS = 3
 CV_FEATURE_THRESHOLD = 0.67  # Keep features appearing in >= 67% of folds (2/3)
 
 print("="*70)
-print("CONFIGURATION")
+print("CONFIGURATION (Original Methodology)")
 print("="*70)
 print(f"AUTO_RESUME: {AUTO_RESUME}")
-print(f"MAX_REMOVALS_PER_ITERATION: {MAX_REMOVALS_PER_ITERATION}")
-print(f"MIN_FEATURES_THRESHOLD: {MIN_FEATURES_THRESHOLD}")
-print(f"MAX_VAL_AUPRC_DROP: {MAX_VAL_AUPRC_DROP}")
-print(f"MAX_GAP_INCREASE: {MAX_GAP_INCREASE}")
-print(f"RANDOM_SEED: {RANDOM_SEED}")
-print(f"N_CV_FOLDS: {N_CV_FOLDS}")
-print(f"CV_FEATURE_THRESHOLD: {CV_FEATURE_THRESHOLD}")
-print(f"CLINICAL_MUST_KEEP_FEATURES: {len(CLINICAL_MUST_KEEP_FEATURES)} features")
+print(f"\nRemoval Criteria (must meet 2+ of 3):")
+print(f"  ZERO_SHAP_THRESHOLD: {ZERO_SHAP_THRESHOLD}")
+print(f"  NEG_BIAS_RATIO_THRESHOLD: {NEG_BIAS_RATIO_THRESHOLD}")
+print(f"  BOTTOM_PERCENTILE: {BOTTOM_PERCENTILE}%")
+print(f"\nIteration Limits:")
+print(f"  MAX_REMOVALS_PER_ITERATION: {MAX_REMOVALS_PER_ITERATION}")
+print(f"  MIN_FEATURES_THRESHOLD: {MIN_FEATURES_THRESHOLD}")
+print(f"\nClustering:")
+print(f"  MIN_CLUSTERING_THRESHOLD: {MIN_CLUSTERING_THRESHOLD}")
+print(f"  MAX_CLUSTERING_THRESHOLD: {MAX_CLUSTERING_THRESHOLD}")
+print(f"  TARGET_CLUSTER_RANGE: {TARGET_CLUSTER_RANGE}")
+print(f"\nOther:")
+print(f"  RANDOM_SEED: {RANDOM_SEED}")
+print(f"  CLINICAL_MUST_KEEP_FEATURES: {len(CLINICAL_MUST_KEEP_FEATURES)} features")
 print("="*70)
 
 # COMMAND ----------
@@ -469,21 +488,24 @@ def train_xgboost_model(X_train, y_train, X_val, y_val, feature_cols, scale_pos_
     print_progress(f"Training XGBoost with {len(feature_cols)} features...")
     print_progress(f"Train: {len(y_train):,} obs, {int(y_train.sum()):,} events | Val: {len(y_val):,} obs, {int(y_val.sum()):,} events")
 
+    # Conservative parameters from original CRC_ITER1_MODEL-PREVALENCE.py
+    # These prevent overfitting on the highly imbalanced data
     params = {
-        'max_depth': 4,
-        'min_child_weight': 50,
-        'gamma': 1.0,
-        'subsample': 0.5,
-        'colsample_bytree': 0.5,
-        'reg_alpha': 1.0,
-        'reg_lambda': 10.0,
-        'learning_rate': 0.01,
+        'max_depth': 2,              # Very shallow trees (original: 2)
+        'min_child_weight': 50,      # Require substantial support
+        'gamma': 2.0,                # High min loss reduction (original: 2.0)
+        'subsample': 0.3,            # Low row sampling (original: 0.3)
+        'colsample_bytree': 0.3,     # Low column sampling (original: 0.3)
+        'colsample_bylevel': 0.5,    # Additional column regularization
+        'reg_alpha': 5.0,            # L1 regularization (original: 5.0)
+        'reg_lambda': 50.0,          # L2 regularization (original: 50.0)
+        'learning_rate': 0.005,      # Very slow learning (original: 0.005)
         'n_estimators': 2000,
         'scale_pos_weight': scale_pos_weight,
         'objective': 'binary:logistic',
         'eval_metric': 'aucpr',
         'random_state': RANDOM_SEED,
-        'early_stopping_rounds': 100
+        'early_stopping_rounds': 150  # More patience (original: 150)
     }
 
     start_time = time.time()
@@ -978,23 +1000,59 @@ else:
 
     threshold_df = pd.DataFrame(threshold_results)
 
-    # USE FIXED THRESHOLD instead of silhouette optimization
-    # Silhouette optimization was creating too many small clusters (e.g., 87 clusters
-    # for 172 features), which blocks Phase 2 winnowing due to cluster protection.
-    # Fixed threshold of 0.75 targets ~50-60 clusters based on empirical analysis.
-    chosen_threshold = FIXED_CLUSTERING_THRESHOLD
+    # -------------------------------------------------------------------------
+    # SMART THRESHOLD SELECTION
+    # -------------------------------------------------------------------------
+    # Priority order:
+    # 1. Thresholds within MIN/MAX range that give TARGET_CLUSTER_RANGE clusters
+    # 2. Best silhouette within those constraints
+    # 3. Fallback: threshold closest to target cluster count
+    # -------------------------------------------------------------------------
 
-    # Show what silhouette would have chosen (for reference only)
-    valid_thresholds = threshold_df[
-        (threshold_df['silhouette'] > 0) &
-        (threshold_df['pct_singletons'] < 80) &
-        (threshold_df['n_clusters'] > 10)
-    ]
-    if len(valid_thresholds) > 0:
-        silhouette_choice = valid_thresholds.loc[valid_thresholds['silhouette'].idxmax(), 'threshold']
-        print(f"\n  (Silhouette optimization would have chosen: {silhouette_choice})")
+    print(f"\n  Threshold constraints:")
+    print(f"    Min threshold: {MIN_CLUSTERING_THRESHOLD}")
+    print(f"    Max threshold: {MAX_CLUSTERING_THRESHOLD}")
+    print(f"    Target clusters: {TARGET_CLUSTER_RANGE[0]}-{TARGET_CLUSTER_RANGE[1]}")
 
-    print(f"\n>>> USING FIXED THRESHOLD: {chosen_threshold}")
+    # Filter to valid range
+    constrained = threshold_df[
+        (threshold_df['threshold'] >= MIN_CLUSTERING_THRESHOLD) &
+        (threshold_df['threshold'] <= MAX_CLUSTERING_THRESHOLD)
+    ].copy()
+
+    if len(constrained) == 0:
+        print(f"\n  ⚠ No thresholds in range [{MIN_CLUSTERING_THRESHOLD}, {MAX_CLUSTERING_THRESHOLD}]")
+        print(f"  Using middle of range as fallback")
+        chosen_threshold = (MIN_CLUSTERING_THRESHOLD + MAX_CLUSTERING_THRESHOLD) / 2
+    else:
+        # Prefer thresholds giving target cluster count
+        in_target = constrained[
+            (constrained['n_clusters'] >= TARGET_CLUSTER_RANGE[0]) &
+            (constrained['n_clusters'] <= TARGET_CLUSTER_RANGE[1])
+        ]
+
+        if len(in_target) > 0:
+            # Among those in target range, pick best silhouette (if positive)
+            positive_sil = in_target[in_target['silhouette'] > 0]
+            if len(positive_sil) > 0:
+                best_idx = positive_sil['silhouette'].idxmax()
+                chosen_threshold = positive_sil.loc[best_idx, 'threshold']
+                print(f"\n  Found {len(in_target)} thresholds in target cluster range")
+                print(f"  Best silhouette in range: {positive_sil.loc[best_idx, 'silhouette']:.3f}")
+            else:
+                # No positive silhouette, just pick middle of valid thresholds
+                chosen_threshold = in_target['threshold'].median()
+                print(f"\n  No positive silhouette scores, using median threshold")
+        else:
+            # No threshold gives target clusters - pick closest to target range
+            target_mid = (TARGET_CLUSTER_RANGE[0] + TARGET_CLUSTER_RANGE[1]) / 2
+            constrained['dist_to_target'] = abs(constrained['n_clusters'] - target_mid)
+            best_idx = constrained['dist_to_target'].idxmin()
+            chosen_threshold = constrained.loc[best_idx, 'threshold']
+            print(f"\n  No threshold in target cluster range")
+            print(f"  Closest to target ({target_mid:.0f} clusters): threshold {chosen_threshold}")
+
+    print(f"\n>>> CHOSEN THRESHOLD: {chosen_threshold}")
 
     # Get final cluster assignments
     cluster_labels = fcluster(linkage_matrix, t=chosen_threshold, criterion='distance')
@@ -1563,33 +1621,27 @@ while stop_reason is None:
         })
 
     # =========================================================================
-    # Step 2.3: Identify Removal Candidates (RANK-BASED, not threshold-based)
+    # Step 2.3: Identify Removal Candidates (ORIGINAL METHODOLOGY)
     # =========================================================================
-    print_progress(f"Step 2.{iteration}.3: Identifying removal candidates...")
-
-    # RANK-BASED REMOVAL - guaranteed to work even when SHAP values cluster at 0
+    # From CRC_ITER1_MODEL-PREVALENCE.py:
+    # Feature must meet AT LEAST 2 of 3 criteria:
+    #   1. Near-zero SHAP importance (< ZERO_SHAP_THRESHOLD)
+    #   2. Negative-biased ratio (< NEG_BIAS_RATIO_THRESHOLD)
+    #   3. Bottom percentile by SHAP (< BOTTOM_PERCENTILE)
     #
-    # Previous approach used percentile THRESHOLDS (e.g., remove if SHAP < p15).
-    # Problem: When many features have SHAP=0, the p15 threshold IS 0, and
-    # nothing is < 0, so nothing gets removed. Pipeline stalls.
-    #
-    # New approach: Remove bottom N features by RANK each iteration.
-    # - Standard features (cluster count > 1): eligible for removal
-    # - Last-in-cluster features: only removed if in bottom 5% by RANK
-    # - Clinical must-keep: never removed
-    # - Cap at MAX_REMOVALS_PER_ITERATION
-    #
-    # This GUARANTEES progress until we hit MIN_FEATURES_THRESHOLD.
+    # Cluster-specific removal caps:
+    #   - Singleton (1): max 1 removal
+    #   - Small (2-3): max 2 removals, leave at least 1
+    #   - Medium (4-7): max 2 removals, leave at least 3
+    #   - Large (8+): max 3 removals, leave at least 5
+    #   - High-importance clusters (top 20%): max 1 removal
+    # =========================================================================
+    print_progress(f"Step 2.{iteration}.3: Identifying removal candidates (original methodology)...")
 
     n_features = len(current_features)
-    STANDARD_REMOVAL_RATE = 0.15  # Remove up to bottom 15% of standard features
-    LAST_IN_CLUSTER_RANK_CUTOFF = 0.05  # Last-in-cluster only if in bottom 5% by rank
 
     # Get cluster assignments for current features
     current_selection = selection_df[selection_df['Feature'].isin(current_features)].copy()
-
-    # Count current features per cluster
-    cluster_counts = current_selection.groupby('Cluster').size().to_dict()
 
     # Merge SHAP importance with cluster info
     iter_importance_with_cluster = iter_importance_df.merge(
@@ -1601,62 +1653,121 @@ while stop_reason is None:
     # Clinical must-keep features are always protected
     clinical_protected = set(f for f in CLINICAL_MUST_KEEP_FEATURES if f in current_features)
 
-    # Sort by SHAP_Combined (lowest first) and assign ranks
-    sorted_importance = iter_importance_with_cluster.sort_values('SHAP_Combined').reset_index(drop=True)
-    sorted_importance['rank'] = range(len(sorted_importance))
-    sorted_importance['rank_pct'] = sorted_importance['rank'] / len(sorted_importance)
+    # -------------------------------------------------------------------------
+    # Calculate features meeting each criterion
+    # -------------------------------------------------------------------------
+    zero_importance_features = set(
+        iter_importance_df[iter_importance_df['SHAP_Combined'] < ZERO_SHAP_THRESHOLD]['Feature']
+    )
+    neg_biased_features = set(
+        iter_importance_df[iter_importance_df['SHAP_Ratio'] < NEG_BIAS_RATIO_THRESHOLD]['Feature']
+    )
+    importance_percentile = iter_importance_df['SHAP_Combined'].quantile(BOTTOM_PERCENTILE / 100)
+    bottom_features = set(
+        iter_importance_df[iter_importance_df['SHAP_Combined'] < importance_percentile]['Feature']
+    )
 
-    # Calculate how many standard features we could remove (15% of current)
-    max_standard_removals = int(n_features * STANDARD_REMOVAL_RATE)
-    # But cap at MAX_REMOVALS_PER_ITERATION
-    target_removals = min(max_standard_removals, MAX_REMOVALS_PER_ITERATION)
+    # Feature must meet AT LEAST 2 of 3 criteria
+    features_meeting_two_criteria = (
+        (zero_importance_features & neg_biased_features) |
+        (zero_importance_features & bottom_features) |
+        (neg_biased_features & bottom_features)
+    )
+    features_meeting_all = zero_importance_features & neg_biased_features & bottom_features
 
-    print(f"  Target removals this iteration: {target_removals} (15% of {n_features} = {max_standard_removals}, capped at {MAX_REMOVALS_PER_ITERATION})")
+    # Remove clinical protected from candidates
+    features_flagged = features_meeting_two_criteria - clinical_protected
 
-    features_to_remove = []
-    clusters_eliminated = []
+    print(f"  Removal criteria:")
+    print(f"    Near-zero SHAP (<{ZERO_SHAP_THRESHOLD}): {len(zero_importance_features)}")
+    print(f"    Negative-biased (<{NEG_BIAS_RATIO_THRESHOLD}): {len(neg_biased_features)}")
+    print(f"    Bottom {BOTTOM_PERCENTILE}% (threshold={importance_percentile:.6f}): {len(bottom_features)}")
+    print(f"    Meeting ALL 3 criteria: {len(features_meeting_all)}")
+    print(f"    Meeting 2+ criteria: {len(features_meeting_two_criteria)}")
+    print(f"    Flagged (excl. clinical): {len(features_flagged)}")
 
-    for _, row in sorted_importance.iterrows():
-        feat = row['Feature']
-        cluster = row['Cluster']
-        shap_combined = row['SHAP_Combined']
-        rank_pct = row['rank_pct']
+    # -------------------------------------------------------------------------
+    # Analyze flagged features by cluster with removal caps
+    # -------------------------------------------------------------------------
+    cluster_removal_candidates = {}
 
-        # Skip if clinical protected
-        if feat in clinical_protected:
+    for cluster_id in iter_importance_with_cluster['Cluster'].dropna().unique():
+        cluster_features = iter_importance_with_cluster[iter_importance_with_cluster['Cluster'] == cluster_id]
+        cluster_size = len(cluster_features)
+
+        # Find flagged features in this cluster
+        flagged_in_cluster = list(set(cluster_features['Feature'].tolist()) & features_flagged)
+
+        if not flagged_in_cluster:
             continue
 
-        # Check cluster count
-        current_cluster_count = cluster_counts.get(cluster, 0)
+        # Get SHAP scores for flagged features
+        flagged_with_scores = []
+        for feat in flagged_in_cluster:
+            feat_row = iter_importance_df[iter_importance_df['Feature'] == feat]
+            if len(feat_row) > 0:
+                shap_val = feat_row['SHAP_Combined'].values[0]
+                ratio_val = feat_row['SHAP_Ratio'].values[0]
+                meets_all = feat in features_meeting_all
+                flagged_with_scores.append((feat, shap_val, ratio_val, meets_all))
 
-        if current_cluster_count == 1:
-            # LAST feature in cluster - only remove if in bottom 5% by rank
-            if rank_pct <= LAST_IN_CLUSTER_RANK_CUTOFF:
-                features_to_remove.append(feat)
-                cluster_counts[cluster] -= 1
-                clusters_eliminated.append(cluster)
-                print(f"    [CLUSTER ELIMINATED] {feat} (rank {row['rank']+1}/{n_features}, SHAP={shap_combined:.6f})")
-            # else: skip - protected as last-in-cluster
+        # Sort by: (1) meets all criteria first, then (2) SHAP score ascending
+        flagged_with_scores.sort(key=lambda x: (not x[3], x[1]))
+
+        cluster_removal_candidates[cluster_id] = {
+            'size': cluster_size,
+            'flagged': flagged_with_scores,
+            'max_shap': cluster_features['SHAP_Combined'].max()
+        }
+
+    # -------------------------------------------------------------------------
+    # Apply cluster removal rules (from original methodology)
+    # -------------------------------------------------------------------------
+    removals_by_priority = []
+    shap_80th = iter_importance_df['SHAP_Combined'].quantile(0.80)
+
+    for cluster_id, cluster_info in cluster_removal_candidates.items():
+        cluster_size = cluster_info['size']
+        flagged_list = cluster_info['flagged']
+        max_shap = cluster_info['max_shap']
+
+        # Cluster-specific removal caps
+        if cluster_size == 1:
+            max_remove = 1  # Singleton - can remove if flagged
+        elif cluster_size <= 3:
+            max_remove = min(2, cluster_size - 1)  # Small - max 2, leave at least 1
+        elif cluster_size <= 7:
+            max_remove = min(2, cluster_size - 3) if cluster_size > 3 else 0  # Medium
         else:
-            # Standard feature - eligible for removal
-            features_to_remove.append(feat)
-            cluster_counts[cluster] -= 1
+            max_remove = min(3, cluster_size - 5) if cluster_size > 5 else 0  # Large
 
-        # Stop when we hit target
-        if len(features_to_remove) >= target_removals:
-            break
+        # Additional protection for high-importance clusters
+        if max_shap > shap_80th:
+            max_remove = min(max_remove, 1)
+
+        # Select worst features up to limit
+        for i, (feat, shap_val, ratio_val, meets_all) in enumerate(flagged_list[:max_remove]):
+            priority_score = shap_val * 1000 + (0 if meets_all else 1)
+            removals_by_priority.append((feat, shap_val, ratio_val, cluster_id, cluster_size, priority_score))
+
+    # Sort by priority score and apply global limit
+    removals_by_priority.sort(key=lambda x: x[5])
+    final_removals = removals_by_priority[:MAX_REMOVALS_PER_ITERATION]
+
+    features_to_remove = [feat for feat, _, _, _, _, _ in final_removals]
 
     # Summary statistics
-    n_clusters = len(set(cluster_counts.keys()))
-    n_at_one = sum(1 for c in cluster_counts.values() if c == 1)
-    n_eliminated = len(clusters_eliminated)
+    print(f"\n  Cluster-aware removal:")
+    print(f"    Total flagged across clusters: {len(removals_by_priority)}")
+    print(f"    After global cap ({MAX_REMOVALS_PER_ITERATION}): {len(features_to_remove)}")
+    print(f"    Clinical protected: {len(clinical_protected)}")
 
-    print(f"  Total features: {len(current_features)}")
-    print(f"  Clusters represented: {n_clusters}")
-    print(f"  Clusters with 1 feature (last remaining): {n_at_one}")
-    print(f"  Clusters eliminated this iteration: {n_eliminated}")
-    print(f"  Protected (clinical): {len(clinical_protected)}")
-    print(f"  Removing this iteration: {len(features_to_remove)}")
+    if features_to_remove:
+        print(f"\n  Features to remove ({len(features_to_remove)}):")
+        for feat, shap_val, ratio_val, cluster_id, cluster_size, _ in final_removals[:10]:
+            print(f"    - {feat:<45} SHAP={shap_val:.6f}, Ratio={ratio_val:.3f}, Cluster {cluster_id} (size={cluster_size})")
+        if len(final_removals) > 10:
+            print(f"    ... and {len(final_removals) - 10} more")
 
     # =========================================================================
     # Step 2.4: Validation Gate
