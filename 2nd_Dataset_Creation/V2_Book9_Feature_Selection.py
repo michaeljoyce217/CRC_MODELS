@@ -46,9 +46,9 @@ AUTO_RESUME = True
 #   2. Negative-biased ratio (< NEG_BIAS_RATIO_THRESHOLD)
 #   3. Bottom percentile by SHAP (< BOTTOM_PERCENTILE)
 # =============================================================================
-ZERO_SHAP_THRESHOLD = 0.0002     # Near-zero importance threshold
-NEG_BIAS_RATIO_THRESHOLD = 0.15  # Negative-bias ratio threshold
-BOTTOM_PERCENTILE = 8            # Bottom percentile threshold
+ZERO_SHAP_THRESHOLD = 0.0005     # Near-zero importance threshold (raised from 0.0002)
+NEG_BIAS_RATIO_THRESHOLD = 0.25  # Negative-bias ratio threshold (raised from 0.15)
+BOTTOM_PERCENTILE = 12           # Bottom percentile threshold (raised from 8)
 
 # Iteration limits
 MAX_REMOVALS_PER_ITERATION = 30  # Hard cap per iteration (original: 30)
