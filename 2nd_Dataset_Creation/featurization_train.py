@@ -1,23 +1,35 @@
-# Databricks notebook source
-# MAGIC %md
-# MAGIC # Featurization: CRC Risk Prediction (40 Features)
-# MAGIC
-# MAGIC Builds the full cohort from scratch and engineers 40 selected features from Clarity source tables.
-# MAGIC These features were selected by iterative SHAP winnowing (Book 9, iteration 16, test AUPRC=0.1146).
-# MAGIC
-# MAGIC **Output**: `{trgt_cat}.clncl_ds.fudge_sicle_train`
-# MAGIC
-# MAGIC **Structure**:
-# MAGIC - Cells 1-9: Cohort creation (patients, grid, demographics, PCP, exclusions, screening, labels, splits)
-# MAGIC - Cells 10-14: Feature engineering (vitals, ICD10, labs, visits, procedures)
-# MAGIC - Cells 15-17: Final join, save, validation
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Cell 1: Configuration & Imports
-
-# COMMAND ----------
+# ===========================================================================
+# featurization_train.py
+#
+# CRC Risk Prediction: Featurization & Training Dataset Pipeline
+#
+# Builds the full cohort from scratch and engineers 40 selected features
+# from Clarity source tables. These features were selected by iterative
+# SHAP winnowing (Book 9, iteration 16, test AUPRC=0.1146).
+#
+# Output: {trgt_cat}.clncl_ds.fudge_sicle_train
+#
+# Pipeline stages:
+#   1. Configuration & imports
+#   2. Base patient identification (outpatient + inpatient encounters)
+#   3. Monthly observation grid (one row per patient-month)
+#   4. Demographics (age, gender, marital status, system tenure)
+#   5. PCP status (active primary care provider at observation date)
+#   6. Medical exclusions (prior CRC, colectomy, hospice)
+#   7. Screening exclusions (VBC registry + internal procedure records)
+#   8. Label construction (CRC within 6mo, three-tier negative quality)
+#   9. Train/val/test split (70/15/15, stratified by cancer type)
+#  10. Vitals features (8 features)
+#  11. ICD-10 diagnosis features (7 features)
+#  12. Lab features (11 features)
+#  13. Visit history features (9 features)
+#  14. Procedure features (2 features)
+#  15. Final join (all features combined, nulls filled)
+#  16. Save output table
+#  17. Validation & summary
+#
+# Requires: PySpark (Databricks), scikit-learn, numpy, pandas
+# ===========================================================================
 
 import os
 import datetime
@@ -28,39 +40,40 @@ from dateutil.relativedelta import relativedelta
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
-# ---------------------------------------------------------------------------
-# Catalog / Schema
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 1. CONFIGURATION
+# ===========================================================================
+
+# Catalog / schema -- trgt_cat controls dev vs prod separation.
+# Source data reads resolve via USE CATALOG; our own outputs use {trgt_cat}.
 trgt_cat = os.environ.get('trgt_cat', 'dev')
 spark.sql(f'USE CATALOG {trgt_cat}')
 print(f"Catalog: {trgt_cat}")
 
-# ---------------------------------------------------------------------------
-# Date Parameters
-# ---------------------------------------------------------------------------
+# Date parameters
 data_collection_date = datetime.datetime(2025, 9, 30)
-label_months = 6                   # Predict CRC within 6 months
+label_months = 6                   # Prediction window: CRC within 6 months
 min_followup_months = 12           # Minimum follow-up to confirm negatives
 total_exclusion_months = max(label_months, min_followup_months)
 
+# Cohort window: starts Jan 2023, ends 12 months before data collection
+# to allow full follow-up for label confirmation
 index_start = '2023-01-01'
 index_end = (data_collection_date - relativedelta(months=total_exclusion_months)).strftime('%Y-%m-%d')
 
 print(f"Cohort window: {index_start} to {index_end}")
 
-# ---------------------------------------------------------------------------
-# ICD Code Pattern for CRC
-# ---------------------------------------------------------------------------
-crc_icd_regex = r'^(C(?:18|19|20))'  # C18 colon, C19 rectosigmoid, C20 rectum
+# ICD-10 code pattern for colorectal cancer
+# C18 = colon, C19 = rectosigmoid junction, C20 = rectum
+crc_icd_regex = r'^(C(?:18|19|20))'
 
-# ---------------------------------------------------------------------------
-# Output Table
-# ---------------------------------------------------------------------------
+# Output Delta table
 OUTPUT_TABLE = f"{trgt_cat}.clncl_ds.fudge_sicle_train"
 
-# ---------------------------------------------------------------------------
-# 40 Selected Features
-# ---------------------------------------------------------------------------
+# The 40 features selected by iterative SHAP winnowing in Book 9.
+# These survived 17 iterations of multi-criteria removal from an
+# initial set of ~172 features. See feature_pipeline_by_book.md
+# for the full provenance of each feature.
 SELECTED_FEATURES = [
     "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
     "lab_PLATELETS_ACCELERATING_RISE",
@@ -106,15 +119,16 @@ SELECTED_FEATURES = [
 
 print(f"Selected features: {len(SELECTED_FEATURES)}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 2: Base Patient Identification
-# MAGIC
-# MAGIC **What This Cell Does**: Identifies all patients with completed encounters in our health system
-# MAGIC during the cohort window. Sources both outpatient and inpatient encounters.
-
-# COMMAND ----------
+# ===========================================================================
+# 2. BASE PATIENT IDENTIFICATION
+#
+# Find all patients with at least one completed encounter (outpatient or
+# inpatient) in our integrated health system during the cohort window.
+# Outpatient: appointment status Completed (2) or Arrived (6).
+# Inpatient: not pre-admit, not canceled, has charges, not a combined account.
+# Both: department must be in our integrated system (RPT_GRP_SIX 116001/116002).
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW base_patients AS
@@ -149,15 +163,15 @@ WHERE DATE(pe.HOSP_ADMSN_TIME) >= '{index_start}'
 patient_count = spark.sql("SELECT COUNT(*) AS n FROM base_patients").collect()[0]['n']
 print(f"Base patients identified: {patient_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 3: Monthly Observation Grid
-# MAGIC
-# MAGIC **What This Cell Does**: Creates one observation per patient per month with a deterministic
-# MAGIC random day assignment using a hash function for reproducibility.
-
-# COMMAND ----------
+# ===========================================================================
+# 3. MONTHLY OBSERVATION GRID
+#
+# Create one observation per patient per month. The observation day within
+# each month is assigned deterministically using a hash of (PAT_ID, month),
+# so the same patient always gets the same day in the same month across runs.
+# This avoids bias from always using the 1st or 15th.
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW observation_grid AS
@@ -196,15 +210,16 @@ WHERE date_add(month_start, rnd_day - 1) >= DATE('{index_start}')
 grid_count = spark.sql("SELECT COUNT(*) AS n FROM observation_grid").collect()[0]['n']
 print(f"Observation grid rows: {grid_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 4: Demographics
-# MAGIC
-# MAGIC **What This Cell Does**: Joins patient demographics, computes age, applies age/quality filters,
-# MAGIC and requires 24 months of observability.
-
-# COMMAND ----------
+# ===========================================================================
+# 4. DEMOGRAPHICS
+#
+# Join patient demographics, compute age at observation date, and apply:
+#   - Age filter: 45-100 (matches USPSTF CRC screening guidelines)
+#   - System tenure: >= 24 months of encounters in Mercy's EHR
+#   - Data quality: plausible age, first-seen before observation date,
+#     tenure not longer than lifetime
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW cohort_demographics AS
@@ -229,6 +244,8 @@ SELECT
   CASE WHEN p.MARITAL_STATUS IN ('Married', 'Significant other') THEN 1 ELSE 0 END AS IS_MARRIED_PARTNER,
   CAST(months_between(idx.END_DTTM, fs.first_seen_dt) AS INT) AS OBS_MONTHS_PRIOR,
   fs.first_seen_dt,
+  -- Data quality flag: catches impossible records (age out of range,
+  -- first-seen after observation, tenure exceeding lifetime)
   CASE
     WHEN FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) > 100 THEN 0
     WHEN FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) < 0 THEN 0
@@ -256,15 +273,18 @@ WHERE FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) >= 45
 demo_count = spark.sql("SELECT COUNT(*) AS n FROM cohort_demographics").collect()[0]['n']
 print(f"After demographics + quality filters: {demo_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 5: PCP Status
-# MAGIC
-# MAGIC **What This Cell Does**: Determines if each patient has an active PCP in our integrated
-# MAGIC health system at their observation date.
-
-# COMMAND ----------
+# ===========================================================================
+# 5. PCP STATUS
+#
+# Determine if each patient has an active Primary Care Provider within
+# Mercy's integrated system at their observation date. Checked by joining
+# against pat_pcp with effective/termination date ranges, restricted to
+# providers flagged as Integrated or Integrated-Regional.
+#
+# PCP status is both a model feature and a label quality indicator
+# (used in the three-tier negative label system).
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW cohort_with_pcp AS
@@ -288,15 +308,20 @@ LEFT JOIN (
 pcp_count = spark.sql("SELECT SUM(HAS_PCP_AT_END) AS n FROM cohort_with_pcp").collect()[0]['n']
 print(f"Patients with PCP: {pcp_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 6: Medical Exclusions
-# MAGIC
-# MAGIC **What This Cell Does**: Excludes patient-observations with prior CRC diagnosis,
-# MAGIC colectomy, colostomy, or hospice care.
-
-# COMMAND ----------
+# ===========================================================================
+# 6. MEDICAL EXCLUSIONS
+#
+# Remove patient-observations where the patient has already been diagnosed
+# with or treated for CRC before the observation date. These patients are
+# not screening candidates.
+#
+# Excluded conditions:
+#   - Prior CRC diagnosis (C18, C19, C20)
+#   - Prior colectomy (Z90.49)
+#   - Colostomy complications (K91.850) -- implies prior surgical intervention
+#   - Hospice/palliative care (Z51.5x) -- screening inappropriate
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW medical_exclusions AS
@@ -316,7 +341,7 @@ WHERE dd.ICD10_CODE RLIKE '{crc_icd_regex}'
 excl_count = spark.sql("SELECT COUNT(*) AS n FROM medical_exclusions").collect()[0]['n']
 print(f"Medical exclusion rows: {excl_count:,}")
 
-# Apply exclusions
+# Apply exclusions via anti-join
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW cohort_no_exclusions AS
 
@@ -329,17 +354,29 @@ LEFT ANTI JOIN medical_exclusions e
 after_excl = spark.sql("SELECT COUNT(*) AS n FROM cohort_no_exclusions").collect()[0]['n']
 print(f"After medical exclusions: {after_excl:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 7: Screening Exclusions (Dual)
-# MAGIC
-# MAGIC **What This Cell Does**: Excludes patients who are up-to-date on CRC screening via
-# MAGIC both internal procedure tracking and VBC screening registry.
+# ===========================================================================
+# 7. SCREENING EXCLUSIONS (DUAL SOURCE)
+#
+# The model targets UNSCREENED patients. We use two independent data sources:
+#
+# Source 1 (VBC registry): Administrative table with current screening status.
+#   Not timestamped, so this is a patient-level exclusion -- if the VBC table
+#   says a patient is currently screened, ALL observations are excluded.
+#   This is intentionally over-broad (see cohort_creation_explained.md).
+#
+# Source 2 (Internal procedures): ORDER_PROC_ENH from July 2021 onward.
+#   Each screening type checked against its own validity window:
+#     - Colonoscopy: 10 years
+#     - CT Colonography: 5 years
+#     - Flexible Sigmoidoscopy: 5 years
+#     - FIT-DNA (Cologuard): 3 years
+#     - FOBT/FIT: 1 year
+#
+# A patient-observation is excluded if EITHER source indicates screening.
+# ===========================================================================
 
-# COMMAND ----------
-
-# Internal screening detection
+# Internal screening detection -- per-modality validity check
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW internal_screening AS
 
@@ -399,6 +436,7 @@ WHERE op.RPT_GRP_SIX IN ('116001', '116002')
     OR LOWER(op.PROC_NAME) LIKE '%fecal occult%'
   )
 GROUP BY c.PAT_ID, c.END_DTTM
+-- Only keep if at least one modality has a valid (non-expired) screening
 HAVING MAX(
   CASE
     WHEN DATE(op.ORDERING_DATE) > DATEADD(YEAR, -10, c.END_DTTM)
@@ -423,7 +461,8 @@ HAVING MAX(
 ) = 1
 """)
 
-# Apply dual screening exclusion
+# Apply dual screening exclusion:
+# Anti-join removes internal screening matches; WHERE clause removes VBC matches
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW cohort_unscreened AS
 
@@ -432,7 +471,7 @@ FROM cohort_no_exclusions c
 -- Exclude if internal screening is current
 LEFT ANTI JOIN internal_screening ise
   ON c.PAT_ID = ise.PAT_ID AND c.END_DTTM = ise.END_DTTM
--- Exclude if VBC says screened
+-- Exclude if VBC says screened (patient-level, not point-in-time)
 WHERE c.PAT_ID NOT IN (
   SELECT PAT_ID
   FROM prod.clncl_cur.vbc_colon_cancer_screen
@@ -444,20 +483,28 @@ WHERE c.PAT_ID NOT IN (
 unscreened_count = spark.sql("SELECT COUNT(*) AS n FROM cohort_unscreened").collect()[0]['n']
 print(f"After screening exclusions: {unscreened_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 8: Label Construction
-# MAGIC
-# MAGIC **What This Cell Does**: Creates FUTURE_CRC_EVENT label (CRC diagnosis within 6 months)
-# MAGIC and LABEL_USABLE filter (three-tier negative label quality system).
-
-# COMMAND ----------
+# ===========================================================================
+# 8. LABEL CONSTRUCTION
+#
+# For each remaining patient-observation, determine:
+#   FUTURE_CRC_EVENT: Was the patient diagnosed with CRC (C18/C19/C20)
+#     within the next 6 months?
+#
+# For negatives (no CRC seen), we assign label quality via a three-tier system:
+#   Tier 1: Patient returned AFTER the 6-month window (months 7-12) -- high confidence
+#   Tier 2: Patient returned in months 4-6 AND has active PCP -- medium confidence
+#   Tier 3: No return visit BUT has active PCP -- lower confidence
+#   Excluded: No return AND no PCP -- too uncertain, dropped from training
+#
+# LABEL_USABLE = 1 means the observation is suitable for training.
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW cohort_labeled AS
 
 WITH future_crc AS (
+  -- Search for CRC diagnosis in the 6-month window after observation date
   SELECT DISTINCT
     c.PAT_ID,
     c.END_DTTM,
@@ -476,6 +523,7 @@ WITH future_crc AS (
 ),
 
 next_contact AS (
+  -- Find earliest return visit within 12 months (for tier assignment)
   SELECT
     c.PAT_ID,
     c.END_DTTM,
@@ -490,6 +538,7 @@ next_contact AS (
 ),
 
 patient_first_obs AS (
+  -- First observation date per patient (for months_since_cohort_entry)
   SELECT PAT_ID, MIN(END_DTTM) AS first_obs_date
   FROM cohort_unscreened
   GROUP BY PAT_ID
@@ -504,10 +553,10 @@ SELECT
   c.HAS_PCP_AT_END,
   c.first_seen_dt,
 
-  -- Label
+  -- Binary label: 1 = CRC diagnosed within 6 months
   CASE WHEN fc.PAT_ID IS NOT NULL THEN 1 ELSE 0 END AS FUTURE_CRC_EVENT,
 
-  -- Cancer type (for stratification)
+  -- Cancer subtype (for stratified splitting)
   CASE
     WHEN fc.ICD10_CODE RLIKE '^C18' THEN 'C18'
     WHEN fc.ICD10_CODE RLIKE '^C19' THEN 'C19'
@@ -515,17 +564,23 @@ SELECT
     ELSE NULL
   END AS ICD10_GROUP,
 
-  -- Months since cohort entry
+  -- Months since this patient's first observation in the cohort
   CAST(months_between(c.END_DTTM, pfo.first_obs_date) AS INT) AS months_since_cohort_entry,
 
-  -- Label usability (three-tier system)
+  -- Label usability: three-tier system for negative label quality
+  -- Positives are always usable. Negatives need follow-up confirmation.
   CASE
+    -- Positive: always usable
     WHEN fc.PAT_ID IS NOT NULL THEN 1
+    -- Tier 1: return visit after the 6-month window (high confidence negative)
     WHEN fc.PAT_ID IS NULL AND nc.next_visit_date > DATEADD(MONTH, {label_months}, c.END_DTTM) THEN 1
+    -- Tier 2: return in months 4-6 AND has PCP (medium confidence)
     WHEN fc.PAT_ID IS NULL AND c.HAS_PCP_AT_END = 1
      AND nc.next_visit_date > DATEADD(MONTH, 4, c.END_DTTM)
      AND nc.next_visit_date <= DATEADD(MONTH, {label_months}, c.END_DTTM) THEN 1
+    -- Tier 3: no return but has PCP (lower confidence, but PCP would be notified)
     WHEN fc.PAT_ID IS NULL AND c.HAS_PCP_AT_END = 1 AND nc.next_visit_date IS NULL THEN 1
+    -- Excluded: no return AND no PCP -- cannot confirm negative
     ELSE 0
   END AS LABEL_USABLE
 
@@ -535,7 +590,7 @@ LEFT JOIN next_contact nc ON c.PAT_ID = nc.PAT_ID AND c.END_DTTM = nc.END_DTTM
 LEFT JOIN patient_first_obs pfo ON c.PAT_ID = pfo.PAT_ID
 """)
 
-# Filter to usable labels only
+# Keep only observations with reliable labels
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW cohort_usable AS
 SELECT * FROM cohort_labeled WHERE LABEL_USABLE = 1
@@ -546,19 +601,23 @@ pos_count = spark.sql("SELECT SUM(FUTURE_CRC_EVENT) AS n FROM cohort_usable").co
 print(f"Usable observations: {usable_count:,}")
 print(f"Positive cases: {pos_count:,} ({pos_count/usable_count*100:.2f}%)")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 9: Train/Val/Test Split
-# MAGIC
-# MAGIC **What This Cell Does**: Patient-level stratified split (70/15/15) preserving cancer type
-# MAGIC distribution. Uses random_state=217 for reproducibility.
-
-# COMMAND ----------
+# ===========================================================================
+# 9. TRAIN / VAL / TEST SPLIT
+#
+# Patient-level stratified split: 70% train, 15% val, 15% test.
+# Stratification preserves cancer type distribution (C18/C19/C20) across
+# all three splits, ensuring balanced populations.
+#
+# Key guarantee: NO patient appears in multiple splits. All observations
+# from the same patient go to the same split.
+#
+# Uses random_state=217 for reproducibility.
+# ===========================================================================
 
 from sklearn.model_selection import train_test_split
 
-# Get patient-level labels with cancer type
+# Get patient-level labels with cancer type for stratification
 df_cohort = spark.sql("SELECT * FROM cohort_usable")
 
 patient_labels = df_cohort.groupBy("PAT_ID").agg(
@@ -566,7 +625,7 @@ patient_labels = df_cohort.groupBy("PAT_ID").agg(
     F.first(F.when(F.col("FUTURE_CRC_EVENT") == 1, F.col("ICD10_GROUP"))).alias("cancer_type")
 ).toPandas()
 
-# Create multi-class stratification label: 0=negative, 1=C18, 2=C19, 3=C20
+# Multi-class stratification: 0=negative, 1=C18, 2=C19, 3=C20
 cancer_type_map = {'C18': 1, 'C19': 2, 'C20': 3}
 patient_labels['strat_label'] = patient_labels.apply(
     lambda row: cancer_type_map.get(row['cancer_type'], 0) if row['is_positive'] == 1 else 0,
@@ -577,7 +636,7 @@ print(f"Total patients: {len(patient_labels):,}")
 print(f"Positive patients: {patient_labels['is_positive'].sum():,}")
 print(f"Cancer types: {patient_labels[patient_labels['is_positive']==1]['cancer_type'].value_counts().to_dict()}")
 
-# Split: 70/15/15
+# Two-step split: first separate test (15%), then split remainder into train/val
 np.random.seed(217)
 
 patients_trainval, patients_test = train_test_split(
@@ -589,7 +648,7 @@ patients_trainval, patients_test = train_test_split(
 
 patients_train, patients_val = train_test_split(
     patients_trainval,
-    test_size=0.176,  # 15/85 ≈ 0.176
+    test_size=0.176,  # 15/85 ≈ 0.176 to get 15% of total
     stratify=patients_trainval['strat_label'],
     random_state=217
 )
@@ -598,7 +657,7 @@ train_patients = set(patients_train['PAT_ID'].values)
 val_patients = set(patients_val['PAT_ID'].values)
 test_patients = set(patients_test['PAT_ID'].values)
 
-# Verify no overlap
+# Verify no patient appears in multiple splits
 assert len(train_patients.intersection(val_patients)) == 0, "TRAIN/VAL overlap!"
 assert len(train_patients.intersection(test_patients)) == 0, "TRAIN/TEST overlap!"
 assert len(val_patients.intersection(test_patients)) == 0, "VAL/TEST overlap!"
@@ -607,7 +666,7 @@ print(f"Train patients: {len(train_patients):,}")
 print(f"Val patients:   {len(val_patients):,}")
 print(f"Test patients:  {len(test_patients):,}")
 
-# Create SPLIT mapping and join back
+# Create SPLIT mapping as a Spark temp view for downstream joins
 train_pdf = pd.DataFrame({'PAT_ID': list(train_patients), 'SPLIT': 'train'})
 val_pdf = pd.DataFrame({'PAT_ID': list(val_patients), 'SPLIT': 'val'})
 test_pdf = pd.DataFrame({'PAT_ID': list(test_patients), 'SPLIT': 'test'})
@@ -616,6 +675,7 @@ split_mapping_pdf = pd.concat([train_pdf, val_pdf, test_pdf], ignore_index=True)
 split_mapping_sdf = spark.createDataFrame(split_mapping_pdf)
 split_mapping_sdf.createOrReplaceTempView("split_mapping")
 
+# Create cohort_base: the foundation view that all feature queries join against
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW cohort_base AS
 SELECT
@@ -632,7 +692,7 @@ FROM cohort_usable c
 JOIN split_mapping sm ON c.PAT_ID = sm.PAT_ID
 """)
 
-# Verify splits
+# Verify split balance
 split_counts = spark.sql("""
   SELECT SPLIT, COUNT(*) AS n, SUM(FUTURE_CRC_EVENT) AS positives,
          ROUND(SUM(FUTURE_CRC_EVENT) / COUNT(*) * 100, 3) AS pos_pct
@@ -640,17 +700,26 @@ split_counts = spark.sql("""
 """)
 split_counts.show()
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 10: Vitals Features (8 features)
-# MAGIC
-# MAGIC **What This Cell Does**: Engineers 8 vitals features from pat_enc_enh: latest BP/weight,
-# MAGIC weight trajectories, recency scores, and BP variability.
-
-# COMMAND ----------
+# ===========================================================================
+# 10. VITALS FEATURES (8 features)
+#
+# Source: pat_enc_enh (outpatient encounters)
+# Lookback: 12 months before observation date
+#
+# Features:
+#   vit_BP_SYSTOLIC              - Latest systolic blood pressure
+#   vit_WEIGHT_OZ                - Latest weight in ounces
+#   vit_RECENCY_WEIGHT           - Days since last weight measurement
+#   vit_vital_recency_score      - Ordinal 0-3 (freshness of measurements)
+#   vit_WEIGHT_TRAJECTORY_SLOPE  - Linear regression slope of weight over time
+#   vit_MAX_WEIGHT_LOSS_PCT_60D  - Maximum % weight loss in any 60-day window
+#   vit_WEIGHT_CHANGE_PCT_6M     - 6-month weight change percentage
+#   vit_SBP_VARIABILITY_6M       - Systolic BP standard deviation (6 months)
+# ===========================================================================
 
 # Step 1: Extract raw vitals with plausibility filters
+# BP: 60-280 mmHg; Weight: 50-800 lbs (converted from ounces)
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW vitals_raw AS
 
@@ -674,14 +743,12 @@ JOIN clarity_cur.pat_enc_enh pe
 
 print("Raw vitals extracted")
 
-# COMMAND ----------
-
-# Step 2: Compute all 8 vitals features
+# Step 2: Compute all 8 vitals features using window functions and aggregations
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW vitals_features AS
 
 WITH
--- Latest BP and weight
+-- Most recent BP reading
 latest_bp AS (
   SELECT PAT_ID, END_DTTM, BP_SYSTOLIC, MEAS_DATE AS BP_DATE
   FROM (
@@ -692,6 +759,7 @@ latest_bp AS (
   ) t WHERE rn = 1
 ),
 
+-- Most recent weight reading
 latest_weight AS (
   SELECT PAT_ID, END_DTTM, WEIGHT_OZ, MEAS_DATE AS WEIGHT_DATE
   FROM (
@@ -702,7 +770,7 @@ latest_weight AS (
   ) t WHERE rn = 1
 ),
 
--- Weight 6 months ago (closest to 180 days prior, within 150-210 day window)
+-- Weight approximately 6 months ago (closest reading in 150-210 day window)
 weight_6m AS (
   SELECT PAT_ID, END_DTTM, WEIGHT_OZ AS WEIGHT_OZ_6M
   FROM (
@@ -717,7 +785,8 @@ weight_6m AS (
   ) t WHERE rn = 1
 ),
 
--- Weight trajectory (all measurements in 12mo for regression)
+-- Weight trajectory: linear regression slope across all 12-month readings
+-- Negative slope = weight loss trend. Requires >= 2 measurements.
 weight_trajectory AS (
   SELECT
     PAT_ID,
@@ -729,7 +798,7 @@ weight_trajectory AS (
   HAVING COUNT(*) >= 2
 ),
 
--- Weight changes for max loss in 60 days
+-- Maximum weight loss in any consecutive-measurement 60-day window
 weight_changes AS (
   SELECT
     PAT_ID,
@@ -758,7 +827,8 @@ max_weight_loss AS (
   GROUP BY PAT_ID, END_DTTM
 ),
 
--- BP variability (6 months)
+-- Systolic BP variability (standard deviation over 6 months)
+-- Requires >= 2 measurements for meaningful std dev
 bp_variability AS (
   SELECT
     PAT_ID,
@@ -777,6 +847,7 @@ SELECT
   ROUND(lb.BP_SYSTOLIC, 1) AS vit_BP_SYSTOLIC,
   ROUND(lw.WEIGHT_OZ, 1) AS vit_WEIGHT_OZ,
   DATEDIFF(c.END_DTTM, lw.WEIGHT_DATE) AS vit_RECENCY_WEIGHT,
+  -- Ordinal recency score: 3=very recent (<=30d), 2=recent, 1=moderate, 0=stale/missing
   CASE
     WHEN lw.WEIGHT_DATE IS NULL THEN 0
     WHEN DATEDIFF(c.END_DTTM, lw.WEIGHT_DATE) <= 30 THEN 3
@@ -805,15 +876,22 @@ LEFT JOIN bp_variability bv ON c.PAT_ID = bv.PAT_ID AND c.END_DTTM = bv.END_DTTM
 
 print("Vitals features computed (8 features)")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 11: ICD10 Features (7 features)
-# MAGIC
-# MAGIC **What This Cell Does**: Engineers 7 ICD10-based features from diagnosis tables:
-# MAGIC malignancy flag, Charlson score, anemia flags, symptom burden, bleeding/pain counts.
-
-# COMMAND ----------
+# ===========================================================================
+# 11. ICD-10 DIAGNOSIS FEATURES (7 features)
+#
+# Source: pat_enc_dx_enh (outpatient) + hsp_acct_dx_list_enh (inpatient)
+# Lookback: 12 months for most features; "ever" for malignancy flag
+#
+# Features:
+#   icd_MALIGNANCY_FLAG_EVER        - Prior non-CRC malignancy (Z85)
+#   icd_IRON_DEF_ANEMIA_FLAG_12MO   - Iron deficiency anemia (D50) in 12mo
+#   icd_ANEMIA_FLAG_12MO            - Any anemia (D50-D64) in 12mo
+#   icd_BLEED_CNT_12MO              - GI bleeding encounter count in 12mo
+#   icd_PAIN_FLAG_12MO              - Abdominal pain (R10) in 12mo
+#   icd_SYMPTOM_BURDEN_12MO         - Sum of 6 binary symptom flags in 12mo
+#   icd_CHARLSON_SCORE_12MO         - Charlson Comorbidity Index (12mo)
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW icd_features AS
@@ -847,29 +925,30 @@ WITH all_dx AS (
   WHERE dd.ICD10_CODE IS NOT NULL
 ),
 
--- Charlson weights (12mo only)
+-- Charlson Comorbidity Index: standard weighted scoring from ICD-10 codes
+-- Uses 12-month lookback only. Each condition group contributes a weight (1-6).
 charlson AS (
   SELECT PAT_ID, END_DTTM, SUM(charlson_wt) AS CHARLSON_SCORE_12MO
   FROM (
     SELECT DISTINCT PAT_ID, END_DTTM,
       CASE
-        WHEN CODE RLIKE '^(I21|I22)' THEN 1
-        WHEN CODE RLIKE '^I50' THEN 1
-        WHEN CODE RLIKE '^(I70|I71|I73)' THEN 1
-        WHEN CODE RLIKE '^(I60|I61|I62|I63|I64)' THEN 1
-        WHEN CODE RLIKE '^(G30|F01|F03)' THEN 1
-        WHEN CODE RLIKE '^J44' THEN 1
-        WHEN CODE RLIKE '^(M05|M06|M32|M33|M34)' THEN 1
-        WHEN CODE RLIKE '^(K25|K26|K27|K28)' THEN 1
-        WHEN CODE RLIKE '^K70' THEN 1
-        WHEN CODE RLIKE '^(E10|E11)' THEN 1
-        WHEN CODE RLIKE '^(E13|E14)' THEN 2
-        WHEN CODE RLIKE '^(G81|G82)' THEN 2
-        WHEN CODE RLIKE '^N18' THEN 2
-        WHEN CODE RLIKE '^C(?:0[0-9]|[1-8][0-9]|9[0-7])' THEN 2
-        WHEN CODE RLIKE '^(K72|K76)' THEN 3
-        WHEN CODE RLIKE '^(C78|C79)' THEN 6
-        WHEN CODE RLIKE '^B2[0-4]' THEN 6
+        WHEN CODE RLIKE '^(I21|I22)' THEN 1           -- MI
+        WHEN CODE RLIKE '^I50' THEN 1                  -- CHF
+        WHEN CODE RLIKE '^(I70|I71|I73)' THEN 1        -- PVD
+        WHEN CODE RLIKE '^(I60|I61|I62|I63|I64)' THEN 1 -- CVD
+        WHEN CODE RLIKE '^(G30|F01|F03)' THEN 1        -- Dementia
+        WHEN CODE RLIKE '^J44' THEN 1                  -- COPD
+        WHEN CODE RLIKE '^(M05|M06|M32|M33|M34)' THEN 1 -- Rheumatic
+        WHEN CODE RLIKE '^(K25|K26|K27|K28)' THEN 1    -- Peptic ulcer
+        WHEN CODE RLIKE '^K70' THEN 1                  -- Mild liver
+        WHEN CODE RLIKE '^(E10|E11)' THEN 1            -- Diabetes
+        WHEN CODE RLIKE '^(E13|E14)' THEN 2            -- Diabetes w/ complications
+        WHEN CODE RLIKE '^(G81|G82)' THEN 2            -- Hemiplegia/paraplegia
+        WHEN CODE RLIKE '^N18' THEN 2                  -- Renal disease
+        WHEN CODE RLIKE '^C(?:0[0-9]|[1-8][0-9]|9[0-7])' THEN 2 -- Any malignancy
+        WHEN CODE RLIKE '^(K72|K76)' THEN 3            -- Severe liver
+        WHEN CODE RLIKE '^(C78|C79)' THEN 6            -- Metastatic cancer
+        WHEN CODE RLIKE '^B2[0-4]' THEN 6              -- AIDS
       END AS charlson_wt
     FROM all_dx
     WHERE DATEDIFF(END_DTTM, DX_DATE) <= 365
@@ -882,26 +961,27 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
 
-  -- Malignancy flag (ever)
+  -- Prior non-CRC malignancy (any time in history)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^Z85' THEN 1 END), 0) AS icd_MALIGNANCY_FLAG_EVER,
 
-  -- Iron deficiency anemia (12mo)
+  -- Iron deficiency anemia in past 12 months (D50)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^D50' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
     AS icd_IRON_DEF_ANEMIA_FLAG_12MO,
 
-  -- Any anemia (12mo)
+  -- Any anemia in past 12 months (D50-D53, D62-D64)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(D5[0-3]|D6[234])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
     AS icd_ANEMIA_FLAG_12MO,
 
-  -- Bleeding count (12mo)
+  -- GI bleeding encounter count in past 12 months (K62.5, K92.1, K92.2)
   COALESCE(SUM(CASE WHEN dx.CODE RLIKE '^(K62\\.5|K92\\.[12])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 ELSE 0 END), 0)
     AS icd_BLEED_CNT_12MO,
 
-  -- Pain flag (12mo)
+  -- Abdominal pain in past 12 months (R10)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^R10' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
     AS icd_PAIN_FLAG_12MO,
 
-  -- Symptom burden (sum of 6 binary flags in 12mo)
+  -- Symptom burden: sum of 6 binary symptom flags in 12 months
+  -- (bleeding + pain + bowel changes + weight loss + fatigue + anemia)
   (
     COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(K62\\.5|K92\\.[12])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0) +
     COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^R10' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0) +
@@ -911,7 +991,7 @@ SELECT
     COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(D5[0-3]|D6[234])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
   ) AS icd_SYMPTOM_BURDEN_12MO,
 
-  -- Charlson score
+  -- Charlson Comorbidity Index
   COALESCE(ch.CHARLSON_SCORE_12MO, 0) AS icd_CHARLSON_SCORE_12MO
 
 FROM cohort_base c
@@ -922,17 +1002,29 @@ GROUP BY c.PAT_ID, c.END_DTTM, ch.CHARLSON_SCORE_12MO
 
 print("ICD10 features computed (7 features)")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 12: Labs Features (11 features)
-# MAGIC
-# MAGIC **What This Cell Does**: Engineers 11 lab features: latest values, ALT/AST ratio,
-# MAGIC thrombocytosis flag, acceleration features, and iron deficiency composite.
+# ===========================================================================
+# 12. LAB FEATURES (11 features)
+#
+# Source: res_components (via order_proc_enh -> order_results -> res_components)
+# Lookback: 24 months for latest values; time-point comparisons for acceleration
+#
+# Features:
+#   lab_HEMOGLOBIN_VALUE                - Latest hemoglobin (g/dL)
+#   lab_PLATELETS_VALUE                 - Latest platelets (x10^3/uL)
+#   lab_AST_VALUE                       - Latest AST (U/L)
+#   lab_ALK_PHOS_VALUE                  - Latest alkaline phosphatase (U/L)
+#   lab_ALBUMIN_VALUE                   - Latest albumin (g/dL)
+#   lab_CEA_VALUE                       - Latest CEA tumor marker (ng/mL)
+#   lab_ALT_AST_RATIO                   - ALT/AST ratio (De Ritis inverse)
+#   lab_THROMBOCYTOSIS_FLAG             - Platelets > 450 (binary)
+#   lab_comprehensive_iron_deficiency   - Lab + ICD iron deficiency composite
+#   lab_HEMOGLOBIN_ACCELERATING_DECLINE - Hemoglobin dropping faster recently
+#   lab_PLATELETS_ACCELERATING_RISE     - Platelets rising faster recently
+# ===========================================================================
 
-# COMMAND ----------
-
-# Step 1: Extract latest lab values
+# Step 1: Extract latest lab values for each component
+# Only from completed/resulted orders (ORDER_STATUS_C in 3, 5, 10)
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW lab_latest AS
 
@@ -985,9 +1077,10 @@ GROUP BY PAT_ID, END_DTTM
 
 print("Latest lab values extracted")
 
-# COMMAND ----------
-
-# Step 2: Lab acceleration features (hemoglobin decline, platelet rise)
+# Step 2: Lab acceleration features
+# Compare rate of change between recent period (0-30d vs 60-120d) and
+# earlier period (60-120d vs 150-210d). If recent decline is steeper,
+# the lab value is "accelerating" in that direction.
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW lab_acceleration AS
 
@@ -1016,15 +1109,12 @@ WITH lab_history AS (
     AND TRY_CAST(REGEXP_REPLACE(res.COMPONENT_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
 ),
 
--- Get values at approximate time points (current, 3mo, 6mo)
+-- Values at 3 time points: current (~30d), 3mo (60-120d), 6mo (150-210d)
 time_points AS (
   SELECT
     PAT_ID, END_DTTM, COMPONENT_NAME,
-    -- Current value (most recent)
     MAX(CASE WHEN DAYS_BEFORE <= 30 THEN VALUE END) AS current_value,
-    -- 3-month prior (60-120 days)
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 60 AND 120 THEN VALUE END) AS value_3mo_prior,
-    -- 6-month prior (150-210 days)
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 150 AND 210 THEN VALUE END) AS value_6mo_prior
   FROM lab_history
   GROUP BY PAT_ID, END_DTTM, COMPONENT_NAME
@@ -1034,7 +1124,7 @@ SELECT
   PAT_ID,
   END_DTTM,
 
-  -- Hemoglobin accelerating decline
+  -- Hemoglobin accelerating decline: recent velocity < -0.5/3mo AND steeper than earlier
   MAX(CASE
     WHEN COMPONENT_NAME = 'HEMOGLOBIN'
      AND current_value IS NOT NULL
@@ -1045,7 +1135,7 @@ SELECT
     THEN 1 ELSE 0
   END) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
 
-  -- Platelets accelerating rise
+  -- Platelets accelerating rise: current > 450 AND recent velocity > earlier velocity
   MAX(CASE
     WHEN COMPONENT_NAME = 'PLATELETS'
      AND current_value IS NOT NULL
@@ -1062,9 +1152,7 @@ GROUP BY PAT_ID, END_DTTM
 
 print("Lab acceleration features computed")
 
-# COMMAND ----------
-
-# Step 3: Combine all lab features
+# Step 3: Combine all lab features into a single view
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW lab_features AS
 
@@ -1072,7 +1160,7 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
 
-  -- Direct values
+  # Direct lab values
   ll.HEMOGLOBIN_VALUE AS lab_HEMOGLOBIN_VALUE,
   ll.PLATELETS_VALUE AS lab_PLATELETS_VALUE,
   ll.AST_VALUE AS lab_AST_VALUE,
@@ -1080,17 +1168,18 @@ SELECT
   ll.ALBUMIN_VALUE AS lab_ALBUMIN_VALUE,
   ll.CEA_VALUE AS lab_CEA_VALUE,
 
-  -- Derived: ALT/AST ratio
+  -- ALT/AST ratio (inverse De Ritis ratio; values > 1 suggest non-hepatic cause)
   CASE WHEN ll.AST_VALUE > 0 THEN ROUND(ll.ALT_VALUE / ll.AST_VALUE, 3) END AS lab_ALT_AST_RATIO,
 
-  -- Derived: Thrombocytosis flag
+  -- Thrombocytosis: platelets > 450 is a known CRC-associated finding
   CASE WHEN ll.PLATELETS_VALUE > 450 THEN 1 ELSE 0 END AS lab_THROMBOCYTOSIS_FLAG,
 
   -- Acceleration features
   COALESCE(la.lab_HEMOGLOBIN_ACCELERATING_DECLINE, 0) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
   COALESCE(la.lab_PLATELETS_ACCELERATING_RISE, 0) AS lab_PLATELETS_ACCELERATING_RISE,
 
-  -- Lab-only iron deficiency component (IDA diagnosis flag added in final join)
+  -- Lab-only iron deficiency component (combined with ICD flag in final join
+  -- to create lab_comprehensive_iron_deficiency)
   CASE
     WHEN (ll.HEMOGLOBIN_VALUE < 12 AND ll.MCV_VALUE < 80) THEN 1
     WHEN (ll.FERRITIN_VALUE < 30 AND ll.HEMOGLOBIN_VALUE < 13) THEN 1
@@ -1104,21 +1193,30 @@ LEFT JOIN lab_acceleration la ON c.PAT_ID = la.PAT_ID AND c.END_DTTM = la.END_DT
 
 print("Lab features combined (11 features)")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 13: Visit Features (9 features)
-# MAGIC
-# MAGIC **What This Cell Does**: Engineers 9 visit features: PCP/outpatient visit counts, no-shows,
-# MAGIC GI symptom visits, GI specialist recency, care gap indicator, acute care reliance.
-
-# COMMAND ----------
+# ===========================================================================
+# 13. VISIT HISTORY FEATURES (9 features)
+#
+# Source: pat_enc_enh (outpatient), PAT_ENC_HSP_HAR_ENH (inpatient/ED),
+#         pat_enc_dx_enh + hsp_acct_dx_list_enh (GI symptom diagnoses)
+# Lookback: 12 months for counts; 24 months for GI specialist recency
+#
+# Features:
+#   vis_visit_recency_last_gi                - Days since last GI specialist visit
+#   vis_visit_pcp_visits_12mo                - PCP visit count (12mo)
+#   vis_visit_outpatient_visits_12mo         - Total outpatient visits (12mo)
+#   vis_visit_no_shows_12mo                  - No-show count (12mo)
+#   vis_visit_gi_symptom_op_visits_12mo      - Outpatient visits with GI symptom dx (12mo)
+#   vis_visit_total_gi_symptom_visits_12mo   - All visits with GI symptom dx (12mo)
+#   vis_visit_gi_symptoms_no_specialist      - GI symptoms present but no GI referral
+#   vis_visit_acute_care_reliance            - ED/inpatient to outpatient ratio
+# ===========================================================================
 
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW visit_features AS
 
 WITH
--- Outpatient encounters (12mo)
+-- All outpatient encounters in our integrated system (12 months)
 outpatient AS (
   SELECT
     c.PAT_ID,
@@ -1138,7 +1236,7 @@ outpatient AS (
   WHERE dep.RPT_GRP_SIX IN ('116001', '116002')
 ),
 
--- GI symptom encounters - outpatient (encounters with GI-related diagnosis)
+-- Outpatient encounters with GI-related diagnosis codes
 gi_symptom_op AS (
   SELECT DISTINCT o.PAT_ID, o.END_DTTM, o.PAT_ENC_CSN_ID
   FROM outpatient o
@@ -1148,7 +1246,7 @@ gi_symptom_op AS (
     AND o.APPT_STATUS_C IN (2, 6)
 ),
 
--- GI symptom encounters - inpatient/ED
+-- Inpatient/ED encounters with GI-related diagnosis codes
 gi_symptom_acute AS (
   SELECT DISTINCT c.PAT_ID, c.END_DTTM, hsp.PAT_ENC_CSN_ID
   FROM cohort_base c
@@ -1164,7 +1262,7 @@ gi_symptom_acute AS (
   WHERE dx.ICD10_CODE RLIKE '^(K62\\.5|K92|K59|R19|D50|R10|R63\\.4|R53)'
 ),
 
--- ED/Inpatient encounters (12mo)
+-- Total ED/inpatient encounters (12mo) for acute care reliance ratio
 acute_care AS (
   SELECT
     c.PAT_ID,
@@ -1181,7 +1279,7 @@ acute_care AS (
   GROUP BY c.PAT_ID, c.END_DTTM
 ),
 
--- GI specialist recency (any time in lookback)
+-- Days since last GI specialist visit (24mo lookback for recency)
 gi_recency AS (
   SELECT
     c.PAT_ID,
@@ -1199,40 +1297,35 @@ gi_recency AS (
   GROUP BY c.PAT_ID, c.END_DTTM
 ),
 
--- Aggregate outpatient metrics
+-- Aggregate outpatient metrics: visit counts by type
 op_metrics AS (
   SELECT
     PAT_ID,
     END_DTTM,
-
-    -- Completed outpatient visits
+    -- Total completed outpatient visits
     SUM(CASE WHEN APPT_STATUS_C IN (2, 6) THEN 1 ELSE 0 END) AS outpatient_visits_12mo,
-
-    -- PCP visits
+    -- PCP visits (primary care, family medicine, internal medicine)
     SUM(CASE WHEN APPT_STATUS_C IN (2, 6)
          AND (UPPER(SPECIALTY) LIKE '%PRIMARY%' OR UPPER(SPECIALTY) LIKE '%FAMILY%'
               OR UPPER(SPECIALTY) LIKE '%INTERNAL MED%')
          THEN 1 ELSE 0 END) AS pcp_visits_12mo,
-
-    -- No-shows
+    -- Appointment no-shows
     SUM(CASE WHEN APPT_STATUS_C IN (3, 4) THEN 1 ELSE 0 END) AS no_shows_12mo,
-
     -- GI specialist visits
     SUM(CASE WHEN APPT_STATUS_C IN (2, 6) AND UPPER(SPECIALTY) LIKE '%GASTRO%'
          THEN 1 ELSE 0 END) AS gi_visits_12mo
-
   FROM outpatient
   GROUP BY PAT_ID, END_DTTM
 ),
 
--- GI symptom visit counts (outpatient only)
+-- GI symptom outpatient visit counts
 gi_symptom_op_counts AS (
   SELECT PAT_ID, END_DTTM, COUNT(DISTINCT PAT_ENC_CSN_ID) AS gi_symptom_op_visits_12mo
   FROM gi_symptom_op
   GROUP BY PAT_ID, END_DTTM
 ),
 
--- GI symptom visit counts (inpatient/ED)
+-- GI symptom inpatient/ED visit counts
 gi_symptom_acute_counts AS (
   SELECT PAT_ID, END_DTTM, COUNT(DISTINCT PAT_ENC_CSN_ID) AS gi_symptom_acute_visits_12mo
   FROM gi_symptom_acute
@@ -1242,21 +1335,23 @@ gi_symptom_acute_counts AS (
 SELECT
   c.PAT_ID,
   c.END_DTTM,
+  -- Days since last GI specialist visit (9999 if none in 24mo)
   COALESCE(gr.days_since_last_gi, 9999) AS vis_visit_recency_last_gi,
   COALESCE(om.pcp_visits_12mo, 0) AS vis_visit_pcp_visits_12mo,
   COALESCE(om.outpatient_visits_12mo, 0) AS vis_visit_outpatient_visits_12mo,
   COALESCE(om.no_shows_12mo, 0) AS vis_visit_no_shows_12mo,
   COALESCE(gsop.gi_symptom_op_visits_12mo, 0) AS vis_visit_gi_symptom_op_visits_12mo,
-  -- Total GI symptom visits (outpatient + inpatient/ED)
+  -- Total GI symptom visits across all settings
   COALESCE(gsop.gi_symptom_op_visits_12mo, 0) + COALESCE(gsac.gi_symptom_acute_visits_12mo, 0)
     AS vis_visit_total_gi_symptom_visits_12mo,
-  -- GI symptoms but no specialist
+  -- Care gap: patient has GI symptoms but hasn't seen a GI specialist
   CASE
     WHEN (COALESCE(gsop.gi_symptom_op_visits_12mo, 0) + COALESCE(gsac.gi_symptom_acute_visits_12mo, 0)) > 0
      AND COALESCE(om.gi_visits_12mo, 0) = 0
     THEN 1 ELSE 0
   END AS vis_visit_gi_symptoms_no_specialist,
-  -- Acute care reliance ratio
+  -- Acute care reliance: ratio of ED/inpatient to outpatient visits
+  -- High ratio suggests patient uses acute care instead of primary care
   CASE
     WHEN COALESCE(om.outpatient_visits_12mo, 0) > 0
     THEN ROUND(COALESCE(ac.ed_inp_visits, 0) * 1.0 / om.outpatient_visits_12mo, 3)
@@ -1273,15 +1368,20 @@ LEFT JOIN gi_recency gr ON c.PAT_ID = gr.PAT_ID AND c.END_DTTM = gr.END_DTTM
 
 print("Visit features computed (9 features)")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 14: Procedure Features (2 features)
-# MAGIC
-# MAGIC **What This Cell Does**: Engineers 2 procedure features: CT abdomen/pelvis count
-# MAGIC and total imaging count (CT + MRI) in past 12 months.
-
-# COMMAND ----------
+# ===========================================================================
+# 14. PROCEDURE FEATURES (2 features)
+#
+# Source: order_proc_enh (completed orders only)
+# Lookback: 12 months
+#
+# Features:
+#   proc_ct_abd_pelvis_count_12mo   - CT abdomen/pelvis count (12mo)
+#   proc_total_imaging_count_12mo   - CT + MRI abdomen/pelvis count (12mo)
+#
+# Note: colonoscopy is deliberately excluded because screened patients
+# have already been removed from the cohort.
+# ===========================================================================
 
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW proc_features AS
@@ -1290,7 +1390,7 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
 
-  -- CT abdomen/pelvis count (12mo)
+  -- CT abdomen/pelvis count (12 months)
   COALESCE(SUM(CASE
     WHEN op.PROC_CODE IN ('74150','74160','74170','74176','74177','74178')
       OR LOWER(op.PROC_NAME) LIKE '%ct%abd%'
@@ -1298,7 +1398,7 @@ SELECT
     THEN 1 ELSE 0
   END), 0) AS proc_ct_abd_pelvis_count_12mo,
 
-  -- Total imaging count: CT + MRI abdomen/pelvis (12mo)
+  -- Total abdominal/pelvic imaging: CT + MRI (12 months)
   COALESCE(SUM(CASE
     WHEN op.PROC_CODE IN ('74150','74160','74170','74176','74177','74178')
       OR LOWER(op.PROC_NAME) LIKE '%ct%abd%'
@@ -1315,22 +1415,25 @@ LEFT JOIN clarity_cur.order_proc_enh op
   AND DATE(op.ORDERING_DATE) < c.END_DTTM
   AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 365)
   AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
-  AND op.ORDER_STATUS_C = 5  -- Completed
+  AND op.ORDER_STATUS_C = 5  -- Completed only
   AND op.RPT_GRP_SIX IN ('116001', '116002')
 GROUP BY c.PAT_ID, c.END_DTTM
 """)
 
 print("Procedure features computed (2 features)")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 15: Final Join
-# MAGIC
-# MAGIC **What This Cell Does**: Joins all feature views together and selects the final 40 features
-# MAGIC plus identifiers. Fills nulls with 0 for numeric features.
-
-# COMMAND ----------
+# ===========================================================================
+# 15. FINAL JOIN
+#
+# Join all feature views together and select the final 40 features plus
+# identifiers (PAT_ID, END_DTTM, FUTURE_CRC_EVENT, SPLIT).
+#
+# Null handling:
+#   - Most numeric features: COALESCE to 0
+#   - Recency features: COALESCE to 9999 (large number = no recent data)
+#   - lab_comprehensive_iron_deficiency: composite of ICD flag + lab criteria
+# ===========================================================================
 
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW final_features AS
@@ -1341,13 +1444,13 @@ SELECT
   c.FUTURE_CRC_EVENT,
   c.SPLIT,
 
-  -- Demographics (4)
+  -- Demographics (4 features)
   c.IS_FEMALE,
   c.IS_MARRIED_PARTNER,
   c.HAS_PCP_AT_END,
   COALESCE(c.months_since_cohort_entry, 0) AS months_since_cohort_entry,
 
-  -- Vitals (8)
+  -- Vitals (8 features)
   COALESCE(v.vit_BP_SYSTOLIC, 0) AS vit_BP_SYSTOLIC,
   COALESCE(v.vit_WEIGHT_OZ, 0) AS vit_WEIGHT_OZ,
   COALESCE(v.vit_RECENCY_WEIGHT, 9999) AS vit_RECENCY_WEIGHT,
@@ -1357,7 +1460,7 @@ SELECT
   COALESCE(v.vit_WEIGHT_CHANGE_PCT_6M, 0) AS vit_WEIGHT_CHANGE_PCT_6M,
   COALESCE(v.vit_SBP_VARIABILITY_6M, 0) AS vit_SBP_VARIABILITY_6M,
 
-  -- ICD10 (7)
+  -- ICD-10 (7 features)
   COALESCE(i.icd_MALIGNANCY_FLAG_EVER, 0) AS icd_MALIGNANCY_FLAG_EVER,
   COALESCE(i.icd_CHARLSON_SCORE_12MO, 0) AS icd_CHARLSON_SCORE_12MO,
   COALESCE(i.icd_IRON_DEF_ANEMIA_FLAG_12MO, 0) AS icd_IRON_DEF_ANEMIA_FLAG_12MO,
@@ -1366,7 +1469,7 @@ SELECT
   COALESCE(i.icd_BLEED_CNT_12MO, 0) AS icd_BLEED_CNT_12MO,
   COALESCE(i.icd_PAIN_FLAG_12MO, 0) AS icd_PAIN_FLAG_12MO,
 
-  -- Labs (11)
+  -- Labs (11 features)
   COALESCE(l.lab_HEMOGLOBIN_VALUE, 0) AS lab_HEMOGLOBIN_VALUE,
   COALESCE(l.lab_PLATELETS_VALUE, 0) AS lab_PLATELETS_VALUE,
   COALESCE(l.lab_AST_VALUE, 0) AS lab_AST_VALUE,
@@ -1375,6 +1478,7 @@ SELECT
   COALESCE(l.lab_CEA_VALUE, 0) AS lab_CEA_VALUE,
   COALESCE(l.lab_ALT_AST_RATIO, 0) AS lab_ALT_AST_RATIO,
   COALESCE(l.lab_THROMBOCYTOSIS_FLAG, 0) AS lab_THROMBOCYTOSIS_FLAG,
+  -- Comprehensive iron deficiency: TRUE if EITHER ICD diagnosis OR lab criteria met
   CASE
     WHEN COALESCE(i.icd_IRON_DEF_ANEMIA_FLAG_12MO, 0) = 1 THEN 1
     WHEN COALESCE(l.lab_iron_deficiency_labs_only, 0) = 1 THEN 1
@@ -1383,7 +1487,7 @@ SELECT
   COALESCE(l.lab_HEMOGLOBIN_ACCELERATING_DECLINE, 0) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
   COALESCE(l.lab_PLATELETS_ACCELERATING_RISE, 0) AS lab_PLATELETS_ACCELERATING_RISE,
 
-  -- Visits (9)
+  -- Visits (9 features)
   COALESCE(vis.vis_visit_recency_last_gi, 9999) AS vis_visit_recency_last_gi,
   COALESCE(vis.vis_visit_pcp_visits_12mo, 0) AS vis_visit_pcp_visits_12mo,
   COALESCE(vis.vis_visit_outpatient_visits_12mo, 0) AS vis_visit_outpatient_visits_12mo,
@@ -1393,7 +1497,7 @@ SELECT
   COALESCE(vis.vis_visit_gi_symptoms_no_specialist, 0) AS vis_visit_gi_symptoms_no_specialist,
   COALESCE(vis.vis_visit_acute_care_reliance, 0) AS vis_visit_acute_care_reliance,
 
-  -- Procedures (2)
+  -- Procedures (2 features)
   COALESCE(p.proc_total_imaging_count_12mo, 0) AS proc_total_imaging_count_12mo,
   COALESCE(p.proc_ct_abd_pelvis_count_12mo, 0) AS proc_ct_abd_pelvis_count_12mo
 
@@ -1408,14 +1512,12 @@ LEFT JOIN proc_features p ON c.PAT_ID = p.PAT_ID AND c.END_DTTM = p.END_DTTM
 final_count = spark.sql("SELECT COUNT(*) AS n FROM final_features").collect()[0]['n']
 print(f"Final feature table rows: {final_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 16: Save Output Table
-# MAGIC
-# MAGIC **What This Cell Does**: Saves the final feature table as a Delta table.
-
-# COMMAND ----------
+# ===========================================================================
+# 16. SAVE OUTPUT TABLE
+#
+# Persist the final feature table as a Delta table for downstream training.
+# ===========================================================================
 
 spark.sql(f"""
 CREATE OR REPLACE TABLE {OUTPUT_TABLE} AS
@@ -1426,18 +1528,19 @@ saved_count = spark.table(OUTPUT_TABLE).count()
 print(f"Saved to: {OUTPUT_TABLE}")
 print(f"Rows: {saved_count:,}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 17: Validation & Summary
-# MAGIC
-# MAGIC **What This Cell Does**: Validates the output table and prints summary statistics.
-
-# COMMAND ----------
+# ===========================================================================
+# 17. VALIDATION & SUMMARY
+#
+# Sanity checks on the output table:
+#   - Split distribution and positive rates
+#   - Null counts per feature (should all be 0 after COALESCE)
+#   - Overall positive rate (~0.41% expected)
+# ===========================================================================
 
 df_check = spark.table(OUTPUT_TABLE)
 
-# Split distribution
+# Split distribution: verify balanced positive rates across train/val/test
 print("Split Distribution:")
 df_check.groupBy("SPLIT").agg(
     F.count("*").alias("n"),
@@ -1445,7 +1548,7 @@ df_check.groupBy("SPLIT").agg(
     F.round(F.sum("FUTURE_CRC_EVENT") / F.count("*") * 100, 3).alias("positive_pct")
 ).orderBy("SPLIT").show()
 
-# Feature null counts (should all be 0 after COALESCE)
+# Feature null counts -- should all be 0 after COALESCE in the final join
 print("Feature Null Counts (should be 0):")
 null_exprs = [
     F.sum(F.when(F.col(c).isNull(), 1).otherwise(0)).alias(c)
@@ -1460,18 +1563,18 @@ else:
         if null_df[col].values[0] > 0:
             print(f"  {col}: {null_df[col].values[0]} nulls")
 
-# Summary stats for numeric features
+# Summary stats
 print(f"\nColumn count: {len(df_check.columns)}")
 print(f"Total rows: {df_check.count():,}")
 
-# Positive rate sanity check
+# Overall positive rate sanity check (~0.41% expected for this cohort)
 pos_rate = df_check.select(F.avg("FUTURE_CRC_EVENT")).collect()[0][0]
 print(f"Overall positive rate: {pos_rate*100:.3f}%")
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("FEATURIZATION COMPLETE")
-print("="*60)
+print("=" * 60)
 print(f"Output: {OUTPUT_TABLE}")
 print(f"Features: {len(SELECTED_FEATURES)}")
 print(f"Rows: {df_check.count():,}")
-print("="*60)
+print("=" * 60)
