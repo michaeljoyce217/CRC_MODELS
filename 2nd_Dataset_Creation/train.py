@@ -1,31 +1,29 @@
-# Databricks notebook source
-# MAGIC %md
-# MAGIC # Train: CRC Risk Prediction Model (40 Features)
-# MAGIC
-# MAGIC Trains an XGBoost model on the featurized dataset using very conservative
-# MAGIC hyperparameters designed for 250:1 class imbalance.
-# MAGIC
-# MAGIC **Input**: `{trgt_cat}.clncl_ds.fudge_sicle_train`
-# MAGIC **Output**: Trained model registered in MLflow
-# MAGIC
-# MAGIC **Structure**:
-# MAGIC - Cell 1: Configuration & Imports
-# MAGIC - Cell 2: Feature List
-# MAGIC - Cell 3: Load Data & Prepare Splits
-# MAGIC - Cell 4: XGBoost Parameters
-# MAGIC - Cell 5: Train Model
-# MAGIC - Cell 6: Evaluate Metrics
-# MAGIC - Cell 7: SHAP Analysis
-# MAGIC - Cell 8: MLflow Logging
-# MAGIC - Cell 9: Register Model
-# MAGIC - Cell 10: Summary
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Cell 1: Configuration & Imports
-
-# COMMAND ----------
+# ===========================================================================
+# train.py
+#
+# CRC Risk Prediction: XGBoost Training Pipeline
+#
+# Trains an XGBoost model on the featurized dataset using very conservative
+# hyperparameters designed for 250:1 class imbalance.
+#
+# Input:  {trgt_cat}.clncl_ds.fudge_sicle_train
+# Output: Trained model registered in MLflow
+#
+# Pipeline stages:
+#   1. Configuration & imports
+#   2. Feature list (40 features from Book 9 SHAP winnowing)
+#   3. Load data & prepare train/val/test splits
+#   4. XGBoost parameters (conservative for extreme imbalance)
+#   5. Train model with early stopping on validation AUPRC
+#   6. Evaluate metrics (AUPRC, AUROC, overfitting check)
+#   7. SHAP analysis (feature importance on test sample)
+#   8. MLflow logging (params, metrics, model, plots)
+#   9. Register model in MLflow Model Registry
+#  10. Summary
+#
+# Requires: PySpark (Databricks), xgboost, shap, mlflow, scikit-learn,
+#           numpy, pandas, matplotlib
+# ===========================================================================
 
 import os
 import numpy as np
@@ -42,16 +40,16 @@ from sklearn.metrics import (
 )
 import matplotlib.pyplot as plt
 
-# ---------------------------------------------------------------------------
-# Catalog / Schema
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 1. CONFIGURATION
+# ===========================================================================
+
+# Catalog / schema -- trgt_cat controls dev vs prod separation.
 trgt_cat = os.environ.get('trgt_cat', 'dev')
 spark.sql(f'USE CATALOG {trgt_cat}')
 print(f"Catalog: {trgt_cat}")
 
-# ---------------------------------------------------------------------------
-# Table & Experiment
-# ---------------------------------------------------------------------------
+# Input table (output of featurization_train.py) and MLflow settings
 INPUT_TABLE = f"{trgt_cat}.clncl_ds.fudge_sicle_train"
 EXPERIMENT_NAME = f"/Shared/crc_risk_prediction_{trgt_cat}"
 MODEL_NAME = "crc_risk_xgboost_40features"
@@ -62,15 +60,13 @@ print(f"Input table: {INPUT_TABLE}")
 print(f"Experiment: {EXPERIMENT_NAME}")
 print(f"Model name: {MODEL_NAME}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 2: Feature List
-# MAGIC
-# MAGIC **What This Cell Does**: Defines the 40 features selected by iterative SHAP winnowing
-# MAGIC (Book 9, iteration 16, test AUPRC=0.1146).
-
-# COMMAND ----------
+# ===========================================================================
+# 2. FEATURE LIST
+#
+# The 40 features selected by iterative SHAP winnowing in Book 9
+# (iteration 16, test AUPRC=0.1146).
+# ===========================================================================
 
 FEATURE_COLS = [
     "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
@@ -117,15 +113,13 @@ FEATURE_COLS = [
 
 print(f"Feature count: {len(FEATURE_COLS)}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 3: Load Data & Prepare Splits
-# MAGIC
-# MAGIC **What This Cell Does**: Loads the featurized table, splits into train/val/test
-# MAGIC pandas DataFrames, and computes scale_pos_weight for class imbalance.
-
-# COMMAND ----------
+# ===========================================================================
+# 3. LOAD DATA & PREPARE SPLITS
+#
+# Load the featurized table, split into train/val/test pandas DataFrames,
+# and compute scale_pos_weight for class imbalance handling.
+# ===========================================================================
 
 print("Loading data from Spark...")
 df_all = spark.table(INPUT_TABLE).select(
@@ -162,16 +156,15 @@ print(f"scale_pos_weight: {scale_pos_weight:.1f}")
 # Free the full dataframe
 del df_all
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 4: XGBoost Parameters
-# MAGIC
-# MAGIC **What This Cell Does**: Defines the very conservative hyperparameters that prevent
-# MAGIC overfitting with 250:1 class imbalance. These match the parameters used during
-# MAGIC feature selection (Book 9).
-
-# COMMAND ----------
+# ===========================================================================
+# 4. XGBOOST PARAMETERS
+#
+# Very conservative hyperparameters to prevent overfitting with 250:1 class
+# imbalance. These match the parameters used during feature selection
+# (Book 9) -- see CLAUDE.md "Failed Approach 1" for why aggressive params
+# cause model collapse.
+# ===========================================================================
 
 xgb_params = {
     "objective": "binary:logistic",
@@ -200,15 +193,14 @@ for k, v in xgb_params.items():
 print(f"  n_estimators: {N_ESTIMATORS}")
 print(f"  early_stopping_rounds: {EARLY_STOPPING_ROUNDS}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 5: Train Model
-# MAGIC
-# MAGIC **What This Cell Does**: Trains the XGBoost classifier with early stopping on
-# MAGIC validation AUPRC. Uses the conservative parameters from Cell 4.
-
-# COMMAND ----------
+# ===========================================================================
+# 5. TRAIN MODEL
+#
+# Train XGBoost classifier with early stopping on validation AUPRC.
+# Evaluates on both train and val sets each round; stops when val AUPRC
+# hasn't improved for EARLY_STOPPING_ROUNDS consecutive rounds.
+# ===========================================================================
 
 print("Training XGBoost model...")
 print(f"  Features: {len(FEATURE_COLS)}")
@@ -235,17 +227,16 @@ best_score = model.best_score
 print(f"\nBest iteration: {best_iteration}")
 print(f"Best validation AUPRC: {best_score:.6f}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 6: Evaluate Metrics
-# MAGIC
-# MAGIC **What This Cell Does**: Computes AUPRC and AUROC on train, validation, and test sets.
-# MAGIC Checks the train-val gap for signs of overfitting.
+# ===========================================================================
+# 6. EVALUATE METRICS
+#
+# Compute AUPRC and AUROC on train, validation, and test sets.
+# Check the train-val gap for signs of overfitting (threshold: 0.05).
+# Generate PR and ROC curves for the test set.
+# ===========================================================================
 
-# COMMAND ----------
-
-# Get predicted probabilities
+# Predicted probabilities
 y_train_pred = model.predict_proba(X_train)[:, 1]
 y_val_pred = model.predict_proba(X_val)[:, 1]
 y_test_pred = model.predict_proba(X_test)[:, 1]
@@ -278,11 +269,10 @@ if train_val_gap_auprc > 0.05:
 else:
     print("Train-Val gap is acceptable (< 0.05)")
 
-# Precision-Recall curve for test set
+# Precision-Recall and ROC curves for the test set
 precision, recall, pr_thresholds = precision_recall_curve(y_test, y_test_pred)
 fpr, tpr, roc_thresholds = roc_curve(y_test, y_test_pred)
 
-# Plot PR and ROC curves
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 # PR Curve
@@ -313,15 +303,14 @@ plt.savefig('/tmp/crc_model_curves.png', dpi=150, bbox_inches='tight')
 plt.show()
 print("Curves saved to /tmp/crc_model_curves.png")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 7: SHAP Analysis
-# MAGIC
-# MAGIC **What This Cell Does**: Computes SHAP values on a sample of test data and
-# MAGIC generates feature importance plots. Uses TreeExplainer for speed.
-
-# COMMAND ----------
+# ===========================================================================
+# 7. SHAP ANALYSIS
+#
+# Compute SHAP values on a sample of test data (up to 5000 rows) using
+# TreeExplainer. Generates a beeswarm summary plot and a bar importance
+# plot showing all 40 features.
+# ===========================================================================
 
 print("Computing SHAP values...")
 
@@ -350,7 +339,7 @@ for i, row in shap_importance.iterrows():
     bar = "#" * int(row['mean_abs_shap'] / shap_importance['mean_abs_shap'].max() * 30)
     print(f"  {i+1:2d}. {row['feature']:<45s} {row['mean_abs_shap']:.6f}  {bar}")
 
-# SHAP summary plot
+# SHAP beeswarm summary plot
 fig, ax = plt.subplots(figsize=(10, 10))
 shap.summary_plot(
     shap_values,
@@ -379,17 +368,14 @@ plt.savefig('/tmp/crc_shap_bar.png', dpi=150, bbox_inches='tight')
 plt.show()
 print("SHAP bar plot saved to /tmp/crc_shap_bar.png")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 8: MLflow Logging
-# MAGIC
-# MAGIC **What This Cell Does**: Logs all parameters, metrics, model artifacts, and plots
-# MAGIC to the MLflow experiment. Creates or sets the experiment.
+# ===========================================================================
+# 8. MLFLOW LOGGING
+#
+# Log all parameters, metrics, the trained model, feature importance CSV,
+# and performance plots to the MLflow experiment.
+# ===========================================================================
 
-# COMMAND ----------
-
-# Set experiment
 mlflow.set_experiment(EXPERIMENT_NAME)
 print(f"MLflow experiment: {EXPERIMENT_NAME}")
 
@@ -397,9 +383,7 @@ with mlflow.start_run(run_name=f"xgboost_40features_seed{RANDOM_SEED}") as run:
     run_id = run.info.run_id
     print(f"Run ID: {run_id}")
 
-    # -----------------------------------------------------------------------
-    # Log parameters
-    # -----------------------------------------------------------------------
+    # Parameters
     mlflow.log_param("n_features", len(FEATURE_COLS))
     mlflow.log_param("random_seed", RANDOM_SEED)
     mlflow.log_param("input_table", INPUT_TABLE)
@@ -415,9 +399,7 @@ with mlflow.start_run(run_name=f"xgboost_40features_seed{RANDOM_SEED}") as run:
     mlflow.log_param("xgb_n_estimators", N_ESTIMATORS)
     mlflow.log_param("xgb_early_stopping_rounds", EARLY_STOPPING_ROUNDS)
 
-    # -----------------------------------------------------------------------
-    # Log metrics
-    # -----------------------------------------------------------------------
+    # Metrics
     mlflow.log_metric("train_auprc", train_auprc)
     mlflow.log_metric("val_auprc", val_auprc)
     mlflow.log_metric("test_auprc", test_auprc)
@@ -427,9 +409,7 @@ with mlflow.start_run(run_name=f"xgboost_40features_seed{RANDOM_SEED}") as run:
     mlflow.log_metric("train_val_gap_auprc", train_val_gap_auprc)
     mlflow.log_metric("train_val_gap_auroc", train_val_gap_auroc)
 
-    # -----------------------------------------------------------------------
-    # Log model
-    # -----------------------------------------------------------------------
+    # Model artifact
     mlflow.xgboost.log_model(
         model,
         artifact_path="model",
@@ -437,19 +417,14 @@ with mlflow.start_run(run_name=f"xgboost_40features_seed{RANDOM_SEED}") as run:
     )
     print("Model logged to MLflow")
 
-    # -----------------------------------------------------------------------
-    # Log feature list
-    # -----------------------------------------------------------------------
+    # Feature list and importance CSV
     feature_list_str = "\n".join(FEATURE_COLS)
     mlflow.log_text(feature_list_str, "features.txt")
 
-    # Log feature importance as CSV
     shap_importance.to_csv("/tmp/crc_shap_importance.csv", index=False)
     mlflow.log_artifact("/tmp/crc_shap_importance.csv", "analysis")
 
-    # -----------------------------------------------------------------------
-    # Log plots
-    # -----------------------------------------------------------------------
+    # Plots
     mlflow.log_artifact("/tmp/crc_model_curves.png", "plots")
     mlflow.log_artifact("/tmp/crc_shap_summary.png", "plots")
     mlflow.log_artifact("/tmp/crc_shap_bar.png", "plots")
@@ -457,15 +432,12 @@ with mlflow.start_run(run_name=f"xgboost_40features_seed{RANDOM_SEED}") as run:
     print("All artifacts logged")
     print(f"Run URL: {run.info.artifact_uri}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 9: Register Model
-# MAGIC
-# MAGIC **What This Cell Does**: Registers the trained model in the MLflow Model Registry
-# MAGIC for deployment.
-
-# COMMAND ----------
+# ===========================================================================
+# 9. REGISTER MODEL
+#
+# Register the trained model in the MLflow Model Registry for deployment.
+# ===========================================================================
 
 model_uri = f"runs:/{run_id}/model"
 
@@ -478,14 +450,10 @@ print(f"Model registered: {MODEL_NAME}")
 print(f"Version: {registered_model.version}")
 print(f"Source: {model_uri}")
 
-# COMMAND ----------
 
-# MAGIC %md
-# MAGIC ## Cell 10: Summary
-# MAGIC
-# MAGIC **What This Cell Does**: Prints a final summary of the training run.
-
-# COMMAND ----------
+# ===========================================================================
+# 10. SUMMARY
+# ===========================================================================
 
 print("=" * 60)
 print("TRAINING COMPLETE")
