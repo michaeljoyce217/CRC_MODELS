@@ -912,7 +912,7 @@ WITH all_dx AS (
   UNION ALL
 
   -- Inpatient diagnoses
-  SELECT c.PAT_ID, c.END_DTTM, dd.ICD10_CODE AS CODE, DATE(hsp.HOSP_ADMSN_TIME) AS DX_DATE
+  SELECT c.PAT_ID, c.END_DTTM, dd.CODE, DATE(hsp.HOSP_ADMSN_TIME) AS DX_DATE
   FROM cohort_base c
   JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
     ON hsp.PAT_ID = c.PAT_ID
@@ -922,7 +922,7 @@ WITH all_dx AS (
     AND hsp.ADMIT_CONF_STAT_C <> 3
   JOIN clarity_cur.hsp_acct_dx_list_enh dd
     ON dd.PRIM_ENC_CSN_ID = hsp.PAT_ENC_CSN_ID
-  WHERE dd.ICD10_CODE IS NOT NULL
+  WHERE dd.CODE IS NOT NULL
 ),
 
 -- Charlson Comorbidity Index: standard weighted scoring from ICD-10 codes
@@ -1259,7 +1259,7 @@ gi_symptom_acute AS (
     AND hsp.ADMIT_CONF_STAT_C <> 3
   JOIN clarity_cur.hsp_acct_dx_list_enh dx
     ON dx.PRIM_ENC_CSN_ID = hsp.PAT_ENC_CSN_ID
-  WHERE dx.ICD10_CODE RLIKE '^(K62\\.5|K92|K59|R19|D50|R10|R63\\.4|R53)'
+  WHERE dx.CODE RLIKE '^(K62\\.5|K92|K59|R19|D50|R10|R63\\.4|R53)'
 ),
 
 -- Total ED/inpatient encounters (12mo) for acute care reliance ratio
