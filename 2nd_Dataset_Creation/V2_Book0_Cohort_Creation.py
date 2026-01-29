@@ -1041,11 +1041,22 @@ enhanced_cohort AS (
     COALESCE(ise.colonoscopy_count, 0) as colonoscopy_count,
     COALESCE(ise.fobt_count, 0) as fobt_count,
     
-    -- Exclusion logic (using max_valid_years for conservative approach)
+    -- Exclusion logic: per-modality validity check
+    -- Each screening type is checked against its OWN validity window.
+    -- This avoids a bug where an expired short-lived screening (e.g. FOBT)
+    -- could be incorrectly validated by a different modality's longer window.
     CASE
-      WHEN ise.last_screening_date IS NOT NULL
-       AND ise.last_screening_date > DATEADD(YEAR, -1 * ise.max_valid_years, fc.END_DTTM)
-      THEN 1 ELSE 0
+      WHEN ise.last_colonoscopy_date IS NOT NULL
+       AND ise.last_colonoscopy_date > DATEADD(YEAR, -10, fc.END_DTTM) THEN 1
+      WHEN ise.last_ct_colonography_date IS NOT NULL
+       AND ise.last_ct_colonography_date > DATEADD(YEAR, -5, fc.END_DTTM) THEN 1
+      WHEN ise.last_sigmoidoscopy_date IS NOT NULL
+       AND ise.last_sigmoidoscopy_date > DATEADD(YEAR, -5, fc.END_DTTM) THEN 1
+      WHEN ise.last_fit_dna_date IS NOT NULL
+       AND ise.last_fit_dna_date > DATEADD(YEAR, -3, fc.END_DTTM) THEN 1
+      WHEN ise.last_fobt_date IS NOT NULL
+       AND ise.last_fobt_date > DATEADD(YEAR, -1, fc.END_DTTM) THEN 1
+      ELSE 0
     END as excluded_by_internal_screening
     
   FROM {trgt_cat}.clncl_ds.herald_eda_train_cohort fc
