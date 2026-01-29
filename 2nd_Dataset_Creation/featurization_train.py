@@ -51,17 +51,26 @@ spark.sql(f'USE CATALOG {trgt_cat}')
 print(f"Catalog: {trgt_cat}")
 
 # Date parameters
-data_collection_date = datetime.datetime(2025, 9, 30)
+# Dynamic cohort window -- recomputed each training run.
+# Data has a 1-day processing lag; use end of last fully complete month.
+today = datetime.datetime.today()
+data_collection_date = today.replace(day=1) - datetime.timedelta(days=1)
+
 label_months = 6                   # Prediction window: CRC within 6 months
 min_followup_months = 12           # Minimum follow-up to confirm negatives
 total_exclusion_months = max(label_months, min_followup_months)
+cohort_months = 24                 # Rolling observation window length
 
-# Cohort window: starts Jan 2023, ends 12 months before data collection
-# to allow full follow-up for label confirmation
-index_start = '2023-01-01'
-index_end = (data_collection_date - relativedelta(months=total_exclusion_months)).strftime('%Y-%m-%d')
+# index_end: latest observation date (must allow full follow-up after it)
+# index_start: 24 months before index_end
+index_end_dt = data_collection_date - relativedelta(months=total_exclusion_months)
+index_start_dt = index_end_dt - relativedelta(months=cohort_months)
+index_start = index_start_dt.strftime('%Y-%m-%d')
+index_end = index_end_dt.strftime('%Y-%m-%d')
 
-print(f"Cohort window: {index_start} to {index_end}")
+print(f"Training date: {today.strftime('%Y-%m-%d')}")
+print(f"Data complete through: {data_collection_date.strftime('%Y-%m-%d')}")
+print(f"Cohort window: {index_start} to {index_end} ({cohort_months} months)")
 
 # ICD-10 code pattern for colorectal cancer
 # C18 = colon, C19 = rectosigmoid junction, C20 = rectum
