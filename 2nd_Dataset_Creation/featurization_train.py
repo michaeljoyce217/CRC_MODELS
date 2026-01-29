@@ -1042,11 +1042,11 @@ WITH lab_results AS (
     c.PAT_ID,
     c.END_DTTM,
     cc.NAME AS COMPONENT_NAME,
-    TRY_CAST(REGEXP_REPLACE(res.COMPONENT_VALUE, '[><]', '') AS FLOAT) AS VALUE,
-    res.COMP_VERIF_DTTM,
+    TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) AS VALUE,
+    ores.RESULT_TIME,
     ROW_NUMBER() OVER (
       PARTITION BY c.PAT_ID, c.END_DTTM, cc.NAME
-      ORDER BY res.COMP_VERIF_DTTM DESC
+      ORDER BY ores.RESULT_TIME DESC
     ) AS rn
   FROM cohort_base c
   JOIN clarity_cur.order_proc_enh op
@@ -1057,14 +1057,12 @@ WITH lab_results AS (
     AND op.ORDER_STATUS_C IN (3, 5, 10)
   JOIN clarity.order_results ores
     ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
-  JOIN clarity.res_components res
-    ON res.RESULT_ID = ores.RESULT_ID
   JOIN clarity.clarity_component cc
-    ON cc.COMPONENT_ID = res.COMPONENT_ID
+    ON cc.COMPONENT_ID = ores.COMPONENT_ID
   WHERE cc.NAME IN ('HEMOGLOBIN', 'PLATELETS', 'AST', 'ALT', 'ALBUMIN',
                      'ALKALINE PHOSPHATASE', 'CEA', 'MCV', 'FERRITIN')
-    AND res.COMP_VERIF_DTTM < c.END_DTTM
-    AND TRY_CAST(REGEXP_REPLACE(res.COMPONENT_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
+    AND DATE(ores.RESULT_TIME) < c.END_DTTM
+    AND TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
 )
 
 SELECT
@@ -1098,8 +1096,8 @@ WITH lab_history AS (
     c.PAT_ID,
     c.END_DTTM,
     cc.NAME AS COMPONENT_NAME,
-    TRY_CAST(REGEXP_REPLACE(res.COMPONENT_VALUE, '[><]', '') AS FLOAT) AS VALUE,
-    DATEDIFF(c.END_DTTM, res.COMP_VERIF_DTTM) AS DAYS_BEFORE
+    TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) AS VALUE,
+    DATEDIFF(c.END_DTTM, DATE(ores.RESULT_TIME)) AS DAYS_BEFORE
   FROM cohort_base c
   JOIN clarity_cur.order_proc_enh op
     ON op.PAT_ID = c.PAT_ID
@@ -1109,13 +1107,11 @@ WITH lab_history AS (
     AND op.ORDER_STATUS_C IN (3, 5, 10)
   JOIN clarity.order_results ores
     ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
-  JOIN clarity.res_components res
-    ON res.RESULT_ID = ores.RESULT_ID
   JOIN clarity.clarity_component cc
-    ON cc.COMPONENT_ID = res.COMPONENT_ID
+    ON cc.COMPONENT_ID = ores.COMPONENT_ID
   WHERE cc.NAME IN ('HEMOGLOBIN', 'PLATELETS')
-    AND res.COMP_VERIF_DTTM < c.END_DTTM
-    AND TRY_CAST(REGEXP_REPLACE(res.COMPONENT_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
+    AND DATE(ores.RESULT_TIME) < c.END_DTTM
+    AND TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
 ),
 
 -- Values at 3 time points: current (~30d), 3mo (60-120d), 6mo (150-210d)
