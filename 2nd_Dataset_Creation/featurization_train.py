@@ -1084,7 +1084,7 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
 
-  # Direct lab values
+  -- Direct lab values
   ll.HEMOGLOBIN_VALUE AS lab_HEMOGLOBIN_VALUE,
   ll.PLATELETS_VALUE AS lab_PLATELETS_VALUE,
   ll.AST_VALUE AS lab_AST_VALUE,
