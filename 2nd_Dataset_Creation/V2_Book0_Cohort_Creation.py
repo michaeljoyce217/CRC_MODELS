@@ -764,7 +764,7 @@ print("Training cohort created")
 # MAGIC     MIN(END_DTTM) as first_obs,
 # MAGIC     MAX(END_DTTM) as last_obs,
 # MAGIC     COUNT(*) as total_obs
-# MAGIC   FROM {{trgt_cat}}.clncl_ds.herald_eda_train_cohort
+# MAGIC   FROM dev.clncl_ds.herald_eda_train_cohort
 # MAGIC   WHERE LABEL_USABLE = 1
 # MAGIC   GROUP BY PAT_ID
 # MAGIC ),
