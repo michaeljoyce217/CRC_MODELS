@@ -4287,15 +4287,13 @@ print("microcytosis, 13 g/dL for iron depletion with low ferritin)")
 print("capture the spectrum from early iron deficiency to established anemia.")
 
 validation_query = f'''
-SELECT 
+SELECT
     r.lab_comprehensive_iron_deficiency,
     COUNT(*) as count,
-    AVG(c.FUTURE_CRC_EVENT) * 100 as crc_rate_pct,
-    AVG(r.lab_HEMOGLOBIN_VALUE) as avg_hgb,
-    AVG(r.lab_FERRITIN_VALUE) as avg_ferritin
-FROM dev.clncl_ds.herald_eda_train_labs_reduced r
-JOIN dev.clncl_ds.herald_eda_train_final_cohort c
-    ON r.PAT_ID = c.PAT_ID 
+    AVG(c.FUTURE_CRC_EVENT) * 100 as crc_rate_pct
+FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_reduced r
+JOIN {trgt_cat}.clncl_ds.herald_eda_train_final_cohort c
+    ON r.PAT_ID = c.PAT_ID
     AND r.END_DTTM = c.END_DTTM
 GROUP BY r.lab_comprehensive_iron_deficiency
 '''
