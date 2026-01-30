@@ -143,13 +143,14 @@ df_all = spark.table(INPUT_TABLE).select(
     ["PAT_ID", TARGET_COL, "ICD10_GROUP"] + FEATURE_COLS
 ).toPandas()
 print(f"Total rows loaded: {len(df_all):,}")
+print(f"Positive observations in table: {int((df_all[TARGET_COL] == 1).sum()):,}")
 
 # Patient-level stratified split
 # Multi-class stratification: 0=negative, 1=C18, 2=C19, 3=C20
 patient_labels = df_all.groupby("PAT_ID").agg(
-    {TARGET_COL: "max", "ICD10_GROUP": "first"}
+    is_positive=pd.NamedAgg(column=TARGET_COL, aggfunc="max"),
+    cancer_type=pd.NamedAgg(column="ICD10_GROUP", aggfunc="first"),
 ).reset_index()
-patient_labels.columns = ["PAT_ID", "is_positive", "cancer_type"]
 
 cancer_type_map = {'C18': 1, 'C19': 2, 'C20': 3}
 patient_labels['strat_label'] = patient_labels.apply(
