@@ -874,15 +874,70 @@ else:
 
     print_progress(f"Features after variance filter: {len(feature_cols)}")
 
-    print_progress(f"Computing Spearman correlation on {len(df_train):,} observations x {len(feature_cols)} features...")
+    # ==========================================================================
+    # IMPUTE MISSING VALUES FOR CORRELATION ONLY
+    # ==========================================================================
+    # Spearman correlation with pairwise-complete observations can produce
+    # inconsistent matrices when missingness patterns differ across features.
+    # We impute a COPY of the training data using clinically sensible defaults
+    # (matching the original CORRELATION_HIERARCHICAL_FEATURE_CLUSTERING.py).
+    # The original df_pandas is NOT modified — XGBoost and SHAP use raw NaNs.
+    # ==========================================================================
+
+    print_progress("Imputing missing values for correlation computation (original data unchanged)...")
+    df_train_imputed = df_train.copy()
+
+    imputation_counts = {'time_since': 0, 'binary': 0, 'count': 0, 'continuous': 0}
+
+    for col_name in feature_cols:
+        n_missing = df_train_imputed[col_name].isnull().sum()
+        if n_missing == 0:
+            continue
+
+        # 1. TIME-SINCE FEATURES: fill with max+1 ("never observed")
+        if 'days_since' in col_name.lower() or col_name.endswith('_DAYS') or 'recency' in col_name.lower():
+            max_val = df_train_imputed[col_name].max()
+            fill_val = max_val + 1 if not pd.isna(max_val) else 730
+            df_train_imputed[col_name] = df_train_imputed[col_name].fillna(fill_val)
+            imputation_counts['time_since'] += 1
+
+        # 2. BINARY FLAGS: fill with 0 ("flag not present")
+        elif set(df_train_imputed[col_name].dropna().unique()).issubset({0, 1, 0.0, 1.0}):
+            df_train_imputed[col_name] = df_train_imputed[col_name].fillna(0)
+            imputation_counts['binary'] += 1
+
+        # 3. COUNT FEATURES: fill with 0 ("no events")
+        elif (df_train_imputed[col_name].dropna() >= 0).all() and (df_train_imputed[col_name].dropna() % 1 == 0).all():
+            df_train_imputed[col_name] = df_train_imputed[col_name].fillna(0)
+            imputation_counts['count'] += 1
+
+        # 4. CONTINUOUS FEATURES: fill with median ("typical patient")
+        else:
+            median_val = df_train_imputed[col_name].median()
+            df_train_imputed[col_name] = df_train_imputed[col_name].fillna(median_val)
+            imputation_counts['continuous'] += 1
+
+    remaining = df_train_imputed[feature_cols].isnull().sum().sum()
+    print_progress(f"  Time-since features (max+1): {imputation_counts['time_since']}")
+    print_progress(f"  Binary flags (0): {imputation_counts['binary']}")
+    print_progress(f"  Count features (0): {imputation_counts['count']}")
+    print_progress(f"  Continuous features (median): {imputation_counts['continuous']}")
+    print_progress(f"  Remaining missing values: {remaining}")
+    if remaining > 0:
+        print_progress("  WARNING: Some missing values could not be classified — will use pairwise deletion")
+
+    print_progress(f"Computing Spearman correlation on {len(df_train_imputed):,} observations x {len(feature_cols)} features...")
     print_progress("This is O(n*m^2) - may take several minutes for large feature sets...")
 
     start = time.time()
-    corr_matrix = df_train.corr(method='spearman')
+    corr_matrix = df_train_imputed.corr(method='spearman')
     elapsed = time.time() - start
     print_progress(f"Correlation matrix computed in {elapsed:.1f}s")
 
-    # Check for any remaining NaN (shouldn't happen after variance filter)
+    # Free the imputed copy — no longer needed
+    del df_train_imputed
+
+    # Check for any remaining NaN (shouldn't happen after imputation + variance filter)
     nan_count = corr_matrix.isna().sum().sum()
     if nan_count > 0:
         print_progress(f"WARNING: {nan_count} NaN values remain in correlation matrix")
