@@ -1048,16 +1048,13 @@ print("-"*80)
 
 # Count missing values per row
 from pyspark.sql.functions import sum as spark_sum, when, lit
+from functools import reduce
+from operator import add
 
-# Create expression to count nulls per row
-null_count_expr = spark_sum(
-    sum([when(F.col(c).isNull(), lit(1)).otherwise(lit(0)) for c in feature_cols])
-)
+# Create expression to count nulls per row (use reduce, not sum — PySpark shadows built-in sum)
+null_count_col = reduce(add, [when(F.col(c).isNull(), lit(1)).otherwise(lit(0)) for c in feature_cols])
 
-row_miss = df_audit.withColumn(
-    'null_count',
-    sum([when(F.col(c).isNull(), lit(1)).otherwise(lit(0)) for c in feature_cols])
-)
+row_miss = df_audit.withColumn('null_count', null_count_col)
 
 row_miss_stats = row_miss.agg(
     F.avg('null_count').alias('avg_nulls_per_row'),
