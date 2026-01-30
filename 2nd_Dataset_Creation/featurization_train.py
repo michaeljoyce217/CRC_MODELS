@@ -7,7 +7,7 @@
 # from Clarity source tables. These features were selected by iterative
 # SHAP winnowing (Book 9, iteration 16, test AUPRC=0.1146).
 #
-# Output: {trgt_cat}.clncl_ds.fudge_sicle_train
+# Output: {trgt_cat}.clncl_ds.fudgesicle_train
 #
 # Pipeline stages:
 #   1. Configuration & imports
@@ -77,7 +77,7 @@ print(f"Cohort window: {index_start} to {index_end} ({cohort_months} months)")
 crc_icd_regex = r'^(C(?:18|19|20))'
 
 # Output Delta table
-OUTPUT_TABLE = f"{trgt_cat}.clncl_ds.fudge_sicle_train"
+OUTPUT_TABLE = f"{trgt_cat}.clncl_ds.fudgesicle_train"
 
 # The 40 features selected by iterative SHAP winnowing in Book 9.
 # These survived 17 iterations of multi-criteria removal from an

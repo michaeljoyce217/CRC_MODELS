@@ -7,7 +7,7 @@
 # then trains a final model with the best params. Search space is bounded
 # by domain knowledge (250:1 class imbalance, 40 features).
 #
-# Input:  {trgt_cat}.clncl_ds.fudge_sicle_train
+# Input:  {trgt_cat}.clncl_ds.fudgesicle_train
 # Output: Tuned model registered in MLflow
 #
 # Pipeline stages:
@@ -59,7 +59,7 @@ spark.sql(f'USE CATALOG {trgt_cat}')
 print(f"Catalog: {trgt_cat}")
 
 # Input table (output of featurization_train.py) and MLflow settings
-INPUT_TABLE = f"{trgt_cat}.clncl_ds.fudge_sicle_train"
+INPUT_TABLE = f"{trgt_cat}.clncl_ds.fudgesicle_train"
 EXPERIMENT_NAME = f"/Shared/crc_risk_prediction_{trgt_cat}"
 MODEL_NAME = "crc_risk_xgboost_40features_tuned"
 RANDOM_SEED = 217
