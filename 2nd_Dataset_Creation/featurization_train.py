@@ -18,17 +18,16 @@
 #   6. Medical exclusions (prior CRC, colectomy, hospice)
 #   7. Screening exclusions (VBC registry + internal procedure records)
 #   8. Label construction (CRC within 6mo, three-tier negative quality)
-#   9. Train/val/test split (70/15/15, stratified by cancer type)
-#  10. Vitals features (8 features)
-#  11. ICD-10 diagnosis features (7 features)
-#  12. Lab features (11 features)
-#  13. Visit history features (9 features)
-#  14. Procedure features (2 features)
-#  15. Final join (all features combined, nulls filled)
-#  16. Save output table
-#  17. Validation & summary
+#   9. Vitals features (8 features)
+#  10. ICD-10 diagnosis features (7 features)
+#  11. Lab features (11 features)
+#  12. Visit history features (9 features)
+#  13. Procedure features (2 features)
+#  14. Final join (all features combined, nulls filled)
+#  15. Save output table
+#  16. Validation & summary
 #
-# Requires: PySpark (Databricks), scikit-learn, numpy, pandas
+# Requires: PySpark (Databricks), numpy, pandas
 # ===========================================================================
 
 import os
@@ -611,107 +610,27 @@ print(f"Usable observations: {usable_count:,}")
 print(f"Positive cases: {pos_count:,} ({pos_count/usable_count*100:.2f}%)")
 
 
-# ===========================================================================
-# 9. TRAIN / VAL / TEST SPLIT
-#
-# Patient-level stratified split: 70% train, 15% val, 15% test.
-# Stratification preserves cancer type distribution (C18/C19/C20) across
-# all three splits, ensuring balanced populations.
-#
-# Key guarantee: NO patient appears in multiple splits. All observations
-# from the same patient go to the same split.
-#
-# Uses random_state=217 for reproducibility.
-# ===========================================================================
-
-from sklearn.model_selection import train_test_split
-
-# Get patient-level labels with cancer type for stratification
-df_cohort = spark.sql("SELECT * FROM cohort_usable")
-
-patient_labels = df_cohort.groupBy("PAT_ID").agg(
-    F.max("FUTURE_CRC_EVENT").alias("is_positive"),
-    F.first(F.when(F.col("FUTURE_CRC_EVENT") == 1, F.col("ICD10_GROUP"))).alias("cancer_type")
-).toPandas()
-
-# Multi-class stratification: 0=negative, 1=C18, 2=C19, 3=C20
-cancer_type_map = {'C18': 1, 'C19': 2, 'C20': 3}
-patient_labels['strat_label'] = patient_labels.apply(
-    lambda row: cancer_type_map.get(row['cancer_type'], 0) if row['is_positive'] == 1 else 0,
-    axis=1
-)
-
-print(f"Total patients: {len(patient_labels):,}")
-print(f"Positive patients: {patient_labels['is_positive'].sum():,}")
-print(f"Cancer types: {patient_labels[patient_labels['is_positive']==1]['cancer_type'].value_counts().to_dict()}")
-
-# Two-step split: first separate test (15%), then split remainder into train/val
-np.random.seed(217)
-
-patients_trainval, patients_test = train_test_split(
-    patient_labels,
-    test_size=0.15,
-    stratify=patient_labels['strat_label'],
-    random_state=217
-)
-
-patients_train, patients_val = train_test_split(
-    patients_trainval,
-    test_size=0.176,  # 15/85 ≈ 0.176 to get 15% of total
-    stratify=patients_trainval['strat_label'],
-    random_state=217
-)
-
-train_patients = set(patients_train['PAT_ID'].values)
-val_patients = set(patients_val['PAT_ID'].values)
-test_patients = set(patients_test['PAT_ID'].values)
-
-# Verify no patient appears in multiple splits
-assert len(train_patients.intersection(val_patients)) == 0, "TRAIN/VAL overlap!"
-assert len(train_patients.intersection(test_patients)) == 0, "TRAIN/TEST overlap!"
-assert len(val_patients.intersection(test_patients)) == 0, "VAL/TEST overlap!"
-
-print(f"Train patients: {len(train_patients):,}")
-print(f"Val patients:   {len(val_patients):,}")
-print(f"Test patients:  {len(test_patients):,}")
-
-# Create SPLIT mapping as a Spark temp view for downstream joins
-train_pdf = pd.DataFrame({'PAT_ID': list(train_patients), 'SPLIT': 'train'})
-val_pdf = pd.DataFrame({'PAT_ID': list(val_patients), 'SPLIT': 'val'})
-test_pdf = pd.DataFrame({'PAT_ID': list(test_patients), 'SPLIT': 'test'})
-split_mapping_pdf = pd.concat([train_pdf, val_pdf, test_pdf], ignore_index=True)
-
-split_mapping_sdf = spark.createDataFrame(split_mapping_pdf)
-split_mapping_sdf.createOrReplaceTempView("split_mapping")
-
 # Create cohort_base: the foundation view that all feature queries join against
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW cohort_base AS
 SELECT
-  c.PAT_ID,
-  c.END_DTTM,
-  c.IS_FEMALE,
-  c.IS_MARRIED_PARTNER,
-  c.HAS_PCP_AT_END,
-  c.months_since_cohort_entry,
-  c.FUTURE_CRC_EVENT,
-  c.ICD10_GROUP,
-  sm.SPLIT
-FROM cohort_usable c
-JOIN split_mapping sm ON c.PAT_ID = sm.PAT_ID
+  PAT_ID,
+  END_DTTM,
+  IS_FEMALE,
+  IS_MARRIED_PARTNER,
+  HAS_PCP_AT_END,
+  months_since_cohort_entry,
+  FUTURE_CRC_EVENT,
+  ICD10_GROUP
+FROM cohort_usable
 """)
 
-# Verify split balance
-split_counts = spark.sql("""
-  SELECT SPLIT, COUNT(*) AS n, SUM(FUTURE_CRC_EVENT) AS positives,
-         ROUND(SUM(FUTURE_CRC_EVENT) / COUNT(*) * 100, 3) AS pos_pct
-  FROM cohort_base GROUP BY SPLIT ORDER BY SPLIT
-""")
-split_counts.show()
+base_count = spark.sql("SELECT COUNT(*) AS n FROM cohort_base").collect()[0]['n']
+print(f"Cohort base rows: {base_count:,}")
 
 
 # ===========================================================================
-# 10. VITALS FEATURES (8 features)
+# 9. VITALS FEATURES (8 features)
 #
 # Source: pat_enc_enh (outpatient encounters)
 # Lookback: 12 months before observation date
@@ -887,7 +806,7 @@ print("Vitals features computed (8 features)")
 
 
 # ===========================================================================
-# 11. ICD-10 DIAGNOSIS FEATURES (7 features)
+# 10. ICD-10 DIAGNOSIS FEATURES (7 features)
 #
 # Source: pat_enc_dx_enh (outpatient) + hsp_acct_dx_list_enh (inpatient)
 # Lookback: 12 months for most features; "ever" for malignancy flag
@@ -1013,7 +932,7 @@ print("ICD10 features computed (7 features)")
 
 
 # ===========================================================================
-# 12. LAB FEATURES (11 features)
+# 11. LAB FEATURES (11 features)
 #
 # Source: res_components (via order_proc_enh -> order_results -> res_components)
 # Lookback: 24 months for latest values; time-point comparisons for acceleration
@@ -1200,7 +1119,7 @@ print("Lab features combined (11 features)")
 
 
 # ===========================================================================
-# 13. VISIT HISTORY FEATURES (9 features)
+# 12. VISIT HISTORY FEATURES (9 features)
 #
 # Source: pat_enc_enh (outpatient), PAT_ENC_HSP_HAR_ENH (inpatient/ED),
 #         pat_enc_dx_enh + hsp_acct_dx_list_enh (GI symptom diagnoses)
@@ -1375,7 +1294,7 @@ print("Visit features computed (9 features)")
 
 
 # ===========================================================================
-# 14. PROCEDURE FEATURES (2 features)
+# 13. PROCEDURE FEATURES (2 features)
 #
 # Source: order_proc_enh (completed orders only)
 # Lookback: 12 months
@@ -1429,7 +1348,7 @@ print("Procedure features computed (2 features)")
 
 
 # ===========================================================================
-# 15. FINAL JOIN
+# 14. FINAL JOIN
 #
 # Join all feature views together and select the final 40 features plus
 # identifiers (PAT_ID, END_DTTM, FUTURE_CRC_EVENT, SPLIT).
@@ -1447,7 +1366,7 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
   c.FUTURE_CRC_EVENT,
-  c.SPLIT,
+  c.ICD10_GROUP,
 
   -- Demographics (4 features)
   c.IS_FEMALE,
@@ -1519,7 +1438,7 @@ print(f"Final feature table rows: {final_count:,}")
 
 
 # ===========================================================================
-# 16. SAVE OUTPUT TABLE
+# 15. SAVE OUTPUT TABLE
 #
 # Persist the final feature table as a Delta table for downstream training.
 # ===========================================================================
@@ -1535,23 +1454,14 @@ print(f"Rows: {saved_count:,}")
 
 
 # ===========================================================================
-# 17. VALIDATION & SUMMARY
+# 16. VALIDATION & SUMMARY
 #
 # Sanity checks on the output table:
-#   - Split distribution and positive rates
 #   - Null counts per feature (should all be 0 after COALESCE)
 #   - Overall positive rate (~0.41% expected)
 # ===========================================================================
 
 df_check = spark.table(OUTPUT_TABLE)
-
-# Split distribution: verify balanced positive rates across train/val/test
-print("Split Distribution:")
-df_check.groupBy("SPLIT").agg(
-    F.count("*").alias("n"),
-    F.sum("FUTURE_CRC_EVENT").alias("positives"),
-    F.round(F.sum("FUTURE_CRC_EVENT") / F.count("*") * 100, 3).alias("positive_pct")
-).orderBy("SPLIT").show()
 
 # Feature null counts -- should all be 0 after COALESCE in the final join
 print("Feature Null Counts (should be 0):")
