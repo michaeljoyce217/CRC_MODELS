@@ -687,9 +687,9 @@ else:
     # Convert datetime
     df_pandas['END_DTTM'] = pd.to_datetime(df_pandas['END_DTTM'])
 
-    # Identify feature columns (exclude identifiers, target, and outcome-related columns)
-    # ICD10_CODE and ICD10_GROUP are the diagnosis codes for the CRC outcome - NOT features!
-    exclude_cols = ['PAT_ID', 'END_DTTM', 'FUTURE_CRC_EVENT', 'SPLIT', 'ICD10_CODE', 'ICD10_GROUP']
+    # Identify feature columns (exclude identifiers, target, and split)
+    # ICD10_CODE and ICD10_GROUP were already excluded in Book 8's cleaned table
+    exclude_cols = ['PAT_ID', 'END_DTTM', 'FUTURE_CRC_EVENT', 'SPLIT']
     feature_cols = [c for c in df_pandas.columns if c not in exclude_cols]
 
     # Calculate scale_pos_weight from training data
@@ -761,9 +761,16 @@ else:
     patient_outcome = trainval_df.groupby('PAT_ID')['FUTURE_CRC_EVENT'].max().reset_index()
     patient_outcome.columns = ['PAT_ID', 'is_positive']
 
-    # For positive patients, get their cancer type from ICD10_GROUP
-    # ICD10_GROUP contains 'C18', 'C19', 'C20' for positive cases
-    positive_patients = trainval_df[trainval_df['FUTURE_CRC_EVENT'] == 1][['PAT_ID', 'ICD10_GROUP']].drop_duplicates('PAT_ID')
+    # For positive patients, get their cancer type from the cohort table
+    # ICD10_GROUP is not in the wide_cleaned table (excluded as outcome-related in Book 8)
+    # so we join it from the cohort table only for stratification purposes
+    cancer_type_df = spark.sql(f'''
+        SELECT DISTINCT PAT_ID, ICD10_GROUP
+        FROM {trgt_cat}.clncl_ds.herald_eda_train_final_cohort
+        WHERE FUTURE_CRC_EVENT = 1 AND ICD10_GROUP IS NOT NULL
+    ''').toPandas()
+    trainval_pats = set(trainval_df['PAT_ID'].unique())
+    positive_patients = cancer_type_df[cancer_type_df['PAT_ID'].isin(trainval_pats)].drop_duplicates('PAT_ID')
 
     # Merge to get cancer type for positive patients
     patient_labels = patient_outcome.merge(positive_patients, on='PAT_ID', how='left')
