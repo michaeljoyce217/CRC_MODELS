@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Ready to run pipeline in Databricks.
+**Current Status**: All notebooks complete. Rerunning Books 0-9 after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. Training scripts (`train.py`, `train_optuna.py`, `featurization_train.py`) ready; feature lists will be updated after Book 9 rerun.
 
 ---
 
@@ -101,19 +101,25 @@ The automated Book 9 now implements this exact logic.
 ## Directory Structure
 
 ```
-METHODOLOGY_IMBALANCED/
+CRC_MODELS/
 ├── 2nd_Dataset_Creation/           # TRANSFORMED notebooks (working versions)
 │   ├── V2_Book0_Cohort_Creation.py # Base cohort with SGKF splits (COMPLETE)
 │   ├── V2_Book1_Vitals.py          # Train-only feature selection (COMPLETE)
 │   ├── V2_Book2_ICD10.py           # Train-only feature selection (COMPLETE)
 │   ├── V2_Book3_Social_Factors.py  # No changes needed (all features excluded)
-│   ├── V2_Book4_Labs_Combined.py   # Train-only feature selection (COMPLETE)
+│   ├── V2_Book4_Labs_Combined.py   # Labs - CEA/CA19-9/FOBT removed (COMPLETE)
 │   ├── V2_Book5_1_Medications_Outpatient.py  # Train-only feature selection (COMPLETE)
 │   ├── V2_Book5_2_Medications_Inpatient.py   # Train-only feature selection (COMPLETE)
 │   ├── V2_Book6_Visit_History.py   # Train-only feature selection (COMPLETE)
 │   ├── V2_Book7_Procedures.py      # Train-only feature selection (COMPLETE)
 │   ├── V2_Book8_Compilation.py     # No changes needed (just joins tables)
-│   └── V2_Book9_Feature_Selection.py  # Feature selection pipeline (COMPLETE)
+│   ├── V2_Book9_Feature_Selection.py  # Feature selection pipeline (COMPLETE)
+│   ├── featurization_train.py      # Production training featurization (standalone)
+│   ├── train.py                    # Conservative XGBoost training (standalone)
+│   └── train_optuna.py             # Optuna hyperparameter tuning (standalone)
+├── docs/
+│   ├── presentation_design.md      # HTML presentation design doc
+│   └── book4_cea_fobt_removal_guide.md  # Cell-by-cell Book 4 change guide
 ├── Original_2nd_Dataset_Creation/  # ORIGINAL notebooks (reference/backup)
 │   └── (same file structure)
 ├── Original_Methodology/           # Original clustering/SHAP notebooks (analyzed)
@@ -154,7 +160,7 @@ All feature engineering notebooks now filter on `SPLIT='train'` for feature sele
 | Book 1 (Vitals) | COMPLETE | df_train for risk ratios & MI |
 | Book 2 (ICD10) | COMPLETE | df_train for risk ratios & MI |
 | Book 3 (Social) | NO CHANGES | All features excluded due to data quality |
-| Book 4 (Labs) | COMPLETE | df_train for risk ratios & MI |
+| Book 4 (Labs) | COMPLETE | df_train for risk ratios & MI; CEA/CA19-9/FOBT removed |
 | Book 5.1 (Outpatient Meds) | COMPLETE | df_train for risk ratios & MI |
 | Book 5.2 (Inpatient Meds) | COMPLETE | df_train for risk ratios & MI |
 | Book 6 (Visit History) | COMPLETE | df_train for risk ratios & MI |
@@ -373,6 +379,37 @@ The actual stopping point depends on the data - we let the validation gate decid
 
 ---
 
+## Circular Reasoning Exclusions (Book 4)
+
+CEA (Carcinoembryonic Antigen), CA 19-9, and FOBT/FIT were removed from the entire Book 4 labs pipeline. These features create circular reasoning in a model designed for early CRC identification:
+
+- **CEA / CA 19-9**: Tumor markers ordered almost exclusively when a clinician already suspects malignancy. Including them means the model detects the doctor's suspicion, not independent signal.
+- **FOBT/FIT**: CRC screening tests. A positive result *is* the detection mechanism, not a predictor of future disease.
+
+All other lab features (CBC, metabolic panel, liver enzymes, iron studies, etc.) are routine tests ordered for many clinical reasons and remain appropriate. CA125 was preserved (ovarian cancer marker, not CRC-specific).
+
+See `docs/book4_cea_fobt_removal_guide.md` for the cell-by-cell change log.
+
+---
+
+## Training Scripts (Standalone Python)
+
+Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databricks notebooks:
+
+| Script | Purpose | Model Name |
+|--------|---------|------------|
+| `featurization_train.py` | Production featurization pipeline with dynamic cohort window | N/A (produces feature table) |
+| `train.py` | Conservative XGBoost with 40 features | `crc_risk_xgboost_40features` |
+| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_40features_tuned` |
+
+**Note:** Feature lists in all three scripts will need updating after Book 9 rerun produces a new final feature set (the CEA/FOBT removal may change which features survive selection).
+
+`train.py` and `train_optuna.py` can run concurrently — they use different model names, run names, and temp file paths.
+
+`featurization_train.py` uses a dynamic cohort window: end of last complete month (1-day data lag) → 12-month exclusion buffer → 24-month rolling observation window.
+
+---
+
 ## Important Technical Context
 
 - **Platform**: Databricks with PySpark
@@ -436,16 +473,10 @@ The SOP specifies ChiSquared (for categorical features) and ANOVA (for numerical
 
 ```bash
 # Navigate to project
-cd /Users/michaeljoyce/Desktop/CLAUDE_CODE/METHODOLOGY_IMBALANCED
+cd /Users/michaeljoyce/Desktop/CLAUDE_CODE/CRC_MODELS
 
 # Start Claude Code
 claude
-
-# Paste this prompt to resume:
-"I'm continuing work on the CRC feature selection methodology improvement.
-Please read MASTER_PROMPT.md for full context. All notebooks are complete.
-V2_Book9_Feature_Selection.py implements the hybrid two-phase feature
-selection pipeline with dynamic clustering and iterative SHAP winnowing."
 ```
 
 ## Running the Pipeline
