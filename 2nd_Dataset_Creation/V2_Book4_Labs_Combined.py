@@ -1,12 +1,22 @@
 # Databricks notebook source
 # MAGIC %md
+# MAGIC ## 🎯 Quick Start: What This Notebook Does
+# MAGIC
+# MAGIC **In 3 sentences:**
+# MAGIC 1. We extract laboratory values from **2.7 billion raw lab records** across inpatient (res_components) and outpatient (order_results) Epic systems, covering CBC, metabolic panel, liver enzymes, and iron studies
+# MAGIC 2. We engineer temporal features including velocity, acceleration (second derivatives), trajectory classifications, and composite severity scores that reveal hemoglobin acceleration patterns showing **10.9× CRC risk** despite affecting only 0.08% of patients
+# MAGIC 3. We reduce to an optimized feature set while preserving all critical signals, particularly iron deficiency anemia patterns and acceleration dynamics that represent the strongest laboratory-based CRC predictors
+# MAGIC
+# MAGIC **Key finding:** Hemoglobin acceleration (rate of hemoglobin decline accelerating) shows **10.9× CRC risk elevation** — a second-derivative feature that captures disease progression invisible in single-point lab values
+# MAGIC
+# MAGIC **Coverage:** 51% have CBC measurements | **Dual-source:** Inpatient + outpatient labs combined | **Output:** Optimized lab feature set for model integration
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC # Laboratory Values Feature Engineering for CRC Risk Prediction
 # MAGIC
-# MAGIC ## 🔍 What This Analysis Accomplishes
-# MAGIC
-# MAGIC This comprehensive laboratory feature engineering pipeline processes 2.7 billion raw lab records from Epic EHR systems to create 93 sophisticated features for colorectal cancer (CRC) risk prediction. We successfully engineered temporal patterns, acceleration dynamics, and composite biomarkers that reveal hemoglobin acceleration patterns showing **10.9x CRC risk** despite affecting only 0.08% of patients.
-# MAGIC
-# MAGIC ## Why Laboratory Data Matters for CRC Prediction
+# MAGIC ## Clinical Motivation
 # MAGIC
 # MAGIC Laboratory abnormalities often represent the **earliest objective evidence** of colorectal cancer, preceding clinical symptoms by 6-12 months. Unlike subjective symptoms, lab values provide quantifiable, reproducible biomarkers that can trigger early intervention.
 # MAGIC
@@ -28,28 +38,23 @@
 # MAGIC - **FOBT/FIT** are CRC screening tests. A positive result *is* the detection
 # MAGIC   mechanism, not a predictor of future disease.
 # MAGIC
-# MAGIC Including these features defeats the purpose of early identification -- by the time
+# MAGIC Including these features defeats the purpose of early identification — by the time
 # MAGIC CEA is ordered or FOBT is positive, the clinical process has already flagged the
 # MAGIC patient. All remaining lab features (CBC, metabolic panel, liver enzymes, iron
 # MAGIC studies, etc.) are routine tests ordered for many clinical reasons.
 # MAGIC
 # MAGIC ### Handling Laboratory Missingness: A Clinical Perspective
 # MAGIC
-# MAGIC Unlike demographic data where missing values indicate poor quality, laboratory 
+# MAGIC Unlike demographic data where missing values indicate poor quality, laboratory
 # MAGIC missingness often carries clinical information:
 # MAGIC
 # MAGIC - **Missing iron studies** indicate no anemia workup was needed
 # MAGIC - **Missing acceleration features** reflect insufficient serial measurements (requires 4+ labs over 6 months)
 # MAGIC
-# MAGIC We preserve these patterns rather than impute, leveraging XGBoost's native missing 
-# MAGIC value handling. This approach respects the reality that selective lab ordering is 
-# MAGIC itself a clinical signal—the absence of a test order may be as informative as an 
-# MAGIC abnormal result.
+# MAGIC We preserve these patterns rather than impute, leveraging XGBoost's native missing
+# MAGIC value handling. The absence of a test order may be as informative as an abnormal result.
 # MAGIC
-# MAGIC **Key principle:** High missingness in laboratory features often represents clinical 
-# MAGIC workflow reality rather than data quality issues.
-# MAGIC
-# MAGIC ## What Makes This Approach Unique
+# MAGIC ## Feature Engineering Strategy
 # MAGIC
 # MAGIC **Dual-Source Integration**: We combine inpatient (res_components) and outpatient (order_results) laboratory systems to maximize coverage across Epic's complex data architecture.
 # MAGIC
@@ -61,22 +66,11 @@
 # MAGIC
 # MAGIC **Clinical Intelligence**: Features respect Epic workflow realities while maintaining biological plausibility and managing selective ordering patterns.
 # MAGIC
-# MAGIC ## Expected Clinical Impact
+# MAGIC ## Expected Outcomes
 # MAGIC
-# MAGIC This laboratory feature set enables:
-# MAGIC 1. **Early detection** of occult bleeding patterns through hemoglobin trends
-# MAGIC 2. **Risk stratification** using objective biomarkers vs subjective symptoms  
-# MAGIC 3. **Acceleration alerts** for patients showing rapid disease progression
-# MAGIC 4. **Composite scoring** that combines weak signals into strong predictors
-# MAGIC 5. **Clinical decision support** with actionable thresholds for intervention
-# MAGIC
-# MAGIC The modular architecture ensures maintainability while comprehensive validation provides confidence for clinical deployment as cornerstone predictors in CRC risk models.
-# MAGIC
-# MAGIC
-# MAGIC
-# MAGIC
-# MAGIC
-# MAGIC
+# MAGIC - **Risk Signals:** 10.9× for hemoglobin acceleration, 3-5× for iron deficiency patterns
+# MAGIC - **Coverage:** ~51% CBC coverage, lower for specialized tests (iron studies, CA125)
+# MAGIC - **Final Output:** Optimized lab feature set preserving all critical CRC signals
 
 # COMMAND ----------
 
@@ -119,14 +113,13 @@ spark.sql('USE CATALOG prod;')
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 🔍 What This Cell Does
+# MAGIC ### CELL 1 - INPATIENT LAB EXTRACTION
 # MAGIC
+# MAGIC #### 🔍 What This Cell Does
 # MAGIC This cell establishes the foundation for laboratory feature engineering by extracting basic inpatient laboratory values from Epic's res_components table. We're pulling CBC (complete blood count), basic metabolic panel, and lipid components for our CRC prediction cohort, applying quality filters and standardizing component names across Epic's various naming conventions.
 # MAGIC
-# MAGIC ## Why This Matters Clinically
-# MAGIC
+# MAGIC #### Why This Matters for Labs
 # MAGIC Laboratory abnormalities often represent the **earliest objective evidence** of colorectal cancer, preceding clinical symptoms by 6-12 months. Unlike subjective symptoms that patients may not report or recognize, lab values provide quantifiable, reproducible biomarkers:
-# MAGIC
 # MAGIC - **Iron deficiency anemia**: Classic presentation of right-sided colon cancers (affects 30-50% of cases)
 # MAGIC - **Hemoglobin trends**: Capture occult bleeding patterns before patients notice fatigue
 # MAGIC - **Platelet dynamics**: May reveal paraneoplastic syndromes in 10-40% of CRC cases
@@ -134,52 +127,12 @@ spark.sql('USE CATALOG prod;')
 # MAGIC
 # MAGIC This cell focuses on the most commonly ordered tests that provide broad population coverage while maintaining clinical relevance for CRC detection.
 # MAGIC
-# MAGIC ## What This Code Does
-# MAGIC
-# MAGIC **Data Source Integration**: Joins multiple Epic clarity tables to extract laboratory results:
-# MAGIC - `order_proc_enh`: Laboratory orders with status validation
-# MAGIC - `res_components`: Actual numeric results with verification timestamps  
-# MAGIC - `clarity_component`: Component reference data for standardized naming
-# MAGIC - `pat_enc_hsp`: Hospital encounter linkage for patient identification
-# MAGIC
-# MAGIC **Component Name Standardization**: Maps Epic's variable naming conventions to consistent identifiers:
-# MAGIC - Hemoglobin variations → 'HEMOGLOBIN' (includes POC, venous, ABG variants)
-# MAGIC - Hematocrit variations → 'HCT' 
-# MAGIC - Lipid panel components → 'LDL', 'HDL', 'TRIGLYCERIDES'
-# MAGIC
-# MAGIC **Quality Filters Applied**:
-# MAGIC - Order status validation (completed orders only: 3, 5, 10)
-# MAGIC - Result verification (RES_VAL_STATUS_C = 9)
-# MAGIC - Temporal boundaries (labs ≤ END_DTTM, ≥ 2021-07-01)
-# MAGIC - 2-year lookback window for basic labs
+# MAGIC #### What to Watch For
+# MAGIC - Multiple component names for same test (HEMOGLOBIN vs HEMOGLOBIN POC) — standardized via CASE mapping
+# MAGIC - Order status validation (completed orders only: 3, 5, 10) and result verification (RES_VAL_STATUS_C = 9)
+# MAGIC - Temporal boundaries (labs ≤ END_DTTM, ≥ 2021-07-01) with 2-year lookback for basic labs
 # MAGIC - Physiological outlier removal (e.g., Hgb 3-20 g/dL)
-# MAGIC
-# MAGIC ## What to Watch For
-# MAGIC
-# MAGIC **Epic Workflow Artifacts**:
-# MAGIC - Multiple component names for same test (HEMOGLOBIN vs HEMOGLOBIN POC)
-# MAGIC - Unit inconsistencies requiring standardization
-# MAGIC - Incomplete reference ranges in COMPONENT_NRML_LO/HI fields
-# MAGIC
-# MAGIC **Temporal Constraints**:
-# MAGIC - Clarity data availability starts July 1, 2021 (limits historical lookback)
-# MAGIC - 2-year window balances trend detection with data availability
-# MAGIC - Must respect END_DTTM boundaries to prevent data leakage
-# MAGIC
-# MAGIC **Performance Considerations**:
 # MAGIC - Avoid MAX/MIN aggregations on billion-row tables (use FIRST_VALUE with ORDER BY)
-# MAGIC - Apply filters early to reduce data volume
-# MAGIC - Use composite keys (PAT_ID + END_DTTM) for proper joining
-# MAGIC
-# MAGIC ## Expected Output
-# MAGIC
-# MAGIC Based on actual cell output, this extraction yields:
-# MAGIC - **24,222,143 laboratory records** from inpatient sources
-# MAGIC - **99,324 unique patients** with inpatient lab data
-# MAGIC - Coverage spans 11 core laboratory components
-# MAGIC - Data quality validated through outlier filtering and unit standardization
-# MAGIC
-# MAGIC This represents the foundation dataset for subsequent temporal feature engineering and trend analysis.
 # MAGIC
 # MAGIC
 # MAGIC
