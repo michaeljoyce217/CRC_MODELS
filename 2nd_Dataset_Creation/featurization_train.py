@@ -43,11 +43,12 @@ from pyspark.sql.window import Window
 # 1. CONFIGURATION
 # ===========================================================================
 
-# Catalog / schema -- trgt_cat controls dev vs prod separation.
-# Source data reads resolve via USE CATALOG; our own outputs use {trgt_cat}.
+# Catalog / schema -- trgt_cat controls where we WRITE intermediate/output tables.
+# Source data (Clarity EHR) lives only in prod, so USE CATALOG is always prod.
 trgt_cat = os.environ.get('trgt_cat', 'dev')
-spark.sql(f'USE CATALOG {trgt_cat}')
-print(f"Catalog: {trgt_cat}")
+spark.sql('USE CATALOG prod')
+print(f"Read catalog: prod")
+print(f"Write catalog: {trgt_cat}")
 
 # Date parameters
 # Dynamic cohort window -- recomputed each training run.

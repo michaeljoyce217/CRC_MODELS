@@ -385,11 +385,18 @@ The actual stopping point depends on the data - we let the validation gate decid
 
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
-Source data (Clarity EHR tables) lives only in `prod`. All reads from Clarity source tables use unqualified references (e.g., `clarity_cur.PAT_ENC_ENH`) which resolve against the current catalog. The notebook sets `USE CATALOG {trgt_cat}` at the top, and `trgt_cat` is expected to resolve to the correct catalog for reading source data.
+**CRITICAL: `USE CATALOG` is ALWAYS `prod`.** Full source data (Clarity EHR tables) lives only in `prod`. The `dev` and `test` catalogs do NOT have complete data. Every notebook/script must set:
 
-When **writing output** tables or **reading from tables we previously wrote**, use `{trgt_cat}` (e.g., `{trgt_cat}.clncl_ds.fudgesicle_train`). This allows dev/prod separation for our own outputs while source data access is controlled by the catalog setting.
+```python
+trgt_cat = os.environ.get('trgt_cat', 'dev')
+spark.sql('USE CATALOG prod')
+```
 
-**Do NOT hardcode `USE CATALOG prod`** -- the `trgt_cat` environment variable handles catalog resolution.
+- **Reading source data**: Unqualified references (e.g., `clarity_cur.PAT_ENC_ENH`) resolve against the current catalog, which is always `prod`.
+- **Writing output tables**: Use `{trgt_cat}` (e.g., `{trgt_cat}.clncl_ds.fudgesicle_train`). This allows dev/prod separation for our own outputs.
+- **Reading our own tables**: Use `{trgt_cat}` (e.g., `spark.table(f"{trgt_cat}.clncl_ds.fudgesicle_train")`).
+
+**NEVER use `USE CATALOG {trgt_cat}`** -- this would read source data from dev/test which have incomplete data and will produce wrong results (e.g., 2,762 rows instead of 830K).
 
 ## User Preferences
 

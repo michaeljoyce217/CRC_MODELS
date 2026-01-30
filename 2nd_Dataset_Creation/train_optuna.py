@@ -54,10 +54,12 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 # 1. CONFIGURATION
 # ===========================================================================
 
-# Catalog / schema -- trgt_cat controls dev vs prod separation.
+# Catalog / schema -- trgt_cat controls where we WRITE intermediate/output tables.
+# Source data (Clarity EHR) lives only in prod, so USE CATALOG is always prod.
 trgt_cat = os.environ.get('trgt_cat', 'dev')
-spark.sql(f'USE CATALOG {trgt_cat}')
-print(f"Catalog: {trgt_cat}")
+spark.sql('USE CATALOG prod')
+print(f"Read catalog: prod")
+print(f"Write catalog: {trgt_cat}")
 
 # Input table (output of featurization_train.py) and MLflow settings
 INPUT_TABLE = f"{trgt_cat}.clncl_ds.fudgesicle_train"
