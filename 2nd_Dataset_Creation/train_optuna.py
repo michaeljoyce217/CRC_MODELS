@@ -44,6 +44,7 @@ from sklearn.metrics import (
     precision_recall_curve,
     roc_curve,
 )
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 # Suppress Optuna info logs (still shows warnings/errors)
@@ -132,24 +133,64 @@ print(f"Feature count: {len(FEATURE_COLS)}")
 # ===========================================================================
 # 3. LOAD DATA & PREPARE SPLITS
 #
-# Load the featurized table, split into train/val/test pandas DataFrames,
-# and compute scale_pos_weight for class imbalance handling.
+# Load the featurized table and perform patient-level stratified split.
+# Stratification preserves cancer type distribution (C18/C19/C20) across
+# all three splits (70/15/15). No patient appears in multiple splits.
 # ===========================================================================
 
 print("Loading data from Spark...")
 df_all = spark.table(INPUT_TABLE).select(
-    [TARGET_COL, "SPLIT"] + FEATURE_COLS
+    ["PAT_ID", TARGET_COL, "ICD10_GROUP"] + FEATURE_COLS
 ).toPandas()
 print(f"Total rows loaded: {len(df_all):,}")
 
-# Split into train / val / test
+# Patient-level stratified split
+# Multi-class stratification: 0=negative, 1=C18, 2=C19, 3=C20
+patient_labels = df_all.groupby("PAT_ID").agg(
+    {TARGET_COL: "max", "ICD10_GROUP": "first"}
+).reset_index()
+patient_labels.columns = ["PAT_ID", "is_positive", "cancer_type"]
+
+cancer_type_map = {'C18': 1, 'C19': 2, 'C20': 3}
+patient_labels['strat_label'] = patient_labels.apply(
+    lambda row: cancer_type_map.get(row['cancer_type'], 0) if row['is_positive'] == 1 else 0,
+    axis=1
+)
+
+print(f"Total patients: {len(patient_labels):,}")
+print(f"Positive patients: {patient_labels['is_positive'].sum():,}")
+
+# Two-step split: first separate test (15%), then split remainder into train/val
+patients_trainval, patients_test = train_test_split(
+    patient_labels,
+    test_size=0.15,
+    stratify=patient_labels['strat_label'],
+    random_state=RANDOM_SEED,
+)
+
+patients_train, patients_val = train_test_split(
+    patients_trainval,
+    test_size=0.176,  # 15/85 ≈ 0.176 to get 15% of total
+    stratify=patients_trainval['strat_label'],
+    random_state=RANDOM_SEED,
+)
+
+train_pats = set(patients_train['PAT_ID'].values)
+val_pats = set(patients_val['PAT_ID'].values)
+test_pats = set(patients_test['PAT_ID'].values)
+
+# Assign split to each row
+df_all['SPLIT'] = df_all['PAT_ID'].map(
+    lambda pid: 'train' if pid in train_pats else ('val' if pid in val_pats else 'test')
+)
+
 df_train = df_all[df_all["SPLIT"] == "train"].copy()
 df_val = df_all[df_all["SPLIT"] == "val"].copy()
 df_test = df_all[df_all["SPLIT"] == "test"].copy()
 
-print(f"Train: {len(df_train):,} rows")
-print(f"Val:   {len(df_val):,} rows")
-print(f"Test:  {len(df_test):,} rows")
+print(f"Train: {len(df_train):,} rows ({len(train_pats):,} patients)")
+print(f"Val:   {len(df_val):,} rows ({len(val_pats):,} patients)")
+print(f"Test:  {len(df_test):,} rows ({len(test_pats):,} patients)")
 
 # Prepare X, y arrays
 X_train = df_train[FEATURE_COLS].values
@@ -168,8 +209,8 @@ print(f"\nTrain positives: {n_pos:,} ({n_pos/len(y_train)*100:.3f}%)")
 print(f"Train negatives: {n_neg:,}")
 print(f"scale_pos_weight: {scale_pos_weight:.1f}")
 
-# Free the full dataframe
-del df_all
+# Free memory
+del df_all, patient_labels, patients_trainval, patients_train, patients_val, patients_test
 
 
 # ===========================================================================
