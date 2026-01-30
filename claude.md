@@ -102,30 +102,40 @@ The automated Book 9 now implements this exact logic.
 
 ```
 CRC_MODELS/
-├── 2nd_Dataset_Creation/           # TRANSFORMED notebooks (working versions)
-│   ├── V2_Book0_Cohort_Creation.py # Base cohort with SGKF splits (COMPLETE)
-│   ├── V2_Book1_Vitals.py          # Train-only feature selection (COMPLETE)
-│   ├── V2_Book2_ICD10.py           # Train-only feature selection (COMPLETE)
-│   ├── V2_Book3_Social_Factors.py  # No changes needed (all features excluded)
-│   ├── V2_Book4_Labs_Combined.py   # Labs - CEA/CA19-9/FOBT removed (COMPLETE)
-│   ├── V2_Book5_1_Medications_Outpatient.py  # Train-only feature selection (COMPLETE)
-│   ├── V2_Book5_2_Medications_Inpatient.py   # Train-only feature selection (COMPLETE)
-│   ├── V2_Book6_Visit_History.py   # Train-only feature selection (COMPLETE)
-│   ├── V2_Book7_Procedures.py      # Train-only feature selection (COMPLETE)
-│   ├── V2_Book8_Compilation.py     # No changes needed (just joins tables)
-│   ├── V2_Book9_Feature_Selection.py  # Feature selection pipeline (COMPLETE)
+├── 2nd_Dataset_Creation/           # Working notebooks and training scripts
+│   ├── V2_Book0_Cohort_Creation.py # Base cohort with SGKF splits
+│   ├── V2_Book1_Vitals.py          # Vital signs features
+│   ├── V2_Book2_ICD10.py           # ICD-10 diagnosis features
+│   ├── V2_Book3_Social_Factors.py  # Social factors (all excluded)
+│   ├── V2_Book4_Labs_Combined.py   # Lab features (CEA/CA19-9/FOBT removed)
+│   ├── V2_Book5_1_Medications_Outpatient.py  # Outpatient medications
+│   ├── V2_Book5_2_Medications_Inpatient.py   # Inpatient medications
+│   ├── V2_Book6_Visit_History.py   # Visit history features
+│   ├── V2_Book7_Procedures.py      # Procedure features
+│   ├── V2_Book8_Compilation.py     # Joins all feature tables
+│   ├── V2_Book9_Feature_Selection.py  # Feature selection pipeline
 │   ├── featurization_train.py      # Production training featurization (standalone)
 │   ├── train.py                    # Conservative XGBoost training (standalone)
 │   └── train_optuna.py             # Optuna hyperparameter tuning (standalone)
-├── docs/
+├── docs/                           # Documentation and reference materials
 │   ├── presentation_design.md      # HTML presentation design doc
-│   └── book4_cea_fobt_removal_guide.md  # Cell-by-cell Book 4 change guide
-├── Original_2nd_Dataset_Creation/  # ORIGINAL notebooks (reference/backup)
-│   └── (same file structure)
-├── Original_Methodology/           # Original clustering/SHAP notebooks (analyzed)
-│   ├── CORRELATION_HIERARCHICAL_FEATURE_CLUSTERING.py
-│   └── CRC_ITER1_MODEL-PREVALENCE.py
-└── Prompts/                        # Additional prompts/documentation
+│   ├── book4_cea_fobt_removal_guide.md  # Book 4 change guide
+│   ├── cohort_creation_explained.md/pdf
+│   ├── CRC_Cohort_Inclusion_Exclusion_Criteria.md/pdf
+│   ├── feature_pipeline_by_book.md/pdf
+│   ├── target_variable_methodology.md/pdf
+│   ├── mercy_ethos_style_guide.md
+│   ├── engineering_sop.pdf
+│   ├── feature_dictionary.csv
+│   ├── iteration_tracking.csv
+│   └── Feature_Engineering.prompt
+├── Original_2nd_Dataset_Creation/  # Original notebooks (reference/backup)
+│   └── V2_Book0 through V2_Book8
+├── Original_Methodology/           # Original clustering/SHAP notebooks
+│   ├── CORRELATION_HIERARCHICAL_FEATURE_CLUSTERING.py/.ipynb/.html
+│   └── CRC_ITER1_MODEL-PREVALENCE.py/.ipynb/.html
+├── claude.md                       # Project instructions (this file)
+└── README.md
 ```
 
 ## Completed Work Summary
