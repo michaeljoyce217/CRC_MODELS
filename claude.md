@@ -387,7 +387,7 @@ The actual stopping point depends on the data - we let the validation gate decid
 
 Source data (Clarity EHR tables) lives only in `prod`. All reads from Clarity source tables use unqualified references (e.g., `clarity_cur.PAT_ENC_ENH`) which resolve against the current catalog. The notebook sets `USE CATALOG {trgt_cat}` at the top, and `trgt_cat` is expected to resolve to the correct catalog for reading source data.
 
-When **writing output** tables or **reading from tables we previously wrote**, use `{trgt_cat}` (e.g., `{trgt_cat}.clncl_ds.fudge_sicle_train`). This allows dev/prod separation for our own outputs while source data access is controlled by the catalog setting.
+When **writing output** tables or **reading from tables we previously wrote**, use `{trgt_cat}` (e.g., `{trgt_cat}.clncl_ds.fudgesicle_train`). This allows dev/prod separation for our own outputs while source data access is controlled by the catalog setting.
 
 **Do NOT hardcode `USE CATALOG prod`** -- the `trgt_cat` environment variable handles catalog resolution.
 
