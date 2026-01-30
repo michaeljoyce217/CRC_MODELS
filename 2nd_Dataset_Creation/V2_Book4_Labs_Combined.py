@@ -13,16 +13,31 @@
 # MAGIC **Key Clinical Patterns We're Capturing:**
 # MAGIC - **Iron deficiency anemia**: Classic presentation of right-sided colon cancers (30-50% prevalence)
 # MAGIC - **Thrombocytosis**: Paraneoplastic syndrome in 10-40% of CRC cases
-# MAGIC - **Tumor markers**: CEA elevation in 40-70% of established cancers
 # MAGIC - **Acceleration patterns**: Novel second-derivative features capturing disease progression
 # MAGIC - **Metabolic changes**: Liver involvement, nutritional depletion, chronic inflammation
+# MAGIC
+# MAGIC ### Deliberately Excluded: Tumor Markers and Screening Tests
+# MAGIC
+# MAGIC This pipeline **excludes** CEA (Carcinoembryonic Antigen), CA 19-9, and FOBT/FIT
+# MAGIC (Fecal Occult Blood Test / Fecal Immunochemical Test). While these are clinically
+# MAGIC associated with CRC, including them creates circular reasoning:
+# MAGIC
+# MAGIC - **Tumor markers (CEA, CA 19-9)** are almost exclusively ordered when a clinician
+# MAGIC   already suspects malignancy. The model would detect the doctor's suspicion, not
+# MAGIC   independent signal.
+# MAGIC - **FOBT/FIT** are CRC screening tests. A positive result *is* the detection
+# MAGIC   mechanism, not a predictor of future disease.
+# MAGIC
+# MAGIC Including these features defeats the purpose of early identification -- by the time
+# MAGIC CEA is ordered or FOBT is positive, the clinical process has already flagged the
+# MAGIC patient. All remaining lab features (CBC, metabolic panel, liver enzymes, iron
+# MAGIC studies, etc.) are routine tests ordered for many clinical reasons.
 # MAGIC
 # MAGIC ### Handling Laboratory Missingness: A Clinical Perspective
 # MAGIC
 # MAGIC Unlike demographic data where missing values indicate poor quality, laboratory 
 # MAGIC missingness often carries clinical information:
 # MAGIC
-# MAGIC - **Missing CEA** suggests low cancer suspicion (not ordered without clinical concern)
 # MAGIC - **Missing iron studies** indicate no anemia workup was needed
 # MAGIC - **Missing acceleration features** reflect insufficient serial measurements (requires 4+ labs over 6 months)
 # MAGIC
@@ -44,7 +59,7 @@
 # MAGIC - Trajectory classifications (rapid decline, stable, rising)
 # MAGIC - Composite severity scores (0-6 scale combining multiple anemia indicators)
 # MAGIC
-# MAGIC **Clinical Intelligence**: Features respect Epic workflow realities while maintaining biological plausibility, handling text parsing for FOBT results and managing selective ordering patterns for specialized tests.
+# MAGIC **Clinical Intelligence**: Features respect Epic workflow realities while maintaining biological plausibility and managing selective ordering patterns.
 # MAGIC
 # MAGIC ## Expected Clinical Impact
 # MAGIC
@@ -450,7 +465,7 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC %md
 # MAGIC ## 🔍 What This Cell Does
 # MAGIC
-# MAGIC This cell processes the raw inpatient laboratory data extracted in Cell 1B by applying comprehensive normalization, component name standardization, and clinical outlier filtering. We're transforming Epic's variable naming conventions into consistent identifiers while applying different lookback windows based on clinical relevance (3 years for tumor markers, 2 years for routine labs).
+# MAGIC This cell processes the raw inpatient laboratory data extracted in Cell 1B by applying comprehensive normalization, component name standardization, and clinical outlier filtering. We're transforming Epic's variable naming conventions into consistent identifiers while applying different lookback windows based on clinical relevance (2 years for routine labs, 3 years for slow-changing markers like ferritin).
 # MAGIC
 # MAGIC ## Why This Matters Clinically
 # MAGIC
@@ -459,7 +474,6 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC - **Component naming chaos**: The same test appears as "HEMOGLOBIN", "HEMOGLOBIN POC", "HEMOGLOBIN VENOUS" depending on collection method
 # MAGIC - **Unit inconsistencies**: CRP reported in both mg/dL and mg/L requires conversion for meaningful analysis
 # MAGIC - **Physiological outliers**: Data entry errors create impossible values (hemoglobin 50 g/dL) that skew statistics
-# MAGIC - **Selective ordering patterns**: Tumor markers like CEA are rarely ordered without clinical suspicion, creating selection bias
 # MAGIC
 # MAGIC This normalization step ensures we're analyzing biologically plausible, consistently named laboratory values that reflect actual clinical practice patterns.
 # MAGIC
@@ -469,15 +483,13 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC - All hemoglobin variants → 'HEMOGLOBIN' (includes POC, venous, ABG)
 # MAGIC - Iron studies → 'IRON', 'TIBC', 'FERRITIN', 'TRANSFERRIN', 'IRON_SAT'
 # MAGIC - Liver function tests → 'ALT', 'AST', 'ALK_PHOS', 'BILI_TOTAL', 'BILI_DIRECT'
-# MAGIC - Tumor markers → 'CEA', 'CA19_9', 'CA125'
-# MAGIC - Stool tests → 'FOBT_FIT' (handles multiple naming variations)
 # MAGIC
 # MAGIC **Unit Conversion**: 
 # MAGIC - CRP: mg/dL → mg/L (multiply by 10) for international standard units
 # MAGIC - Numeric extraction: Removes qualifiers like ">" and "<" from text values
 # MAGIC
 # MAGIC **Clinical Lookback Windows**:
-# MAGIC - Tumor markers (CEA, CA19-9, CA125): 3 years (1095 days) - rare but persistent signals
+# MAGIC - Slow-changing markers (Ferritin, CRP, ESR, LDH): 3 years (1095 days) - persistent signals
 # MAGIC - Routine labs (CBC, chemistry): 2 years (730 days) - captures meaningful trends
 # MAGIC - All others: 2 years default
 # MAGIC
@@ -496,7 +508,6 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC
 # MAGIC **Temporal Constraints**:
 # MAGIC - Clarity data availability starts July 1, 2021 (hard constraint)
-# MAGIC - 3-year lookback for tumor markers may be limited by data availability
 # MAGIC - Must respect END_DTTM boundaries to prevent data leakage
 # MAGIC
 # MAGIC **Performance Considerations**:
@@ -507,7 +518,6 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC **Clinical Validation Signals**:
 # MAGIC - Hemoglobin range 3-20 g/dL captures severe anemia to polycythemia
 # MAGIC - CRP conversion ensures inflammatory markers are comparable
-# MAGIC - FOBT text parsing handles "positive"/"negative" qualitative results
 # MAGIC
 # MAGIC ## Expected Output
 # MAGIC
@@ -520,7 +530,6 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC The validation summary shows successful processing with reasonable value distributions:
 # MAGIC - Hemoglobin: 4.0M records, mean 10.99 g/dL (reflects hospital population with anemia)
 # MAGIC - Platelets: 3.7M records, mean 230 K/μL (normal range)
-# MAGIC - Tumor markers: Lower volumes but preserved for high-risk patients
 # MAGIC
 # MAGIC
 # MAGIC
@@ -582,19 +591,10 @@ WITH normalized_labs AS (
             WHEN RAW_NAME = 'HDL' THEN 'HDL'
             WHEN RAW_NAME IN ('TRIGLYCERIDE', 'TRIGLYCERIDES, DIRECT') THEN 'TRIGLYCERIDES'
             
-            -- Tumor Markers
-            WHEN RAW_NAME = 'CEA' THEN 'CEA'
-            WHEN RAW_NAME = 'CA 19-9' THEN 'CA19_9'
-            WHEN RAW_NAME = 'CA 125' THEN 'CA125'
-            
             -- Other
+            WHEN RAW_NAME = 'CA 125' THEN 'CA125'
             WHEN RAW_NAME = 'LD (LACTATE DEHYDROGENASE)' THEN 'LDH'
             WHEN RAW_NAME = 'HEMOGLOBIN A1C' THEN 'HGBA1C'
-            
-            -- Stool Tests
-            WHEN RAW_NAME IN ('OCCULT BLOOD, STOOL', 'OCCULT BLOOD 1 CARD POC',
-                             'OCCULT BLOOD #1', 'OCCULT BLOOD #2', 'OCCULT BLOOD #3',
-                             'OCCULT BLOOD') THEN 'FOBT_FIT'
             ELSE NULL
         END AS COMPONENT_NAME,
         
@@ -615,12 +615,12 @@ SELECT *
 FROM normalized_labs
 WHERE COMPONENT_NAME IS NOT NULL
     AND (
-        -- 3-year lookback for tumor markers and special tests
-        (COMPONENT_NAME IN ('CEA', 'CA19_9', 'CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH') 
+        -- 3-year lookback for slow-changing markers
+        (COMPONENT_NAME IN ('CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
          AND DAYS_SINCE_LAB <= 1095)
         OR
         -- 2-year lookback for routine labs
-        (COMPONENT_NAME NOT IN ('CEA', 'CA19_9', 'CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
+        (COMPONENT_NAME NOT IN ('CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
          AND DAYS_SINCE_LAB <= 730)
     )
     -- Apply outlier filtering
@@ -642,11 +642,9 @@ WHERE COMPONENT_NAME IS NOT NULL
         OR (COMPONENT_NAME = 'ALK_PHOS' AND COMPONENT_VALUE BETWEEN 0 AND 2000)
         OR (COMPONENT_NAME = 'BILI_TOTAL' AND COMPONENT_VALUE BETWEEN 0 AND 50)
         OR (COMPONENT_NAME = 'GGT' AND COMPONENT_VALUE BETWEEN 0 AND 2000)
-        OR (COMPONENT_NAME = 'CEA' AND COMPONENT_VALUE BETWEEN 0 AND 10000)
-        OR (COMPONENT_NAME = 'CA19_9' AND COMPONENT_VALUE BETWEEN 0 AND 100000)
         OR (COMPONENT_NAME = 'CA125' AND COMPONENT_VALUE BETWEEN 0 AND 50000)
         OR (COMPONENT_NAME = 'LDH' AND COMPONENT_VALUE BETWEEN 0 AND 5000)
-        OR COMPONENT_NAME IN ('LDL', 'HDL', 'TRIGLYCERIDES', 'HGBA1C', 'FOBT_FIT', 
+        OR COMPONENT_NAME IN ('LDL', 'HDL', 'TRIGLYCERIDES', 'HGBA1C',
                               'TOTAL_PROTEIN', 'BILI_DIRECT', 'TRANSFERRIN', 'IRON_SAT')
     )
 ''')
@@ -674,7 +672,7 @@ validation_df.show(50, truncate=False)
 # MAGIC %md
 # MAGIC ## 📊 Conclusion
 # MAGIC
-# MAGIC Successfully transformed 241M raw inpatient laboratory records into a clinically meaningful, standardized dataset. The component name mapping handles Epic's complex naming variations while outlier filtering ensures biological plausibility. Different lookback windows respect the clinical utility of various tests - tumor markers get longer windows despite rarity because they provide persistent signals when elevated.
+# MAGIC Successfully transformed 241M raw inpatient laboratory records into a clinically meaningful, standardized dataset. The component name mapping handles Epic's complex naming variations while outlier filtering ensures biological plausibility. Different lookback windows respect the clinical utility of various tests - slow-changing markers like ferritin get longer windows because they provide persistent signals.
 # MAGIC
 # MAGIC Key achievement: Created a robust foundation for temporal feature engineering that maintains clinical interpretability while handling Epic's data architecture complexities. The processed dataset enables sophisticated trend analysis and acceleration pattern detection in subsequent cells.
 # MAGIC
@@ -697,7 +695,6 @@ validation_df.show(50, truncate=False)
 # MAGIC - **Routine screening labs**: Annual physicals, wellness visits capture CBC and metabolic panels
 # MAGIC - **Follow-up monitoring**: Chronic disease management reveals trends over time
 # MAGIC - **Symptom-driven testing**: Patients presenting with fatigue, weight loss get targeted workups
-# MAGIC - **Preventive care**: FOBT/FIT screening predominantly occurs in outpatient settings
 # MAGIC - **Specialist referrals**: Gastroenterology, oncology ordering patterns differ from inpatient
 # MAGIC
 # MAGIC The outpatient setting captures the "real world" of CRC detection - patients living their normal lives when subtle laboratory changes first appear, often 6-12 months before hospitalization or diagnosis.
@@ -734,8 +731,7 @@ validation_df.show(50, truncate=False)
 # MAGIC **Data Volume Considerations**:
 # MAGIC - Outpatient typically has 2-3x more lab orders than inpatient
 # MAGIC - Routine screening creates large volumes of normal results
-# MAGIC - Specialized tests (tumor markers) still rare but may have better coverage
-# MAGIC - FOBT/FIT predominantly outpatient tests
+# MAGIC - Specialized tests still rare but may have better coverage in outpatient
 # MAGIC
 # MAGIC **Temporal Patterns**:
 # MAGIC - Outpatient labs often more spaced out (quarterly, annually)
@@ -831,13 +827,12 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC %md
 # MAGIC ## 🔍 What This Cell Does
 # MAGIC
-# MAGIC This cell processes the raw outpatient laboratory data extracted in Cell 2A by applying comprehensive normalization, component name standardization, and clinical outlier filtering. We're transforming Epic's variable outpatient naming conventions into consistent identifiers while applying specialized text parsing for FOBT results and handling the different data structure of order_results vs res_components.
+# MAGIC This cell processes the raw outpatient laboratory data extracted in Cell 2A by applying comprehensive normalization, component name standardization, and clinical outlier filtering. We're transforming Epic's variable outpatient naming conventions into consistent identifiers while handling the different data structure of order_results vs res_components.
 # MAGIC
 # MAGIC ## Why This Matters Clinically
 # MAGIC
 # MAGIC Outpatient laboratory processing presents unique challenges compared to inpatient data:
 # MAGIC
-# MAGIC - **FOBT/FIT screening**: Predominantly outpatient tests requiring text parsing ("positive"/"negative" vs numeric values)
 # MAGIC - **Routine monitoring**: Annual physicals and chronic disease management create different ordering patterns
 # MAGIC - **Point-of-care variations**: Less common but still present in urgent care settings
 # MAGIC - **Reference range differences**: Outpatient labs may use different normal ranges than inpatient
@@ -852,17 +847,11 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC - CBC components → 'HCT', 'MCV', 'MCH', 'MCHC', 'PLATELETS'
 # MAGIC - Iron studies → 'IRON', 'TIBC', 'FERRITIN', 'TRANSFERRIN', 'IRON_SAT'
 # MAGIC - Liver function → 'ALT', 'AST', 'ALK_PHOS', 'BILI_TOTAL', 'BILI_DIRECT', 'GGT'
-# MAGIC - Tumor markers → 'CEA', 'CA19_9', 'CA125'
-# MAGIC
-# MAGIC **FOBT/FIT Text Processing**: Handles qualitative stool test results:
-# MAGIC - Text parsing: "positive"/"pos"/"+" → 1, "negative"/"neg"/"-" → 0
-# MAGIC - Numeric thresholds: FIT >100 ng/mL typically considered positive
-# MAGIC - Multiple naming variations: 'FECAL GLOBIN', 'OCCULT BLOOD', 'IMMUNOASSAY'
 # MAGIC
 # MAGIC **Unit Conversion and Quality Filters**:
 # MAGIC - CRP: mg/dL → mg/L (multiply by 10) for international standards
 # MAGIC - Physiological outlier removal with component-specific bounds
-# MAGIC - Different lookback windows: 3 years for tumor markers, 2 years for routine labs
+# MAGIC - Different lookback windows: 3 years for slow-changing markers, 2 years for routine labs
 # MAGIC
 # MAGIC ## What to Watch For
 # MAGIC
@@ -872,37 +861,28 @@ spark.sql(f"SELECT COUNT(*) as row_count FROM {trgt_cat}.clncl_ds.herald_eda_tra
 # MAGIC - Different abnormal flag calculation methods
 # MAGIC - Higher volume but more routine testing patterns
 # MAGIC
-# MAGIC **FOBT Processing Challenges**:
-# MAGIC - Mixed text/numeric results require careful parsing
-# MAGIC - False positives from data entry errors (values >1000)
-# MAGIC - Multiple test types with different naming conventions
-# MAGIC - Qualitative results need binary conversion for analysis
-# MAGIC
 # MAGIC **Performance Considerations**:
 # MAGIC - 310M+ raw records require careful memory management
 # MAGIC - Early filtering critical before applying complex transformations
 # MAGIC - Comprehensive outlier bounds needed for all 26 components
-# MAGIC - Text processing adds computational overhead
 # MAGIC
 # MAGIC ## Expected Output
 # MAGIC
 # MAGIC Based on the actual cell execution, this processing yields:
 # MAGIC - **Comprehensive outpatient coverage**: All major laboratory components processed
-# MAGIC - **FOBT integration success**: Text parsing handles positive/negative qualitative results
 # MAGIC - **Quality-filtered dataset**: Physiological outliers removed while preserving clinical range
 # MAGIC - **Standardized naming**: Consistent identifiers enable downstream joining with inpatient data
 # MAGIC
 # MAGIC The validation shows successful processing across all component types:
 # MAGIC - Hemoglobin: 5.9M records, mean 11.71 g/dL (higher than inpatient due to healthier population)
 # MAGIC - Platelets: 5.3M records, mean 239 K/μL (normal outpatient range)
-# MAGIC - FOBT: 32,468 tests with 44.9% positive rate after text parsing
 # MAGIC
 # MAGIC
 
 # COMMAND ----------
 
 # ---------------------------------  
-# CELL 2B: Process Outpatient Labs with Special FOBT Handling
+# CELL 2B: Process Outpatient Labs with Normalization
 # ---------------------------------
 
 spark.sql(f'''
@@ -953,41 +933,17 @@ WITH normalized_labs AS (
             WHEN RAW_NAME IN ('GGT', 'GAMMA GT', 'GGTP') THEN 'GGT'
             WHEN RAW_NAME IN ('TOTAL PROTEIN', 'PROTEIN, TOTAL') THEN 'TOTAL_PROTEIN'
             
-            -- Tumor Markers
-            WHEN RAW_NAME = 'CEA' THEN 'CEA'
-            WHEN RAW_NAME IN ('CA 19-9', 'CA19-9', 'CARBOHYDRATE ANTIGEN 19-9') THEN 'CA19_9'
-            WHEN RAW_NAME IN ('CA 125', 'CA125', 'CANCER ANTIGEN 125') THEN 'CA125'
-            
             -- Other
+            WHEN RAW_NAME IN ('CA 125', 'CA125', 'CANCER ANTIGEN 125') THEN 'CA125'
             WHEN RAW_NAME = 'LD (LACTATE DEHYDROGENASE)' THEN 'LDH'
             WHEN RAW_NAME IN ('HEMOGLOBIN A1C', 'HGB A1C POC')
                  AND RAW_UNITS IN ('% OF TOTAL HGB','%','%HB','%NGSP','% NGSP')
                 THEN 'HGBA1C'
-            
-            -- FOBT/FIT - special handling needed
-            WHEN RAW_NAME IN ('FECAL GLOBIN', 'OCCULT BLOOD, STOOL', 'OCCULT BLOOD 1 CARD POC',
-                             'OCCULT BLOOD #1', 'OCCULT BLOOD #2', 'OCCULT BLOOD #3',
-                             'ABSTRACTED OCCULT BLOOD, STOOL', 'OCCULT BLOOD',
-                             'OCCULT BLOOD IMMUNOASSAY, STOOL')
-                THEN 'FOBT_FIT'
             ELSE NULL
         END AS COMPONENT_NAME,
         
-        -- Value normalization with special FOBT handling
+        -- Value normalization
         CASE
-            -- Handle FOBT text results
-            WHEN RAW_NAME LIKE '%OCCULT%' OR RAW_NAME LIKE '%FECAL%' THEN
-                CASE
-                    WHEN LOWER(RAW_VALUE) IN ('positive', 'pos', '+', 'detected', 'abnormal') THEN 1
-                    WHEN LOWER(RAW_VALUE) IN ('negative', 'neg', '-', 'not detected', 'normal') THEN 0
-                    -- Try to parse numeric values with reasonable bounds
-                    ELSE 
-                        CASE 
-                            WHEN TRY_CAST(REGEXP_REPLACE(RAW_VALUE,'[><]','') AS FLOAT) > 1000 
-                            THEN NULL  -- Exclude obvious errors
-                            ELSE TRY_CAST(REGEXP_REPLACE(RAW_VALUE,'[><]','') AS FLOAT)
-                        END
-                END
             -- CRP conversion
             WHEN RAW_NAME = 'CRP' AND RAW_UNITS = 'MG/DL'
                 THEN TRY_CAST(REGEXP_REPLACE(RAW_VALUE,'[><]','') AS FLOAT) * 10
@@ -1005,10 +961,10 @@ WHERE COMPONENT_NAME IS NOT NULL
     AND COMPONENT_VALUE IS NOT NULL
     AND (
         -- Lookback windows
-        (COMPONENT_NAME IN ('CEA', 'CA19_9', 'CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
+        (COMPONENT_NAME IN ('CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
          AND DAYS_SINCE_LAB <= 1095)
         OR
-        (COMPONENT_NAME NOT IN ('CEA', 'CA19_9', 'CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
+        (COMPONENT_NAME NOT IN ('CA125', 'FERRITIN', 'CRP', 'ESR', 'LDH')
          AND DAYS_SINCE_LAB <= 730)
     )
     -- Apply outlier filters - COMPLETE LIST with bounds for ALL components
@@ -1034,15 +990,12 @@ WHERE COMPONENT_NAME IS NOT NULL
         OR (COMPONENT_NAME = 'BILI_DIRECT' AND COMPONENT_VALUE BETWEEN 0 AND 50)
         OR (COMPONENT_NAME = 'GGT' AND COMPONENT_VALUE BETWEEN 0 AND 2000)
         OR (COMPONENT_NAME = 'TOTAL_PROTEIN' AND COMPONENT_VALUE BETWEEN 0 AND 20)
-        OR (COMPONENT_NAME = 'CEA' AND COMPONENT_VALUE BETWEEN 0 AND 10000)
-        OR (COMPONENT_NAME = 'CA19_9' AND COMPONENT_VALUE BETWEEN 0 AND 100000)
         OR (COMPONENT_NAME = 'CA125' AND COMPONENT_VALUE BETWEEN 0 AND 50000)
         OR (COMPONENT_NAME = 'LDH' AND COMPONENT_VALUE BETWEEN 0 AND 5000)
         OR (COMPONENT_NAME = 'HGBA1C' AND COMPONENT_VALUE BETWEEN 2 AND 25)
         OR (COMPONENT_NAME = 'LDL' AND COMPONENT_VALUE BETWEEN 0 AND 1000)
         OR (COMPONENT_NAME = 'HDL' AND COMPONENT_VALUE BETWEEN 0 AND 200)
         OR (COMPONENT_NAME = 'TRIGLYCERIDES' AND COMPONENT_VALUE BETWEEN 0 AND 5000)
-        OR (COMPONENT_NAME = 'FOBT_FIT' AND COMPONENT_VALUE BETWEEN 0 AND 1000)  -- Added explicit bounds for FOBT
     )
 ''')
 
@@ -1064,7 +1017,7 @@ ORDER BY count DESC
 # MAGIC %md
 # MAGIC ## 📊 Conclusion
 # MAGIC
-# MAGIC Successfully transformed 310M raw outpatient laboratory records into a clinically meaningful, standardized dataset. The specialized FOBT text parsing captures critical screening data that would otherwise be lost, while component name mapping handles Epic's complex outpatient naming variations.
+# MAGIC Successfully transformed 310M raw outpatient laboratory records into a clinically meaningful, standardized dataset. Component name mapping handles Epic's complex outpatient naming variations.
 # MAGIC
 # MAGIC Key achievement: Created robust outpatient processing pipeline that handles the different order_results architecture while maintaining clinical interpretability. The higher volume (310M vs 241M inpatient) confirms that most routine laboratory monitoring occurs in ambulatory settings, making this data critical for early CRC detection.
 # MAGIC
@@ -1554,165 +1507,8 @@ LEFT JOIN ferritin_latest f
 
 # COMMAND ----------
 
-# ---------------------------------
-# CELL 4B: CEA Trends and Velocity Calculations
-# ---------------------------------
-
-spark.sql(f'''
-CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_eda_train_labs_cea_trends AS
-
-WITH cea_values AS (
-    -- Get all CEA values with timing
-    SELECT
-        PAT_ID,
-        END_DTTM,
-        COMP_VERIF_DTTM,
-        COMPONENT_VALUE AS CEA_VALUE,
-        DAYS_SINCE_LAB,
-        LAG(COMPONENT_VALUE) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY COMP_VERIF_DTTM
-        ) AS PREV_CEA_VALUE,
-        LAG(COMP_VERIF_DTTM) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY COMP_VERIF_DTTM
-        ) AS PREV_CEA_DATE
-    FROM {trgt_cat}.clncl_ds.herald_eda_train_combined_labs_all
-    WHERE COMPONENT_NAME = 'CEA'
-),
-
-cea_max_calc AS (
-    -- Calculate max CEA in past year using ROW_NUMBER approach
-    SELECT
-        PAT_ID,
-        END_DTTM,
-        FIRST_VALUE(COMPONENT_VALUE) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-            ORDER BY COMPONENT_VALUE DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS CEA_MAX_12MO,
-        ROW_NUMBER() OVER (
-            PARTITION BY PAT_ID, END_DTTM
-            ORDER BY COMPONENT_VALUE DESC
-        ) AS rn
-    FROM {trgt_cat}.clncl_ds.herald_eda_train_combined_labs_all
-    WHERE COMPONENT_NAME = 'CEA' 
-        AND DAYS_SINCE_LAB <= 365
-),
-
-cea_statistics AS (
-    -- Calculate CEA statistics over different time windows
-    SELECT
-        PAT_ID,
-        END_DTTM,
-        
-        -- Most recent CEA
-        FIRST_VALUE(CEA_VALUE) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY COMP_VERIF_DTTM DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS CEA_LATEST,
-        
-        -- CEA 3 months ago (closest to 90 days)
-        FIRST_VALUE(
-            CASE WHEN DAYS_SINCE_LAB BETWEEN 75 AND 105 THEN CEA_VALUE END
-        ) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY ABS(DAYS_SINCE_LAB - 90)
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS CEA_3MO_PRIOR,
-        
-        -- CEA 6 months ago
-        FIRST_VALUE(
-            CASE WHEN DAYS_SINCE_LAB BETWEEN 150 AND 210 THEN CEA_VALUE END
-        ) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY ABS(DAYS_SINCE_LAB - 180)
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS CEA_6MO_PRIOR,
-        
-        -- Count of CEA tests in 12 months
-        SUM(CASE WHEN DAYS_SINCE_LAB <= 365 THEN 1 ELSE 0 END) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-        ) AS CEA_COUNT_12MO,
-        
-        -- Standard deviation (using manual calculation since no STDDEV allowed)
-        AVG(CASE WHEN DAYS_SINCE_LAB <= 365 THEN CEA_VALUE END) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-        ) AS CEA_AVG_12MO,
-        
-        ROW_NUMBER() OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY COMP_VERIF_DTTM DESC
-        ) AS rn
-    FROM cea_values
-)
-
-SELECT
-    cs.PAT_ID,
-    cs.END_DTTM,
-    cs.CEA_LATEST,
-    cs.CEA_3MO_PRIOR,
-    cs.CEA_6MO_PRIOR,
-    cm.CEA_MAX_12MO,
-    cs.CEA_COUNT_12MO,
-    
-    -- CEA changes
-    cs.CEA_LATEST - cs.CEA_3MO_PRIOR AS CEA_3MO_CHANGE,
-    cs.CEA_LATEST - cs.CEA_6MO_PRIOR AS CEA_6MO_CHANGE,
-    
-    -- CEA velocity (rate of change per month)
-    CASE 
-        WHEN cs.CEA_3MO_PRIOR IS NOT NULL AND cs.CEA_3MO_PRIOR > 0
-        THEN (cs.CEA_LATEST - cs.CEA_3MO_PRIOR) / 3.0
-        ELSE NULL
-    END AS CEA_VELOCITY_PER_MONTH,
-    
-    -- CEA doubling indicator
-    CASE
-        WHEN cs.CEA_6MO_PRIOR > 0 AND cs.CEA_LATEST > cs.CEA_6MO_PRIOR * 2
-        THEN 1 ELSE 0
-    END AS CEA_DOUBLED_6MO_FLAG,
-    
-    -- Rising CEA pattern (consecutive increases)
-    CASE
-        WHEN cs.CEA_LATEST > cs.CEA_3MO_PRIOR 
-             AND cs.CEA_3MO_PRIOR > cs.CEA_6MO_PRIOR
-             AND cs.CEA_6MO_PRIOR IS NOT NULL
-        THEN 1 ELSE 0
-    END AS CEA_RISING_PATTERN_FLAG,
-    
-    -- Elevated CEA flags
-    CASE WHEN cs.CEA_LATEST > 5 THEN 1 ELSE 0 END AS CEA_ELEVATED_FLAG,
-    CASE WHEN cs.CEA_LATEST > 10 THEN 1 ELSE 0 END AS CEA_HIGH_FLAG,
-    CASE WHEN cs.CEA_LATEST > 20 THEN 1 ELSE 0 END AS CEA_VERY_HIGH_FLAG,
-    
-    -- Rapid rise indicator
-    CASE
-        WHEN cs.CEA_3MO_PRIOR IS NOT NULL 
-             AND cs.CEA_LATEST > cs.CEA_3MO_PRIOR + 5
-        THEN 1 ELSE 0
-    END AS CEA_RAPID_RISE_FLAG
-
-FROM cea_statistics cs
-LEFT JOIN cea_max_calc cm 
-    ON cs.PAT_ID = cm.PAT_ID 
-    AND cs.END_DTTM = cm.END_DTTM 
-    AND cm.rn = 1
-WHERE cs.rn = 1
-''')
-
-# COMMAND ----------
-
 # MAGIC %md
-# MAGIC
-# MAGIC ## 📊 Conclusion
-# MAGIC
-# MAGIC Successfully created the unified laboratory foundation with excellent coverage across both care settings. The 93.2M combined records represent the most comprehensive laboratory dataset available for CRC prediction, capturing both routine monitoring (outpatient) and acute care patterns (inpatient).
-# MAGIC
-# MAGIC Key achievement: Seamless integration of Epic's dual laboratory architectures while preserving data quality and temporal integrity. The higher outpatient volume confirms that most routine laboratory monitoring occurs in ambulatory settings, making this combined approach essential for early CRC detection signals.
-# MAGIC
-# MAGIC Next step involves temporal feature engineering and trend analysis using this complete laboratory picture to identify disease progression patterns across care settings.
+# MAGIC CEA trend features excluded - see intro for rationale.
 
 # COMMAND ----------
 
@@ -1876,11 +1672,9 @@ SELECT
     SUM(CASE WHEN COMPONENT_NAME = 'HDL' THEN recent_value END) AS HDL_VALUE,
     SUM(CASE WHEN COMPONENT_NAME = 'TRIGLYCERIDES' THEN recent_value END) AS TRIGLYCERIDES_VALUE,
     
-    -- Tumor markers
-    SUM(CASE WHEN COMPONENT_NAME = 'CEA' THEN recent_value END) AS CEA_VALUE,
-    SUM(CASE WHEN COMPONENT_NAME = 'CA19_9' THEN recent_value END) AS CA19_9_VALUE,
+    -- Other markers
     SUM(CASE WHEN COMPONENT_NAME = 'CA125' THEN recent_value END) AS CA125_VALUE,
-    
+
     -- Other
     SUM(CASE WHEN COMPONENT_NAME = 'LDH' THEN recent_value END) AS LDH_VALUE,
     SUM(CASE WHEN COMPONENT_NAME = 'HGBA1C' THEN recent_value END) AS HGBA1C_VALUE,
@@ -1888,12 +1682,10 @@ SELECT
     -- Days since measurements (selected key ones)
     SUM(CASE WHEN COMPONENT_NAME = 'HEMOGLOBIN' THEN recent_days END) AS HEMOGLOBIN_DAYS,
     SUM(CASE WHEN COMPONENT_NAME = 'FERRITIN' THEN recent_days END) AS FERRITIN_DAYS,
-    SUM(CASE WHEN COMPONENT_NAME = 'CEA' THEN recent_days END) AS CEA_DAYS,
     SUM(CASE WHEN COMPONENT_NAME = 'PLATELETS' THEN recent_days END) AS PLATELETS_DAYS,
     
     -- Abnormal flags (selected key ones)
     SUM(CASE WHEN COMPONENT_NAME = 'HEMOGLOBIN' AND recent_abnormal = 'Y' THEN 1 ELSE 0 END) AS HEMOGLOBIN_ABNORMAL,
-    SUM(CASE WHEN COMPONENT_NAME = 'CEA' AND recent_abnormal = 'Y' THEN 1 ELSE 0 END) AS CEA_ABNORMAL,
     SUM(CASE WHEN COMPONENT_NAME = 'ALT' AND recent_abnormal = 'Y' THEN 1 ELSE 0 END) AS ALT_ABNORMAL,
     SUM(CASE WHEN COMPONENT_NAME = 'AST' AND recent_abnormal = 'Y' THEN 1 ELSE 0 END) AS AST_ABNORMAL,
     SUM(CASE WHEN COMPONENT_NAME = 'ALK_PHOS' AND recent_abnormal = 'Y' THEN 1 ELSE 0 END) AS ALK_PHOS_ABNORMAL,
@@ -1924,190 +1716,7 @@ print("Enhanced pivoted labs table created with lipids")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 🔍 What This Cell Does
-# MAGIC
-# MAGIC This cell creates specialized FOBT/FIT (Fecal Occult Blood Test/Fecal Immunochemical Test) features by processing both qualitative text results ("positive"/"negative") and quantitative numeric values. We're extracting critical colorectal cancer screening data that's predominantly captured in outpatient settings, applying intelligent text parsing to handle Epic's variable result formats.
-# MAGIC
-# MAGIC ## Why This Matters Clinically
-# MAGIC
-# MAGIC FOBT/FIT represents the **frontline of CRC screening** and provides direct evidence of gastrointestinal bleeding:
-# MAGIC
-# MAGIC - **Population screening tool**: Recommended annually for average-risk patients 45-75 years old
-# MAGIC - **Direct bleeding detection**: Unlike symptoms, FOBT detects microscopic blood before patients notice changes
-# MAGIC - **High specificity when positive**: Positive FOBT requires immediate colonoscopy follow-up
-# MAGIC - **Temporal patterns matter**: Multiple positive tests over time indicate persistent bleeding source
-# MAGIC - **Epic workflow complexity**: Results stored as text ("positive"), numeric values (ng/mL), or abnormal flags
-# MAGIC
-# MAGIC This processing ensures we capture all FOBT evidence regardless of how it was documented in Epic.
-# MAGIC
-# MAGIC ## What This Code Does
-# MAGIC
-# MAGIC **Text Result Processing**: Handles Epic's variable FOBT documentation:
-# MAGIC - Qualitative text: "positive", "pos", "+", "detected" → 1
-# MAGIC - Qualitative text: "negative", "neg", "-", "not detected" → 0
-# MAGIC - Numeric thresholds: FIT >100 ng/mL typically considered positive
-# MAGIC - Abnormal flag backup: Uses Epic's abnormal_yn when available
-# MAGIC
-# MAGIC **Temporal Pattern Analysis**: Creates clinically meaningful time windows:
-# MAGIC - Most recent result (any timeframe)
-# MAGIC - 12-month lookback for screening interval analysis
-# MAGIC - 3-month recent positive for urgent follow-up
-# MAGIC - Multiple positive pattern detection (more concerning than single positive)
-# MAGIC
-# MAGIC **Quality Filters Applied**:
-# MAGIC - Removes obvious data entry errors (values >1000 ng/mL)
-# MAGIC - Handles missing abnormal flags gracefully
-# MAGIC - Preserves both screening and diagnostic FOBT orders
-# MAGIC - Uses window functions to avoid performance issues with large datasets
-# MAGIC
-# MAGIC ## What to Watch For
-# MAGIC
-# MAGIC **Epic Documentation Variations**:
-# MAGIC - Different FOBT types: Guaiac-based vs immunochemical (FIT)
-# MAGIC - Unit inconsistencies: Some reported as ng/mL, others as qualitative
-# MAGIC - Missing abnormal flags in older Epic implementations
-# MAGIC - Point-of-care vs laboratory processing differences
-# MAGIC
-# MAGIC **Clinical Interpretation Challenges**:
-# MAGIC - False positives from medications (NSAIDs, anticoagulants)
-# MAGIC - Dietary influences on guaiac-based tests
-# MAGIC - Hemorrhoids vs malignancy (both cause positive results)
-# MAGIC - Screening vs diagnostic context (different implications)
-# MAGIC
-# MAGIC **Temporal Considerations**:
-# MAGIC - Annual screening intervals create predictable patterns
-# MAGIC - Recent positive more urgent than remote positive
-# MAGIC - Multiple positives suggest persistent bleeding source
-# MAGIC - Must respect END_DTTM boundaries to prevent data leakage
-# MAGIC
-# MAGIC ## Expected Output
-# MAGIC
-# MAGIC Based on the actual cell execution:
-# MAGIC - **57,543 FOBT tests processed** across the cohort
-# MAGIC - **14,132 positive results** (24.5% positivity rate)
-# MAGIC - **Multiple positive patterns** identified in subset of patients
-# MAGIC - **3.5x CRC risk** for any positive FOBT in 12 months
-# MAGIC - **4.5x CRC risk** for multiple positive tests
-# MAGIC
-# MAGIC The 24.5% positivity rate aligns with expected screening population rates, where most tests are negative but positive results require immediate follow-up.
-
-# COMMAND ----------
-
-# ---------------------------------
-# CELL 6: FOBT/FIT Specific Processing
-# ---------------------------------
-
-spark.sql(f'''
-CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_eda_train_labs_fobt_features AS
-
-WITH fobt_results AS (
-    SELECT
-        PAT_ID,
-        END_DTTM,
-        COMP_VERIF_DTTM,
-        COMPONENT_VALUE,
-        ABNORMAL_YN,
-        DAYS_SINCE_LAB,
-        
-        -- Interpret FOBT results
-        CASE
-            WHEN COMPONENT_VALUE = 1 THEN 1  -- Already coded as positive
-            WHEN COMPONENT_VALUE = 0 THEN 0  -- Already coded as negative
-            WHEN ABNORMAL_YN = 'Y' THEN 1    -- Use abnormal flag
-            WHEN ABNORMAL_YN = 'N' THEN 0
-            -- For numeric values, use threshold (FIT typically positive >100 ng/mL)
-            WHEN COMPONENT_VALUE > 100 THEN 1
-            WHEN COMPONENT_VALUE <= 100 THEN 0
-            ELSE NULL
-        END AS FOBT_POSITIVE
-        
-    FROM {trgt_cat}.clncl_ds.herald_eda_train_combined_labs_all
-    WHERE COMPONENT_NAME = 'FOBT_FIT'
-),
-
-fobt_aggregated AS (
-    SELECT
-        PAT_ID,
-        END_DTTM,
-        
-        -- Most recent FOBT result
-        FIRST_VALUE(FOBT_POSITIVE) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY COMP_VERIF_DTTM DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS FOBT_LATEST_RESULT,
-        
-        -- Days since most recent FOBT
-        FIRST_VALUE(DAYS_SINCE_LAB) OVER (
-            PARTITION BY PAT_ID, END_DTTM 
-            ORDER BY COMP_VERIF_DTTM DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS DAYS_SINCE_FOBT,
-        
-        -- Use window functions to find if any positive in past year
-        FIRST_VALUE(
-            CASE WHEN DAYS_SINCE_LAB <= 365 AND FOBT_POSITIVE = 1 THEN 1 ELSE NULL END
-        ) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-            ORDER BY FOBT_POSITIVE DESC, COMP_VERIF_DTTM DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS FOBT_POSITIVE_12MO_CHECK,
-        
-        -- Count tests in past year
-        SUM(CASE WHEN DAYS_SINCE_LAB <= 365 THEN 1 ELSE 0 END) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-        ) AS FOBT_COUNT_12MO,
-        
-        -- Count positive tests in past year
-        SUM(CASE WHEN DAYS_SINCE_LAB <= 365 AND FOBT_POSITIVE = 1 THEN 1 ELSE 0 END) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-        ) AS FOBT_POSITIVE_COUNT_12MO,
-        
-        -- Check for recent positive
-        FIRST_VALUE(
-            CASE WHEN DAYS_SINCE_LAB <= 90 AND FOBT_POSITIVE = 1 THEN 1 ELSE NULL END
-        ) OVER (
-            PARTITION BY PAT_ID, END_DTTM
-            ORDER BY FOBT_POSITIVE DESC, COMP_VERIF_DTTM DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-        ) AS FOBT_POSITIVE_3MO_CHECK,
-        
-        ROW_NUMBER() OVER (
-            PARTITION BY PAT_ID, END_DTTM
-            ORDER BY COMP_VERIF_DTTM DESC
-        ) AS rn
-    FROM fobt_results
-)
-
-SELECT
-    PAT_ID,
-    END_DTTM,
-    FOBT_LATEST_RESULT,
-    DAYS_SINCE_FOBT,
-    COALESCE(FOBT_POSITIVE_12MO_CHECK, 0) AS FOBT_POSITIVE_12MO,
-    FOBT_COUNT_12MO,
-    FOBT_POSITIVE_COUNT_12MO,
-    
-    -- Pattern of positives (multiple positives more concerning)
-    CASE
-        WHEN FOBT_POSITIVE_COUNT_12MO >= 2
-        THEN 1 ELSE 0
-    END AS FOBT_MULTIPLE_POSITIVE_FLAG,
-    
-    COALESCE(FOBT_POSITIVE_3MO_CHECK, 0) AS FOBT_POSITIVE_3MO
-    
-FROM fobt_aggregated
-WHERE rn = 1
-''')
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## 📊 Conclusion
-# MAGIC
-# MAGIC Successfully processed FOBT/FIT screening data with comprehensive text parsing and temporal pattern analysis. The 57,543 processed tests represent critical screening evidence, with positive results showing strong CRC association (3.5x risk). The intelligent text parsing ensures we capture all positive results regardless of Epic documentation format.
-# MAGIC
-# MAGIC Key achievement: Transformed variable Epic FOBT documentation into standardized binary indicators while preserving temporal patterns that indicate persistent bleeding. The multiple positive flag (4.5x risk) identifies patients requiring urgent colonoscopy follow-up.
+# MAGIC FOBT/FIT features excluded - see intro for rationale.
 
 # COMMAND ----------
 
@@ -2286,8 +1895,8 @@ WITH lab_values_over_time AS (
         
     FROM {trgt_cat}.clncl_ds.herald_eda_train_combined_labs_all
     WHERE COMPONENT_NAME IN (
-        'HEMOGLOBIN', 'HCT', 'FERRITIN', 'ALBUMIN', 
-        'PLATELETS', 'CRP', 'CEA', 'CA19_9', 'AST', 'ALT'
+        'HEMOGLOBIN', 'HCT', 'FERRITIN', 'ALBUMIN',
+        'PLATELETS', 'CRP', 'AST', 'ALT'
     )
 ),
 
@@ -2323,7 +1932,6 @@ SELECT
     SUM(CASE WHEN COMPONENT_NAME = 'ALBUMIN' THEN current_value - value_6mo_prior END) AS ALBUMIN_6MO_CHANGE,
     SUM(CASE WHEN COMPONENT_NAME = 'PLATELETS' THEN current_value - value_6mo_prior END) AS PLATELETS_6MO_CHANGE,
     SUM(CASE WHEN COMPONENT_NAME = 'CRP' THEN current_value - value_6mo_prior END) AS CRP_6MO_CHANGE,
-    SUM(CASE WHEN COMPONENT_NAME = 'CA19_9' THEN current_value - value_6mo_prior END) AS CA19_9_6MO_CHANGE,
     
     -- EXISTING: 3-month changes
     SUM(CASE WHEN COMPONENT_NAME = 'HEMOGLOBIN' THEN current_value - value_3mo_prior END) AS HEMOGLOBIN_3MO_CHANGE,
@@ -2503,13 +2111,13 @@ FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_trends_enhanced
 # MAGIC %md
 # MAGIC ## 🔍 What This Cell Does
 # MAGIC
-# MAGIC This cell creates the final comprehensive laboratory feature dataset by joining all specialized feature tables (anemia classifications, CEA trends, FOBT patterns, acceleration dynamics) with the base pivoted lab values. We're assembling 93 sophisticated laboratory features that capture everything from basic CBC values to novel acceleration patterns, creating the most comprehensive laboratory biomarker dataset for CRC prediction.
+# MAGIC This cell creates the final comprehensive laboratory feature dataset by joining all specialized feature tables (anemia classifications, acceleration dynamics) with the base pivoted lab values. We're assembling sophisticated laboratory features that capture everything from basic CBC values to novel acceleration patterns, creating a comprehensive laboratory biomarker dataset for CRC prediction.
 # MAGIC
 # MAGIC ## Why This Matters Clinically
 # MAGIC
 # MAGIC This represents the culmination of laboratory feature engineering that transforms 2.7 billion raw Epic lab records into actionable clinical intelligence:
 # MAGIC
-# MAGIC - **Comprehensive biomarker coverage**: From routine CBC to specialized tumor markers
+# MAGIC - **Comprehensive biomarker coverage**: From routine CBC to specialized studies
 # MAGIC - **Temporal dynamics**: Captures disease progression through trends, velocities, and accelerations  
 # MAGIC - **Clinical composites**: Combines multiple weak signals into strong predictors
 # MAGIC - **Risk stratification**: Enables precise patient risk classification for intervention
@@ -2520,11 +2128,9 @@ FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_trends_enhanced
 # MAGIC ## What This Code Does
 # MAGIC
 # MAGIC **Comprehensive Feature Assembly**: Joins all laboratory feature tables:
-# MAGIC - Base pivoted values (29 lab components)
+# MAGIC - Base pivoted values (lab components)
 # MAGIC - Anemia features (6 classifications and severity scores)
-# MAGIC - CEA trends (10 tumor marker dynamics)
-# MAGIC - FOBT features (5 screening test patterns)
-# MAGIC - Enhanced trends (24 temporal patterns including acceleration)
+# MAGIC - Enhanced trends (temporal patterns including acceleration)
 # MAGIC
 # MAGIC **Calculated Clinical Ratios**: Adds interpretive features:
 # MAGIC - ALT/AST ratio: Hepatocellular vs cholestatic liver injury
@@ -2549,14 +2155,14 @@ FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_trends_enhanced
 # MAGIC **Join Completeness**:
 # MAGIC - All patients from cohort should appear in final table
 # MAGIC - Missing lab data creates NULL values (expected and handled)
-# MAGIC - Specialized features (CEA, acceleration) have low coverage by design
+# MAGIC - Specialized features (acceleration) have low coverage by design
 # MAGIC - No duplicate patient-month combinations allowed
 # MAGIC
 # MAGIC **Feature Interaction Validation**:
 # MAGIC - Anemia severity score should correlate with hemoglobin value
 # MAGIC - Iron deficiency flags should align with ferritin/iron saturation
 # MAGIC - Acceleration features should be rare but extreme when present
-# MAGIC - Tumor markers should show rising patterns when elevated
+# MAGIC - CA125 values should be checked for plausibility when present
 # MAGIC
 # MAGIC **Clinical Plausibility Checks**:
 # MAGIC - Hemoglobin trajectory should match 12-month change direction
@@ -2580,7 +2186,6 @@ FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_trends_enhanced
 # MAGIC
 # MAGIC **Coverage Statistics**:
 # MAGIC - Hemoglobin data: 1,214,549 observations (56.2%)
-# MAGIC - CEA data: 8,389 observations (0.39%)
 # MAGIC - Acceleration features: 2,564 observations (0.12%)
 # MAGIC - Severe anemia combinations: 8,571 observations (0.40%)
 # MAGIC
@@ -2631,8 +2236,6 @@ SELECT
     lp.BILI_DIRECT_VALUE,
     lp.GGT_VALUE,
     lp.TOTAL_PROTEIN_VALUE,
-    lp.CEA_VALUE,
-    lp.CA19_9_VALUE,
     lp.CA125_VALUE,
     lp.LDH_VALUE,
     lp.HGBA1C_VALUE,
@@ -2660,27 +2263,6 @@ SELECT
     af.MICROCYTIC_ANEMIA_FLAG,
     af.IRON_DEFICIENCY_NO_ANEMIA_FLAG,
     
-    -- CEA trends
-    ct.CEA_3MO_CHANGE,
-    ct.CEA_6MO_CHANGE,
-    ct.CEA_VELOCITY_PER_MONTH,
-    ct.CEA_DOUBLED_6MO_FLAG,
-    ct.CEA_RISING_PATTERN_FLAG,
-    ct.CEA_ELEVATED_FLAG,
-    ct.CEA_HIGH_FLAG,
-    ct.CEA_VERY_HIGH_FLAG,
-    ct.CEA_RAPID_RISE_FLAG,
-    ct.CEA_MAX_12MO,
-    ct.CEA_COUNT_12MO,
-    
-    -- FOBT features
-    ff.FOBT_POSITIVE_12MO,
-    ff.FOBT_POSITIVE_3MO,
-    ff.FOBT_COUNT_12MO,
-    ff.FOBT_POSITIVE_COUNT_12MO,
-    ff.FOBT_MULTIPLE_POSITIVE_FLAG,
-    ff.DAYS_SINCE_FOBT,
-    
     -- Enhanced lab trends
     lt.HEMOGLOBIN_6MO_CHANGE,
     lt.HEMOGLOBIN_6MO_PCT_CHANGE,
@@ -2699,7 +2281,6 @@ SELECT
     lt.THROMBOCYTOSIS_FLAG,
     lt.PLATELETS_RISING_PATTERN_FLAG,
     lt.CRP_6MO_CHANGE,
-    lt.CA19_9_6MO_CHANGE,
     
     -- NEW: Acceleration features from enhanced trends
     lt.HEMOGLOBIN_ACCELERATION,
@@ -2763,10 +2344,6 @@ LEFT JOIN {trgt_cat}.clncl_ds.herald_eda_train_labs_pivoted_enhanced lp
     ON c.PAT_ID = lp.PAT_ID AND c.END_DTTM = lp.END_DTTM
 LEFT JOIN {trgt_cat}.clncl_ds.herald_eda_train_labs_anemia_features af
     ON c.PAT_ID = af.PAT_ID AND c.END_DTTM = af.END_DTTM
-LEFT JOIN {trgt_cat}.clncl_ds.herald_eda_train_labs_cea_trends ct
-    ON c.PAT_ID = ct.PAT_ID AND c.END_DTTM = ct.END_DTTM
-LEFT JOIN {trgt_cat}.clncl_ds.herald_eda_train_labs_fobt_features ff
-    ON c.PAT_ID = ff.PAT_ID AND c.END_DTTM = ff.END_DTTM
 LEFT JOIN {trgt_cat}.clncl_ds.herald_eda_train_labs_trends_enhanced lt
     ON c.PAT_ID = lt.PAT_ID AND c.END_DTTM = lt.END_DTTM
 ''')
@@ -2782,8 +2359,7 @@ SELECT
     
     -- Basic coverage
     SUM(CASE WHEN HEMOGLOBIN_VALUE IS NOT NULL THEN 1 ELSE 0 END) as has_hemoglobin,
-    SUM(CASE WHEN CEA_VALUE IS NOT NULL THEN 1 ELSE 0 END) as has_cea,
-    
+
     -- New acceleration features coverage
     SUM(CASE WHEN HEMOGLOBIN_ACCELERATION IS NOT NULL THEN 1 ELSE 0 END) as has_hgb_acceleration,
     SUM(CASE WHEN HEMOGLOBIN_ACCELERATING_DECLINE = 1 THEN 1 ELSE 0 END) as hgb_accel_decline,
@@ -2844,8 +2420,6 @@ final_stats.show()
 # MAGIC **Feature Categories Analyzed**:
 # MAGIC - Severe anemia (WHO classification)
 # MAGIC - Iron deficiency anemia (classic CRC pattern)
-# MAGIC - CEA elevation and rising patterns (tumor markers)
-# MAGIC - FOBT positive results (direct bleeding evidence)
 # MAGIC - Hemoglobin drops (objective decline measures)
 # MAGIC - Albumin drops (nutritional/chronic disease markers)
 # MAGIC
@@ -2860,9 +2434,8 @@ final_stats.show()
 # MAGIC
 # MAGIC **Expected Clinical Patterns**:
 # MAGIC - Iron deficiency anemia should show highest risk ratios (classic CRC presentation)
-# MAGIC - FOBT positive should show strong association (direct bleeding evidence)
 # MAGIC - Severe anemia should show moderate association (multiple causes)
-# MAGIC - CEA patterns should show high specificity despite low coverage
+# MAGIC - Hemoglobin trends should capture bleeding patterns
 # MAGIC
 # MAGIC **Data Quality Signals**:
 # MAGIC - Inverted relationships (protective effects) suggest data corruption
@@ -2888,15 +2461,10 @@ final_stats.show()
 # MAGIC
 # MAGIC **Strongest Associations**:
 # MAGIC - Iron deficiency anemia: **6.2x risk** (7,560 patients, 0.35% coverage)
-# MAGIC - CEA rising pattern: **3.3x risk** (13 patients, 0.0006% coverage)
 # MAGIC - Hemoglobin drop 10%: **2.7x risk** (24,707 patients, 1.14% coverage)
-# MAGIC - FOBT positive: **2.7x risk** (7,562 patients, 0.35% coverage)
 # MAGIC
 # MAGIC **Moderate Associations**:
 # MAGIC - Severe anemia: **1.9x risk** (20,305 patients, 0.94% coverage)
-# MAGIC
-# MAGIC **Concerning Findings**:
-# MAGIC - CEA elevated: **0.88x risk** (protective effect - data quality issue)
 # MAGIC - Albumin drop 15%: **1.0x risk** (no association despite clinical expectation)
 # MAGIC
 # MAGIC The iron deficiency anemia finding validates our feature engineering approach, showing the classic CRC biomarker pattern with strong risk association and reasonable population coverage.
@@ -2928,36 +2496,6 @@ SELECT
     SUM(CASE WHEN IRON_DEFICIENCY_ANEMIA_FLAG = 1 AND FUTURE_CRC_EVENT = 1 THEN 1 ELSE 0 END) as crc_with_feature,
     AVG(CASE WHEN IRON_DEFICIENCY_ANEMIA_FLAG = 1 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_with_feature,
     AVG(CASE WHEN IRON_DEFICIENCY_ANEMIA_FLAG = 0 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_without_feature
-FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_final
-
-UNION ALL
-
-SELECT
-    'CEA_ELEVATED' as feature,
-    SUM(CEA_ELEVATED_FLAG) as feature_present,
-    SUM(CASE WHEN CEA_ELEVATED_FLAG = 1 AND FUTURE_CRC_EVENT = 1 THEN 1 ELSE 0 END) as crc_with_feature,
-    AVG(CASE WHEN CEA_ELEVATED_FLAG = 1 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_with_feature,
-    AVG(CASE WHEN CEA_ELEVATED_FLAG = 0 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_without_feature
-FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_final
-
-UNION ALL
-
-SELECT
-    'CEA_RISING_PATTERN' as feature,
-    SUM(CEA_RISING_PATTERN_FLAG) as feature_present,
-    SUM(CASE WHEN CEA_RISING_PATTERN_FLAG = 1 AND FUTURE_CRC_EVENT = 1 THEN 1 ELSE 0 END) as crc_with_feature,
-    AVG(CASE WHEN CEA_RISING_PATTERN_FLAG = 1 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_with_feature,
-    AVG(CASE WHEN CEA_RISING_PATTERN_FLAG = 0 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_without_feature
-FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_final
-
-UNION ALL
-
-SELECT
-    'FOBT_POSITIVE' as feature,
-    SUM(FOBT_POSITIVE_12MO) as feature_present,
-    SUM(CASE WHEN FOBT_POSITIVE_12MO = 1 AND FUTURE_CRC_EVENT = 1 THEN 1 ELSE 0 END) as crc_with_feature,
-    AVG(CASE WHEN FOBT_POSITIVE_12MO = 1 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_with_feature,
-    AVG(CASE WHEN FOBT_POSITIVE_12MO = 0 THEN FUTURE_CRC_EVENT ELSE NULL END) as crc_rate_without_feature
 FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_final
 
 UNION ALL
@@ -2997,13 +2535,9 @@ print(associations_pd.sort_values('risk_ratio', ascending=False).to_string())
 # MAGIC %md
 # MAGIC ## 📊 Conclusion
 # MAGIC
-# MAGIC Successfully validated laboratory feature engineering through comprehensive association analysis. The **6.2x risk ratio for iron deficiency anemia** confirms our approach captures the classic CRC presentation pattern. The **2.7x risk for FOBT positive** validates our text parsing methodology for screening tests.
+# MAGIC Successfully validated laboratory feature engineering through comprehensive association analysis. The **6.2x risk ratio for iron deficiency anemia** confirms our approach captures the classic CRC presentation pattern.
 # MAGIC
 # MAGIC Key achievement: Identified iron deficiency anemia as the strongest laboratory predictor with both clinical significance (6.2x risk) and reasonable coverage (0.35% of population). The hemoglobin drop pattern (2.7x risk, 1.14% coverage) provides broader population utility for risk stratification.
-# MAGIC
-# MAGIC **Critical finding**: CEA elevated showing protective effect (0.88x risk) suggests potential data quality issues with tumor marker documentation that require investigation. This validates our conservative approach to rare laboratory features and emphasizes the importance of association analysis before model deployment.
-# MAGIC
-# MAGIC Despite the protective effect (likely reflecting selective ordering in patients already under oncology surveillance), we retain CEA features because the missing data pattern itself is informative—absence of CEA testing suggests low clinical suspicion.
 # MAGIC
 # MAGIC Next step involves enhanced acceleration analysis to validate the extreme risk patterns (>8x) identified in our temporal feature engineering.
 
@@ -3041,8 +2575,6 @@ print(associations_pd.sort_values('risk_ratio', ascending=False).to_string())
 # MAGIC **Feature Categories Analyzed**:
 # MAGIC - Severe anemia (WHO classification)
 # MAGIC - Iron deficiency anemia (classic CRC pattern)
-# MAGIC - CEA elevation and rising patterns (tumor markers)
-# MAGIC - FOBT positive results (direct bleeding evidence)
 # MAGIC - Hemoglobin drops (objective decline measures)
 # MAGIC - Albumin drops (nutritional/chronic disease markers)
 # MAGIC
@@ -3057,9 +2589,8 @@ print(associations_pd.sort_values('risk_ratio', ascending=False).to_string())
 # MAGIC
 # MAGIC **Expected Clinical Patterns**:
 # MAGIC - Iron deficiency anemia should show highest risk ratios (classic CRC presentation)
-# MAGIC - FOBT positive should show strong association (direct bleeding evidence)
 # MAGIC - Severe anemia should show moderate association (multiple causes)
-# MAGIC - CEA patterns should show high specificity despite low coverage
+# MAGIC - Hemoglobin trends should capture bleeding patterns
 # MAGIC
 # MAGIC **Data Quality Signals**:
 # MAGIC - Inverted relationships (protective effects) suggest data corruption
@@ -3085,15 +2616,10 @@ print(associations_pd.sort_values('risk_ratio', ascending=False).to_string())
 # MAGIC
 # MAGIC **Strongest Associations**:
 # MAGIC - Iron deficiency anemia: **6.2x risk** (7,560 patients, 0.35% coverage)
-# MAGIC - CEA rising pattern: **3.3x risk** (13 patients, 0.0006% coverage)
 # MAGIC - Hemoglobin drop 10%: **2.7x risk** (24,707 patients, 1.14% coverage)
-# MAGIC - FOBT positive: **2.7x risk** (7,562 patients, 0.35% coverage)
 # MAGIC
 # MAGIC **Moderate Associations**:
 # MAGIC - Severe anemia: **1.9x risk** (20,305 patients, 0.94% coverage)
-# MAGIC
-# MAGIC **Concerning Findings**:
-# MAGIC - CEA elevated: **0.88x risk** (protective effect - data quality issue)
 # MAGIC - Albumin drop 15%: **1.0x risk** (no association despite clinical expectation)
 # MAGIC
 # MAGIC The iron deficiency anemia finding validates our feature engineering approach, showing the classic CRC biomarker pattern with strong risk association and reasonable population coverage.
@@ -3117,10 +2643,8 @@ SELECT
     COUNT(*) as total_rows,
     COUNT(DISTINCT PAT_ID) as unique_patients,
     SUM(CASE WHEN HEMOGLOBIN_VALUE IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) * 100 as hemoglobin_coverage_pct,
-    SUM(CASE WHEN CEA_VALUE IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) * 100 as cea_coverage_pct,
     SUM(CASE WHEN IRON_VALUE IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) * 100 as iron_coverage_pct,
-    SUM(CASE WHEN ALT_VALUE IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) * 100 as alt_coverage_pct,
-    SUM(CASE WHEN FOBT_POSITIVE_12MO IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) * 100 as fobt_coverage_pct
+    SUM(CASE WHEN ALT_VALUE IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) * 100 as alt_coverage_pct
 FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_final
 ''').toPandas()
 
@@ -3143,33 +2667,16 @@ GROUP BY ANEMIA_GRADE
 ORDER BY count DESC
 ''').show()
 
-# 3. CEA patterns
-print("\n3. CEA PATTERN ANALYSIS")
+# 3. High-risk combinations
+print("\n3. HIGH-RISK LAB COMBINATIONS")
 print("-" * 40)
 spark.sql(f'''
 SELECT
-    CEA_ELEVATED_FLAG,
-    CEA_RISING_PATTERN_FLAG,
-    COUNT(*) as count,
-    AVG(FUTURE_CRC_EVENT) * 100 as crc_rate_pct
-FROM {trgt_cat}.clncl_ds.herald_eda_train_labs_final
-WHERE CEA_VALUE IS NOT NULL
-GROUP BY CEA_ELEVATED_FLAG, CEA_RISING_PATTERN_FLAG
-ORDER BY CEA_ELEVATED_FLAG DESC, CEA_RISING_PATTERN_FLAG DESC
-''').show()
-
-# 4. High-risk combinations
-print("\n4. HIGH-RISK LAB COMBINATIONS")
-print("-" * 40)
-spark.sql(f'''
-SELECT
-    CASE 
-        WHEN IRON_DEFICIENCY_ANEMIA_FLAG = 1 AND FOBT_POSITIVE_12MO = 1 
-        THEN 'Iron Def Anemia + FOBT+'
-        WHEN CEA_ELEVATED_FLAG = 1 AND HEMOGLOBIN_DROP_10PCT_FLAG = 1
-        THEN 'CEA Elevated + Hgb Drop'
-        WHEN ANEMIA_GRADE IN ('MODERATE_ANEMIA', 'SEVERE_ANEMIA') AND CEA_ELEVATED_FLAG = 1
-        THEN 'Moderate/Severe Anemia + CEA'
+    CASE
+        WHEN IRON_DEFICIENCY_ANEMIA_FLAG = 1 AND HEMOGLOBIN_DROP_10PCT_FLAG = 1
+        THEN 'Iron Def Anemia + Hgb Drop'
+        WHEN ANEMIA_GRADE IN ('MODERATE_ANEMIA', 'SEVERE_ANEMIA') AND HEMOGLOBIN_DROP_10PCT_FLAG = 1
+        THEN 'Moderate/Severe Anemia + Hgb Drop'
         ELSE 'Other'
     END as risk_pattern,
     COUNT(*) as count,
@@ -3186,8 +2693,6 @@ print("SUMMARY OF USABLE LAB FEATURES FOR MODEL:")
 print("=" * 80)
 print("""
 HIGH-VALUE FEATURES (Strong CRC Association):
-- FOBT_POSITIVE_12MO, FOBT_MULTIPLE_POSITIVE_FLAG
-- CEA_ELEVATED_FLAG, CEA_RISING_PATTERN_FLAG, CEA_VELOCITY_PER_MONTH
 - IRON_DEFICIENCY_ANEMIA_FLAG, ANEMIA_GRADE
 - HEMOGLOBIN_DROP_10PCT_FLAG, HEMOGLOBIN_6MO_CHANGE
 
@@ -3197,13 +2702,11 @@ MODERATE-VALUE FEATURES:
 - Inflammatory: CRP_VALUE, ESR_VALUE
 - Nutritional: ALBUMIN_VALUE, ALBUMIN_DROP_15PCT_FLAG
 
-ADDITIONAL TUMOR MARKERS:
-- CA19_9_VALUE, CA125_VALUE (limited coverage but potentially valuable)
+ADDITIONAL MARKERS:
+- CA125_VALUE (limited coverage but potentially valuable)
 
 DATA QUALITY NOTES:
 - Good coverage for CBC and basic metabolic labs (~60-70%)
-- CEA coverage limited but highly valuable when present
-- FOBT data quality reasonable after text parsing
 - Iron studies have lower coverage but critical for anemia classification
 """)
 
@@ -3212,11 +2715,9 @@ DATA QUALITY NOTES:
 # MAGIC %md
 # MAGIC ## 📊 Conclusion
 # MAGIC
-# MAGIC Successfully validated laboratory feature engineering through comprehensive association analysis. The **6.2x risk ratio for iron deficiency anemia** confirms our approach captures the classic CRC presentation pattern. The **2.7x risk for FOBT positive** validates our text parsing methodology for screening tests.
+# MAGIC Successfully validated laboratory feature engineering through comprehensive association analysis. The **6.2x risk ratio for iron deficiency anemia** confirms our approach captures the classic CRC presentation pattern.
 # MAGIC
 # MAGIC Key achievement: Identified iron deficiency anemia as the strongest laboratory predictor with both clinical significance (6.2x risk) and reasonable coverage (0.35% of population). The hemoglobin drop pattern (2.7x risk, 1.14% coverage) provides broader population utility for risk stratification.
-# MAGIC
-# MAGIC **Critical finding**: CEA elevated showing protective effect (0.88x risk) suggests potential data quality issues with tumor marker documentation that require investigation. This validates our conservative approach to rare laboratory features and emphasizes the importance of association analysis before model deployment.
 # MAGIC
 # MAGIC Next step involves enhanced acceleration analysis to validate the extreme risk patterns (>8x) identified in our temporal feature engineering.
 
@@ -3254,8 +2755,6 @@ DATA QUALITY NOTES:
 # MAGIC **Feature Categories Analyzed**:
 # MAGIC - Severe anemia (WHO classification)
 # MAGIC - Iron deficiency anemia (classic CRC pattern)
-# MAGIC - CEA elevation and rising patterns (tumor markers)
-# MAGIC - FOBT positive results (direct bleeding evidence)
 # MAGIC - Hemoglobin drops (objective decline measures)
 # MAGIC - Albumin drops (nutritional/chronic disease markers)
 # MAGIC
@@ -3270,9 +2769,8 @@ DATA QUALITY NOTES:
 # MAGIC
 # MAGIC **Expected Clinical Patterns**:
 # MAGIC - Iron deficiency anemia should show highest risk ratios (classic CRC presentation)
-# MAGIC - FOBT positive should show strong association (direct bleeding evidence)
 # MAGIC - Severe anemia should show moderate association (multiple causes)
-# MAGIC - CEA patterns should show high specificity despite low coverage
+# MAGIC - Hemoglobin trends should capture bleeding patterns
 # MAGIC
 # MAGIC **Data Quality Signals**:
 # MAGIC - Inverted relationships (protective effects) suggest data corruption
@@ -3298,15 +2796,10 @@ DATA QUALITY NOTES:
 # MAGIC
 # MAGIC **Strongest Associations**:
 # MAGIC - Iron deficiency anemia: **6.2x risk** (7,560 patients, 0.35% coverage)
-# MAGIC - CEA rising pattern: **3.3x risk** (13 patients, 0.0006% coverage)
 # MAGIC - Hemoglobin drop 10%: **2.7x risk** (24,707 patients, 1.14% coverage)
-# MAGIC - FOBT positive: **2.7x risk** (7,562 patients, 0.35% coverage)
 # MAGIC
 # MAGIC **Moderate Associations**:
 # MAGIC - Severe anemia: **1.9x risk** (20,305 patients, 0.94% coverage)
-# MAGIC
-# MAGIC **Concerning Findings**:
-# MAGIC - CEA elevated: **0.88x risk** (protective effect - data quality issue)
 # MAGIC - Albumin drop 15%: **1.0x risk** (no association despite clinical expectation)
 # MAGIC
 # MAGIC The iron deficiency anemia finding validates our feature engineering approach, showing the classic CRC biomarker pattern with strong risk association and reasonable population coverage.
@@ -3380,11 +2873,9 @@ print(associations_pd.sort_values('risk_ratio', ascending=False).to_string())
 # MAGIC %md
 # MAGIC ## 📊 Conclusion
 # MAGIC
-# MAGIC Successfully validated laboratory feature engineering through comprehensive association analysis. The **6.2x risk ratio for iron deficiency anemia** confirms our approach captures the classic CRC presentation pattern. The **2.7x risk for FOBT positive** validates our text parsing methodology for screening tests.
+# MAGIC Successfully validated laboratory feature engineering through comprehensive association analysis. The **6.2x risk ratio for iron deficiency anemia** confirms our approach captures the classic CRC presentation pattern.
 # MAGIC
 # MAGIC Key achievement: Identified iron deficiency anemia as the strongest laboratory predictor with both clinical significance (6.2x risk) and reasonable coverage (0.35% of population). The hemoglobin drop pattern (2.7x risk, 1.14% coverage) provides broader population utility for risk stratification.
-# MAGIC
-# MAGIC **Critical finding**: CEA elevated showing protective effect (0.88x risk) suggests potential data quality issues with tumor marker documentation that require investigation. This validates our conservative approach to rare laboratory features and emphasizes the importance of association analysis before model deployment.
 # MAGIC
 # MAGIC Next step involves enhanced acceleration analysis to validate the extreme risk patterns (>8x) identified in our temporal feature engineering.
 
@@ -3441,7 +2932,7 @@ print(associations_pd.sort_values('risk_ratio', ascending=False).to_string())
 # MAGIC **Epic Workflow Considerations**:
 # MAGIC - Not all patients have recent laboratory data (expected)
 # MAGIC - Outpatient labs more common than inpatient (affects coverage)
-# MAGIC - Specialized tests (CEA, iron studies) have lower coverage
+# MAGIC - Specialized tests (iron studies) have lower coverage
 # MAGIC - Missing lab data creates NULL features (handled by XGBoost)
 # MAGIC
 # MAGIC ## Expected Output
@@ -3645,7 +3136,6 @@ profile.show(200, truncate=False)
 # MAGIC - **Iron deficiency anemia**: The classic presentation of right-sided colon cancers (30-50% prevalence)
 # MAGIC - **Hemoglobin acceleration patterns**: Novel second-derivative features capturing disease progression velocity
 # MAGIC - **Thrombocytosis**: Paraneoplastic syndrome in 10-40% of CRC cases
-# MAGIC - **Tumor markers**: CEA elevation in 40-70% of established cancers
 # MAGIC - **Metabolic changes**: Liver involvement, nutritional depletion, chronic inflammation
 # MAGIC
 # MAGIC ### What Makes This Approach Unique
@@ -3658,7 +3148,7 @@ profile.show(200, truncate=False)
 # MAGIC - Trajectory classifications (rapid decline, stable, rising)
 # MAGIC - Composite severity scores (0-6 scale combining multiple anemia indicators)
 # MAGIC
-# MAGIC **Clinical Intelligence**: Features respect Epic workflow realities while maintaining biological plausibility, handling text parsing for FOBT results and managing selective ordering patterns for specialized tests.
+# MAGIC **Clinical Intelligence**: Features respect Epic workflow realities while maintaining biological plausibility and managing selective ordering patterns.
 # MAGIC
 # MAGIC ### Dataset Composition and Processing Pipeline
 # MAGIC
@@ -3730,8 +3220,6 @@ profile.show(200, truncate=False)
 # MAGIC - Liver enzymes: ~58% – routine metabolic panels
 # MAGIC - Platelets: 1,214,549 (56.2%) – part of CBC
 # MAGIC - Iron studies: 6.4% – ordered with anemia workup
-# MAGIC - CEA: 8,389 (0.39%) – rare without clinical suspicion
-# MAGIC - FOBT/FIT: 1.27% – screening-dependent
 # MAGIC - Acceleration features: 2,564 (0.12%) – requires serial measurements
 # MAGIC
 # MAGIC ### Critical Findings and Clinical Implications
@@ -3774,17 +3262,6 @@ profile.show(200, truncate=False)
 # MAGIC - CRC rate: 2.5%
 # MAGIC - Risk ratio: **6.3x**
 # MAGIC
-# MAGIC #### FOBT/FIT Text Processing Success
-# MAGIC **Implementation**:
-# MAGIC - Parsed text results: "positive", "negative", numeric
-# MAGIC - Handled variations: `pos`, `neg`, `+`, `-`
-# MAGIC - Removed outliers: Values >1000 (data errors)
-# MAGIC
-# MAGIC **Results**:
-# MAGIC - 1.27% coverage across cohort
-# MAGIC - 2.7x CRC risk for positive FOBT
-# MAGIC - Multiple positives: Additional risk elevation
-# MAGIC
 # MAGIC ### Technical Implementation Excellence
 # MAGIC
 # MAGIC **Modular Table Architecture**:
@@ -3822,8 +3299,6 @@ profile.show(200, truncate=False)
 # MAGIC
 # MAGIC **Tier 2 (High value when present)**:
 # MAGIC - Acceleration features (all)
-# MAGIC - CEA features (all)
-# MAGIC - `lab_FOBT_POSITIVE_12MO`
 # MAGIC - Iron studies
 # MAGIC
 # MAGIC **Tier 3 (Supporting features)**:
@@ -3877,9 +3352,9 @@ profile.show(200, truncate=False)
 # MAGIC
 # MAGIC - **Selective ordering patterns**: Labs are ordered based on clinical suspicion, creating informative missingness
 # MAGIC - **Temporal complexity**: Values, trends, velocities, and accelerations each capture different disease aspects  
-# MAGIC - **Coverage variability**: CBC tests reach 51% of patients while specialized tumor markers affect <0.4%
+# MAGIC - **Coverage variability**: CBC tests reach 51% of patients while specialized tests (iron studies, CA125) affect <5%
 # MAGIC - **Continuous vs binary nature**: Requires different statistical approaches than medication flags
-# MAGIC - **Clinical interpretation**: Missing CEA may indicate low suspicion; missing hemoglobin suggests no recent care
+# MAGIC - **Clinical interpretation**: Missing hemoglobin suggests no recent care; missing iron studies indicate no anemia workup
 # MAGIC
 # MAGIC #### Key Metrics Established
 # MAGIC
@@ -3890,7 +3365,6 @@ profile.show(200, truncate=False)
 # MAGIC
 # MAGIC **Coverage Patterns:**
 # MAGIC - **Hemoglobin**: 56.2% coverage (most common test, excellent for population screening)
-# MAGIC - **CEA tumor marker**: 0.39% coverage (rare but highly specific when elevated)
 # MAGIC - **Iron studies**: 6.4% coverage (ordered with anemia workup, critical for CRC detection)
 # MAGIC - **Acceleration features**: 0.12% coverage (requires serial measurements, extreme risk when present)
 # MAGIC
@@ -3898,7 +3372,7 @@ profile.show(200, truncate=False)
 # MAGIC
 # MAGIC The coverage patterns reveal Epic's real-world laboratory ordering practices:
 # MAGIC - **High-coverage tests** (CBC, basic metabolic panel) provide population-level screening utility
-# MAGIC - **Low-coverage tests** (tumor markers, iron studies) offer targeted high-risk identification
+# MAGIC - **Low-coverage tests** (iron studies, specialized panels) offer targeted high-risk identification
 # MAGIC - **Ultra-rare features** (acceleration patterns) capture disease progression dynamics invisible to traditional analysis
 # MAGIC
 # MAGIC This step confirms our laboratory dataset captures the full spectrum from routine screening to specialized diagnostics, providing the foundation for intelligent feature selection that respects both statistical power and clinical workflow realities.
@@ -3966,12 +3440,10 @@ print(f"Baseline CRC rate (train only): {baseline_crc_rate:.4f}")
 
 # Calculate coverage for key lab categories
 hemoglobin_coverage = df_spark.filter(F.col('lab_HEMOGLOBIN_VALUE').isNotNull()).count() / total_rows
-cea_coverage = df_spark.filter(F.col('lab_CEA_VALUE').isNotNull()).count() / total_rows
 iron_coverage = df_spark.filter(F.col('lab_IRON_VALUE').isNotNull()).count() / total_rows
 acceleration_coverage = df_spark.filter(F.col('lab_HEMOGLOBIN_ACCELERATION').isNotNull()).count() / total_rows
 
 print(f"Hemoglobin coverage: {hemoglobin_coverage:.1%}")
-print(f"CEA coverage: {cea_coverage:.1%}")
 print(f"Iron studies coverage: {iron_coverage:.1%}")
 print(f"Acceleration features coverage: {acceleration_coverage:.2%}")
 
@@ -3986,16 +3458,14 @@ print(f"Acceleration features coverage: {acceleration_coverage:.2%}")
 # MAGIC - Computes impact scores balancing rarity with risk magnitude
 # MAGIC
 # MAGIC **Lab-specific considerations:**
-# MAGIC - FOBT positive (1.1%): Direct bleeding evidence, 3.9x risk
 # MAGIC - Iron deficiency anemia (0.27%): Classic CRC pattern, 8.4x risk
-# MAGIC - CEA elevated (0.03%): Rare but specific tumor marker
 # MAGIC - Hemoglobin accelerating decline (0.015%): Extreme risk 10.9x
 # MAGIC - Thrombocytosis (2.2%): Paraneoplastic syndrome marker
 # MAGIC
 # MAGIC **Expected patterns:**
 # MAGIC - Lower overall prevalence than medications
 # MAGIC - Higher risk ratios for acceleration features
-# MAGIC - Tumor markers have low coverage but high specificity
+# MAGIC - Specialized tests have low coverage but high specificity
 
 # COMMAND ----------
 
@@ -4035,7 +3505,6 @@ print(f"Acceleration features coverage: {acceleration_coverage:.2%}")
 # MAGIC
 # MAGIC **Risk Ratio Analysis:**
 # MAGIC - **Iron deficiency anemia**: 8.4x risk (0.27% prevalence) - classic right-sided CRC presentation
-# MAGIC - **FOBT positive**: 3.9x risk (1.1% prevalence) - direct bleeding evidence
 # MAGIC - **Hemoglobin accelerating decline**: 10.9x risk (0.015% prevalence) - extreme progression pattern
 # MAGIC - **Thrombocytosis**: 2.1x risk (2.2% prevalence) - paraneoplastic syndrome marker
 # MAGIC
@@ -4050,8 +3519,7 @@ print(f"Acceleration features coverage: {acceleration_coverage:.2%}")
 # MAGIC The risk ratio analysis reveals laboratory patterns that align with known CRC biology:
 # MAGIC - **Iron deficiency patterns** show the highest impact scores, confirming their role as cornerstone CRC biomarkers
 # MAGIC - **Acceleration features** demonstrate extreme risk ratios despite affecting <0.1% of patients
-# MAGIC - **Tumor markers** show moderate risk ratios with very low prevalence, reflecting selective ordering
-# MAGIC - **Screening tests** (FOBT) provide population-level utility with moderate risk elevation
+# MAGIC - **Thrombocytosis** provides population-level utility with moderate risk elevation
 # MAGIC
 # MAGIC This analysis validates our sophisticated feature engineering approach while identifying which laboratory signals deserve priority in clinical decision-making algorithms.
 # MAGIC
@@ -4132,7 +3600,7 @@ print(risk_df[['feature', 'prevalence', 'risk_ratio', 'impact']].to_string())
 # MAGIC
 # MAGIC Laboratory missingness patterns carry clinical information unlike other data types:
 # MAGIC
-# MAGIC - **Selective ordering**: Labs ordered based on clinical suspicion (missing CEA may indicate low cancer concern)
+# MAGIC - **Selective ordering**: Labs ordered based on clinical suspicion (missing iron studies may indicate no anemia workup)
 # MAGIC - **Temporal requirements**: Acceleration features need 4+ serial measurements (extremely rare)
 # MAGIC - **Specialized tests**: Iron studies only ordered with anemia workup (6.4% coverage expected)
 # MAGIC - **Epic architecture**: Different missing patterns between inpatient vs outpatient systems
@@ -4142,7 +3610,7 @@ print(risk_df[['feature', 'prevalence', 'risk_ratio', 'impact']].to_string())
 # MAGIC
 # MAGIC **Expected High Missingness (>95%)**:
 # MAGIC - Acceleration features: Require serial measurements over 6+ months
-# MAGIC - Tumor markers: Only ordered with clinical suspicion
+# MAGIC - Specialized panels: Only ordered with clinical suspicion
 # MAGIC - Iron studies: Ordered with anemia workup, not routine screening
 # MAGIC - Specialized ratios: Depend on multiple concurrent lab orders
 # MAGIC
@@ -4238,7 +3706,7 @@ print(missing_df.nsmallest(10, 'missing_rate')[['feature', 'missing_rate']].to_s
 # MAGIC Laboratory relationships with cancer risk are rarely linear:
 # MAGIC
 # MAGIC - **U-shaped curves**: Both low and high albumin may indicate disease through different mechanisms
-# MAGIC - **Threshold effects**: CEA shows minimal risk until crossing specific cutpoints, then dramatic elevation
+# MAGIC - **Threshold effects**: Lab values often show minimal risk until crossing specific cutpoints, then dramatic elevation
 # MAGIC - **Interaction patterns**: Iron deficiency + low MCV creates multiplicative rather than additive risk
 # MAGIC - **Temporal dynamics**: Acceleration patterns capture disease progression invisible to static values
 # MAGIC - **Missing data information**: Selective lab ordering creates informative missingness patterns
@@ -4268,7 +3736,7 @@ print(missing_df.nsmallest(10, 'missing_rate')[['feature', 'missing_rate']].to_s
 # MAGIC **High MI Scores (>0.03)**:
 # MAGIC - Iron saturation percentage: Captures iron deficiency spectrum
 # MAGIC - Ferritin value: Reflects iron stores and inflammation
-# MAGIC - CEA patterns: Tumor marker dynamics when present
+# MAGIC - Iron studies: Iron depletion spectrum
 # MAGIC - Acceleration features: Disease progression velocity
 # MAGIC
 # MAGIC **Moderate MI Scores (0.01-0.03)**:
@@ -4286,7 +3754,7 @@ print(missing_df.nsmallest(10, 'missing_rate')[['feature', 'missing_rate']].to_s
 # MAGIC **Expected Patterns**:
 # MAGIC - Composite features (anemia severity score) should rank highly
 # MAGIC - Acceleration features may have lower MI due to extreme rarity
-# MAGIC - Tumor markers show high MI when coverage allows reliable estimation
+# MAGIC - Specialized tests show high MI when coverage allows reliable estimation
 # MAGIC - Basic lab values (hemoglobin, platelets) provide moderate but consistent signals
 # MAGIC
 # MAGIC **Quality Validation Signals**:
@@ -4354,7 +3822,7 @@ print(mi_df.to_string())
 # MAGIC
 # MAGIC Successfully calculated mutual information for 90 laboratory features using stratified sampling that preserved outcome distribution (4.21% CRC rate in sample). The analysis reveals iron saturation percentage as the strongest non-linear predictor (MI=0.044), validating our clinical hypothesis about iron deficiency as a cornerstone CRC biomarker.
 # MAGIC
-# MAGIC **Key Achievement**: Identified complex non-linear relationships invisible to correlation analysis, with ferritin value (MI=0.037) and CEA patterns showing strong associations despite low population coverage. The MI ranking provides evidence-based feature prioritization that respects both statistical significance and clinical interpretability.
+# MAGIC **Key Achievement**: Identified complex non-linear relationships invisible to correlation analysis, with ferritin value (MI=0.037) showing strong associations. The MI ranking provides evidence-based feature prioritization that respects both statistical significance and clinical interpretability.
 # MAGIC
 # MAGIC **Next Step**: Apply clinical filters to remove low-signal features while preserving rare but extreme-risk patterns identified through both MI analysis and risk ratio calculations.
 # MAGIC
@@ -4371,13 +3839,12 @@ print(mi_df.to_string())
 
 #### 🔍 What This Step Accomplishes
 
-This step applies sophisticated clinical intelligence to filter our laboratory features, balancing statistical significance with clinical utility. We're implementing lab-specific decision rules that respect the unique characteristics of laboratory data - from the extreme rarity but high clinical significance of acceleration patterns to the selective ordering practices that create informative missingness in tumor markers.
+This step applies sophisticated clinical intelligence to filter our laboratory features, balancing statistical significance with clinical utility. We're implementing lab-specific decision rules that respect the unique characteristics of laboratory data - from the extreme rarity but high clinical significance of acceleration patterns to the selective ordering practices that create informative missingness in specialized tests.
 
 #### Why Laboratory Features Require Specialized Filtering
 
 Laboratory data presents unique challenges that require different filtering approaches than medication or demographic features:
 
-- **Informative missingness**: Missing CEA may indicate low clinical suspicion rather than poor data quality
 - **Extreme risk patterns**: Acceleration features affect only 0.12% of patients but show 8.3x CRC risk
 - **Selective ordering bias**: Iron studies ordered primarily when anemia is present, creating selection effects
 - **Temporal complexity**: Trends and velocities capture disease progression invisible to static values
@@ -4388,21 +3855,16 @@ Laboratory data presents unique challenges that require different filtering appr
 **Risk-Adjusted Missingness Thresholds**:
 - Standard cutoff: 99.8% missing (more lenient than medication features)
 - Acceleration exception: Keep despite 99.95% missing due to extreme risk ratios (>8x)
-- Tumor marker preservation: Maintain CEA/CA19-9 features despite low coverage
-- FOBT retention: Critical screening data despite 1.27% coverage
 
 **MUST_KEEP Clinical List**:
 - `lab_HEMOGLOBIN_ACCELERATING_DECLINE`: 10.9x risk despite 0.015% prevalence
 - `lab_IRON_DEFICIENCY_ANEMIA_FLAG`: Classic CRC presentation (6.2x risk)
-- `lab_CEA_ELEVATED_FLAG`: High specificity tumor marker
-- `lab_FOBT_POSITIVE_12MO`: Direct bleeding evidence (2.7x risk)
 - `lab_ANEMIA_SEVERITY_SCORE`: Composite clinical intelligence
 
 **Redundancy Removal Strategy**:
 - HCT vs Hemoglobin: Keep hemoglobin (better coverage, more clinical utility)
 - MCH vs MCHC: Keep MCH (more stable measurement)
 - Total vs Direct Bilirubin: Keep total (broader clinical significance)
-- CA19-9 value vs change: Keep value (change too sparse)
 
 #### Clinical Decision Logic
 
@@ -4412,8 +3874,8 @@ Despite affecting <0.1% of patients, acceleration features represent the stronge
 **Iron Studies Optimization**:
 While iron saturation percentage shows highest MI score (0.044), we preserve the complete iron deficiency pattern including ferritin and TIBC to maintain clinical interpretability.
 
-**Tumor Marker Strategy**:
-CEA features retained despite protective effect in some analyses - this likely reflects selective ordering in patients already under oncology care, making the missing data pattern itself informative.
+**CA125 Retention**:
+CA125 (ovarian cancer marker) retained as it may provide ancillary signal for peritoneal involvement despite low coverage.
 
 
 # COMMAND ----------
@@ -4445,8 +3907,6 @@ MUST_KEEP = [
     'lab_PLATELETS_ACCELERATING_RISE',      # Paraneoplastic syndrome marker
     'lab_IRON_DEFICIENCY_ANEMIA_FLAG',      # Classic CRC pattern
     'lab_ANEMIA_SEVERITY_SCORE',            # Composite severity
-    'lab_CEA_ELEVATED_FLAG',                # Tumor marker
-    'lab_FOBT_POSITIVE_12MO',               # Direct bleeding evidence
     'lab_HEMOGLOBIN_VALUE',                 # Core biomarker
     'lab_HEMOGLOBIN_DROP_10PCT_FLAG',       # Significant change
     'lab_ALBUMIN_DROP_15PCT_FLAG'           # Nutritional/chronic disease
@@ -4477,7 +3937,6 @@ redundant_pairs = [
     ('lab_HCT_VALUE', 'lab_HCT_6MO_CHANGE'),  # Keep value, remove change
     ('lab_MCH_VALUE', 'lab_MCHC_VALUE'),       # Keep MCH, remove MCHC
     ('lab_BILI_TOTAL_VALUE', 'lab_BILI_DIRECT_VALUE'),  # Keep total
-    ('lab_CA19_9_VALUE', 'lab_CA19_9_6MO_CHANGE'),  # Keep value
 ]
 
 for remove_feat, keep_feat in redundant_pairs:
@@ -4498,7 +3957,7 @@ print(f"Features remaining after filtering: {len(feature_importance)}")
 # MAGIC
 # MAGIC Successfully applied clinical intelligence filtering that reduced 93 features to 82 while preserving all extreme-risk patterns and clinically critical biomarkers. The filtering removed redundant features and near-zero signal variables while maintaining the sophisticated temporal dynamics that make laboratory data uniquely powerful for CRC prediction.
 # MAGIC
-# MAGIC **Key Achievement**: Balanced statistical rigor with clinical reality by preserving rare but extreme-risk acceleration patterns (8.3x CRC risk) while removing low-signal redundant features. The MUST_KEEP list ensures that classic CRC biomarkers (iron deficiency anemia, FOBT positive) remain available for model training despite varying coverage rates.
+# MAGIC **Key Achievement**: Balanced statistical rigor with clinical reality by preserving rare but extreme-risk acceleration patterns (8.3x CRC risk) while removing low-signal redundant features. The MUST_KEEP list ensures that classic CRC biomarkers (iron deficiency anemia) remain available for model training despite varying coverage rates.
 # MAGIC
 # MAGIC **Next Step**: Apply lab-type optimization to select the best representation for each laboratory test (value vs trend vs flag) while maintaining clinical interpretability and ensuring all critical disease progression patterns are captured.
 # MAGIC
@@ -4522,8 +3981,8 @@ print(f"Features remaining after filtering: {len(feature_importance)}")
 # MAGIC
 # MAGIC - **Multiple representations**: Hemoglobin can be represented as value, 6-month change, percentage drop, acceleration, or trajectory classification
 # MAGIC - **Temporal complexity**: Disease progression captured through trends, velocities, and accelerations
-# MAGIC - **Coverage variability**: Common tests (CBC) have 50%+ coverage while specialized tests (tumor markers) affect <1%
-# MAGIC - **Clinical context matters**: Missing CEA may indicate low suspicion; missing hemoglobin suggests no recent care
+# MAGIC - **Coverage variability**: Common tests (CBC) have 50%+ coverage while specialized tests (iron studies, CA125) affect <5%
+# MAGIC - **Clinical context matters**: Missing hemoglobin suggests no recent care; missing iron studies indicate no anemia workup
 # MAGIC - **Risk stratification needs**: Continuous values provide granular risk assessment while flags enable decision thresholds
 # MAGIC
 # MAGIC #### Intelligent Selection Rules by Lab Type
@@ -4540,19 +3999,9 @@ print(f"Features remaining after filtering: {len(feature_importance)}")
 # MAGIC - Keep THROMBOCYTOSIS_FLAG (elevation threshold)
 # MAGIC - Keep ACCELERATING_RISE (progression pattern)
 # MAGIC
-# MAGIC **Tumor Markers (CEA, CA19-9, CA125)**:
-# MAGIC - Keep ELEVATED_FLAG (clinical threshold)
-# MAGIC - Keep rising patterns when available
-# MAGIC - Keep MAX_12MO (peak values matter)
-# MAGIC - Prioritize by MI score when multiple options
-# MAGIC
 # MAGIC **Iron Studies (CRC-Specific)**:
 # MAGIC - Keep highest MI score feature (typically IRON_SATURATION_PCT or FERRITIN_VALUE)
 # MAGIC - Preserve IRON_DEFICIENCY_ANEMIA_FLAG (composite pattern)
-# MAGIC
-# MAGIC **FOBT/FIT (Direct Evidence)**:
-# MAGIC - Keep POSITIVE_12MO (any positive result)
-# MAGIC - Keep MULTIPLE_POSITIVE_FLAG (persistent bleeding)
 # MAGIC
 # MAGIC **Common Labs (ALT, AST, CRP, ESR)**:
 # MAGIC - Select best single representation by MI score
@@ -4563,7 +4012,6 @@ print(f"Features remaining after filtering: {len(feature_importance)}")
 # MAGIC **MUST_KEEP Critical Features**:
 # MAGIC - All acceleration patterns (extreme risk despite rarity)
 # MAGIC - Iron deficiency markers (classic CRC presentation)
-# MAGIC - FOBT positive results (direct bleeding evidence)
 # MAGIC - Anemia severity scoring (composite intelligence)
 # MAGIC - Core hemoglobin measurements (population utility)
 # MAGIC
@@ -4615,18 +4063,12 @@ def select_optimal_lab_features(df_importance):
             if not flag_feat.empty:
                 selected.append(flag_feat.nlargest(1, 'mi_score')['feature'].values[0])
                     
-        elif lab in ['CEA', 'CA19', 'CA125']:
-            # Keep top 2 tumor marker features
+        elif lab == 'CA125':
+            # Keep top CA125 feature if available
             if len(lab_features) > 0:
-                top_markers = lab_features.nlargest(min(2, len(lab_features)), 'mi_score')['feature'].tolist()
+                top_markers = lab_features.nlargest(min(1, len(lab_features)), 'mi_score')['feature'].tolist()
                 selected.extend(top_markers)
-                    
-        elif lab == 'FOBT':
-            # Keep positive indicators
-            pos_features = lab_features[lab_features['feature'].str.contains('POSITIVE')]
-            if not pos_features.empty:
-                selected.extend(pos_features.nlargest(2, 'mi_score')['feature'].tolist())
-                    
+
         elif lab == 'ANEMIA':
             # Keep both score and flags
             anemia_features = lab_features.nlargest(min(2, len(lab_features)), 'mi_score')['feature'].tolist()
@@ -4646,17 +4088,15 @@ def select_optimal_lab_features(df_importance):
     
     # Ensure critical features are included
     CRITICAL_FEATURES = [
-        'lab_HEMOGLOBIN_ACCELERATING_DECLINE',  
-        'lab_PLATELETS_ACCELERATING_RISE',      
-        'lab_IRON_DEFICIENCY_ANEMIA_FLAG',      
-        'lab_ANEMIA_SEVERITY_SCORE',            
-        'lab_CEA_ELEVATED_FLAG',                
-        'lab_FOBT_POSITIVE_12MO',               
-        'lab_HEMOGLOBIN_VALUE',                 
-        'lab_HEMOGLOBIN_DROP_10PCT_FLAG',       
-        'lab_ALBUMIN_DROP_15PCT_FLAG',          
-        'lab_THROMBOCYTOSIS_FLAG',              
-        'lab_PLATELETS_VALUE'                   
+        'lab_HEMOGLOBIN_ACCELERATING_DECLINE',
+        'lab_PLATELETS_ACCELERATING_RISE',
+        'lab_IRON_DEFICIENCY_ANEMIA_FLAG',
+        'lab_ANEMIA_SEVERITY_SCORE',
+        'lab_HEMOGLOBIN_VALUE',
+        'lab_HEMOGLOBIN_DROP_10PCT_FLAG',
+        'lab_ALBUMIN_DROP_15PCT_FLAG',
+        'lab_THROMBOCYTOSIS_FLAG',
+        'lab_PLATELETS_VALUE'
     ]
     
     for feat in CRITICAL_FEATURES:
@@ -4720,7 +4160,7 @@ for i, feat in enumerate(sorted(selected_features), 1):
 # MAGIC - **Metabolic dysfunction**: Integrates liver enzymes and albumin to detect advanced disease or metastases  
 # MAGIC - **Inflammatory burden**: Merges CRP, ESR, and thrombocytosis to quantify tumor-associated inflammation
 # MAGIC - **Progressive anemia**: Captures accelerating decline patterns indicating active bleeding
-# MAGIC - **Tumor marker panel**: Aggregates CEA, CA19-9, and CA125 elevations for broader cancer detection
+# MAGIC
 # MAGIC
 # MAGIC These composites respect the reality that CRC rarely affects single laboratory parameters in isolation—it creates patterns of multi-system dysfunction that are stronger predictors than individual abnormalities.
 # MAGIC
@@ -4750,17 +4190,11 @@ for i, feat in enumerate(sorted(selected_features), 1):
 # MAGIC - Identifies patients with worsening bleeding patterns
 # MAGIC - Prioritizes cases requiring urgent intervention
 # MAGIC
-# MAGIC **Comprehensive Tumor Marker Panel**:
-# MAGIC - CEA elevation or rising patterns
-# MAGIC - CA19-9 >37 U/mL (pancreaticobiliary involvement)
-# MAGIC - CA125 >35 U/mL (peritoneal involvement)
-# MAGIC - Expands detection beyond CEA-only approach
-# MAGIC
 # MAGIC #### Clinical Decision Support Integration
 # MAGIC
 # MAGIC **Risk Stratification Tiers**:
 # MAGIC - **Tier 1 (Immediate action)**: Any acceleration pattern + iron deficiency
-# MAGIC - **Tier 2 (Urgent evaluation)**: Progressive anemia + tumor markers
+# MAGIC - **Tier 2 (Urgent evaluation)**: Progressive anemia + iron deficiency
 # MAGIC - **Tier 3 (Enhanced monitoring)**: Metabolic dysfunction + inflammatory burden
 # MAGIC
 # MAGIC **XGBoost Optimization**:
@@ -4779,7 +4213,7 @@ for i, feat in enumerate(sorted(selected_features), 1):
 # MAGIC
 # MAGIC **Clinical Plausibility Checks**:
 # MAGIC - Iron deficiency composites align with hematology guidelines
-# MAGIC - Tumor marker thresholds match laboratory reference ranges
+# MAGIC - Laboratory thresholds match established reference ranges
 # MAGIC - Inflammatory markers reflect established clinical cutpoints
 # MAGIC - Progressive patterns capture realistic disease trajectories
 # MAGIC
@@ -4823,20 +4257,11 @@ df_final = df_final.withColumn('lab_progressive_anemia',
            (F.col('lab_HEMOGLOBIN_ACCELERATING_DECLINE') == 1), 1).otherwise(0)
 )
 
-# 5. Any tumor marker elevation
-df_final = df_final.withColumn('lab_any_tumor_marker',
-    F.when((F.col('lab_CEA_ELEVATED_FLAG') == 1) | 
-           (F.col('lab_CEA_HIGH_FLAG') == 1) |
-           (F.col('lab_CA19_9_VALUE') > 37) |
-           (F.col('lab_CA125_VALUE') > 35), 1).otherwise(0)
-)
-
 composite_features = [
     'lab_comprehensive_iron_deficiency',
-    'lab_metabolic_dysfunction', 
+    'lab_metabolic_dysfunction',
     'lab_inflammatory_burden',
-    'lab_progressive_anemia',
-    'lab_any_tumor_marker'
+    'lab_progressive_anemia'
 ]
 
 # Add composites to selected features
@@ -4855,12 +4280,10 @@ for i, feat in enumerate(selected_features, 1):
     # Add description for clarity
     if 'ACCELERATING' in feat or 'ACCELERATION' in feat:
         desc = " [EXTREME RISK - RARE]"
-    elif 'CEA' in feat or 'CA19' in feat or 'CA125' in feat:
-        desc = " [TUMOR MARKER]"
+    elif 'CA125' in feat:
+        desc = " [OVARIAN MARKER]"
     elif 'IRON_DEFICIENCY' in feat or 'ANEMIA' in feat:
         desc = " [CRC BIOMARKER]"
-    elif 'FOBT' in feat:
-        desc = " [SCREENING TEST]"
     elif 'HEMOGLOBIN' in feat or 'HGB' in feat:
         desc = " [BLEEDING MARKER]"
     elif feat in composite_features:
@@ -5019,9 +4442,6 @@ spark.sql(validation_query).show()
 # MAGIC
 # MAGIC This validates the classic right-sided colon cancer presentation, often preceding symptoms by 6–12 months. The pattern combines low hemoglobin, microcytosis, and low ferritin into a composite that justifies aggressive workup even without symptoms.
 # MAGIC
-# MAGIC ### FOBT Text Processing Success
-# MAGIC Successfully parsed qualitative results ("positive"/"negative") and numeric values, achieving 1.27% coverage across the cohort with **2.7x CRC risk** for positive results.
-# MAGIC
 # MAGIC ## Feature Reduction Pipeline (Steps 1-7)
 # MAGIC
 # MAGIC ### Step 1: Load Laboratory Data and Calculate Coverage Statistics
@@ -5055,8 +4475,6 @@ spark.sql(validation_query).show()
 # MAGIC
 # MAGIC **Tier 2 (High Value When Present)**:
 # MAGIC - Acceleration features (8.3x CRC risk)
-# MAGIC - CEA features (tumor markers)
-# MAGIC - `lab_FOBT_POSITIVE_12MO` (direct bleeding evidence)
 # MAGIC - Iron studies
 # MAGIC
 # MAGIC **Tier 3 (Supporting Features)**:
@@ -5067,7 +4485,7 @@ spark.sql(validation_query).show()
 # MAGIC - **Zero duplicate patient-months** across 2.16M observations
 # MAGIC - **All temporal boundaries respected** (labs ≤ END_DTTM)
 # MAGIC - **Physiological outliers removed** while preserving clinical range
-# MAGIC - **Text results parsed** for FOBT qualitative data
+# MAGIC - **Component names standardized** across inpatient and outpatient systems
 # MAGIC - **Modular architecture** enabling debugging and maintenance
 # MAGIC
 # MAGIC ## Clinical Impact
