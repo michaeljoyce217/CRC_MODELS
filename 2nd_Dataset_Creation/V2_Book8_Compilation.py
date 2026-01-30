@@ -332,7 +332,11 @@ spark.sql("""
 -- Replace the hardcoded SELECT with dynamic selection
 CREATE OR REPLACE TABLE dev.clncl_ds.herald_eda_train_wide AS
 SELECT
-    c.*,
+    c.* EXCEPT (LABEL_CONFIDENCE, current_screen_status,
+                vbc_last_colonoscopy_date, vbc_last_fobt_date,
+                last_internal_screening_date, last_colonoscopy_date,
+                last_ct_colonography_date, last_sigmoidoscopy_date,
+                last_fit_dna_date, last_fobt_date),
     v.* EXCEPT (PAT_ID, END_DTTM),
     i.* EXCEPT (PAT_ID, END_DTTM),
     l.* EXCEPT (PAT_ID, END_DTTM),

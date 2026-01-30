@@ -4222,6 +4222,25 @@ selected_features.extend(composite_features)
 selected_features = sorted(list(set(selected_features)))  # Remove duplicates and sort
 
 print(f"\nAdded {len(composite_features)} composite features")
+
+# Ordinal-encode categorical features (must happen AFTER composite features use them as strings)
+if 'lab_ANEMIA_GRADE' in selected_features:
+    df_final = df_final.withColumn('lab_ANEMIA_GRADE',
+        F.when(F.col('lab_ANEMIA_GRADE') == 'SEVERE_ANEMIA', 3)
+         .when(F.col('lab_ANEMIA_GRADE') == 'MODERATE_ANEMIA', 2)
+         .when(F.col('lab_ANEMIA_GRADE') == 'MILD_ANEMIA', 1)
+         .when(F.col('lab_ANEMIA_GRADE') == 'NORMAL', 0)
+         .otherwise(F.lit(None).cast('int')))
+
+if 'lab_HGB_TRAJECTORY' in selected_features:
+    df_final = df_final.withColumn('lab_HGB_TRAJECTORY',
+        F.when(F.col('lab_HGB_TRAJECTORY') == 'RAPID_DECLINE', 3)
+         .when(F.col('lab_HGB_TRAJECTORY') == 'MODERATE_DECLINE', 2)
+         .when(F.col('lab_HGB_TRAJECTORY') == 'MILD_DECLINE', 1)
+         .when(F.col('lab_HGB_TRAJECTORY') == 'STABLE_OR_RISING', 0)
+         .otherwise(F.lit(None).cast('int')))
+
+print("✓ Ordinal-encoded lab_ANEMIA_GRADE and lab_HGB_TRAJECTORY")
 print(f"Final feature count: {len(selected_features)}")
 
 # === PRINT FINAL FEATURE LIST ===

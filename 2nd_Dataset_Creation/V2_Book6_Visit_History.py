@@ -1583,6 +1583,11 @@ feature_cols = [col for col in df_visit.columns
 for col in feature_cols:
     df_visit = df_visit.withColumnRenamed(col, f"visit_{col.lower()}")
 
+# Ensure continuity ratio is numeric (can be object due to NULL/division edge cases)
+if 'visit_primary_care_continuity_ratio' in df_visit.columns:
+    df_visit = df_visit.withColumn('visit_primary_care_continuity_ratio',
+        F.col('visit_primary_care_continuity_ratio').cast('double'))
+
 # Cache for performance
 df_visit.cache()
 total_rows = df_visit.count()
