@@ -1998,6 +1998,86 @@ print(f"{'Train-Val Gap':<20} {baseline_metrics['train_val_gap']:>12.4f} {final_
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ### Lift Analysis: Overall and By Quarter
+# MAGIC
+# MAGIC **Lift** = AUPRC / baseline positive rate. A lift of 10x means the model's precision-recall
+# MAGIC performance is 10x better than random guessing. Evaluating by quarter checks whether
+# MAGIC the model degrades over time (temporal stability).
+
+# COMMAND ----------
+
+# --- Lift Analysis: Overall and By Quarter ---
+
+print("="*70)
+print("LIFT ANALYSIS")
+print("="*70)
+
+# Overall lift (all splits)
+for split_name, mask in [('Train', df_pandas['SPLIT'] == 'train'),
+                         ('Val', df_pandas['SPLIT'] == 'val'),
+                         ('Test', df_pandas['SPLIT'] == 'test')]:
+    X_split = df_pandas.loc[mask]
+    y_split = df_pandas.loc[mask, 'FUTURE_CRC_EVENT']
+    y_pred = final_model.predict_proba(X_split[final_features])[:, 1]
+    base_rate = y_split.mean()
+    auprc = average_precision_score(y_split, y_pred)
+    lift = auprc / base_rate if base_rate > 0 else 0
+    print(f"  {split_name:<6} Base rate: {base_rate:.4f} ({base_rate*100:.2f}%)  AUPRC: {auprc:.4f}  Lift: {lift:.1f}x")
+
+# By-quarter lift on TEST set only
+print("\n" + "-"*70)
+print("LIFT BY QUARTER (Test Set)")
+print("-"*70)
+
+test_df = df_pandas[df_pandas['SPLIT'] == 'test'].copy()
+test_df['quarter'] = test_df['END_DTTM'].dt.to_period('Q').astype(str)
+test_df['y_pred'] = final_model.predict_proba(test_df[final_features])[:, 1]
+
+quarters = sorted(test_df['quarter'].unique())
+
+print(f"  {'Quarter':<10} {'N':>8} {'Events':>8} {'Base Rate':>10} {'AUPRC':>8} {'Lift':>8}")
+print("  " + "-"*54)
+
+for q in quarters:
+    q_mask = test_df['quarter'] == q
+    y_q = test_df.loc[q_mask, 'FUTURE_CRC_EVENT']
+    pred_q = test_df.loc[q_mask, 'y_pred']
+    n = len(y_q)
+    n_events = int(y_q.sum())
+    base_rate = y_q.mean()
+
+    if n_events < 2:
+        print(f"  {q:<10} {n:>8,} {n_events:>8} {base_rate:>10.4f} {'--':>8} {'--':>8}  (too few events)")
+        continue
+
+    auprc = average_precision_score(y_q, pred_q)
+    lift = auprc / base_rate if base_rate > 0 else 0
+    print(f"  {q:<10} {n:>8,} {n_events:>8} {base_rate:>10.4f} {auprc:>8.4f} {lift:>7.1f}x")
+
+# Summary stats across quarters
+q_lifts = []
+for q in quarters:
+    q_mask = test_df['quarter'] == q
+    y_q = test_df.loc[q_mask, 'FUTURE_CRC_EVENT']
+    pred_q = test_df.loc[q_mask, 'y_pred']
+    if y_q.sum() >= 2:
+        auprc = average_precision_score(y_q, pred_q)
+        base_rate = y_q.mean()
+        q_lifts.append(auprc / base_rate if base_rate > 0 else 0)
+
+if len(q_lifts) >= 2:
+    print(f"\n  Quarterly lift range: {min(q_lifts):.1f}x - {max(q_lifts):.1f}x")
+    print(f"  Quarterly lift std:   {np.std(q_lifts):.2f}")
+    if min(q_lifts) / max(q_lifts) > 0.7:
+        print("  ✓ Temporal stability looks good (min/max ratio > 0.7)")
+    else:
+        print("  ⚠ Possible temporal instability (min/max ratio ≤ 0.7)")
+
+print("="*70)
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Save Final Outputs
 # MAGIC
 # MAGIC Outputs saved to `feature_selection_outputs/`:
