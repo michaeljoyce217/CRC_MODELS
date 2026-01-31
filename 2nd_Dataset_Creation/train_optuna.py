@@ -5,14 +5,14 @@
 #
 # Uses Optuna TPE sampler to search for optimal XGBoost hyperparameters,
 # then trains a final model with the best params. Search space is bounded
-# by domain knowledge (250:1 class imbalance, 40 features).
+# by domain knowledge (250:1 class imbalance, 57 features).
 #
 # Input:  {trgt_cat}.clncl_ds.fudgesicle_train
 # Output: Tuned model registered in MLflow
 #
 # Pipeline stages:
 #   1. Configuration & imports
-#   2. Feature list (40 features from Book 9 SHAP winnowing)
+#   2. Feature list (57 features from Book 9 SHAP winnowing)
 #   3. Load data & prepare train/val/test splits
 #   4. Optuna search space definition
 #   5. Optuna objective function
@@ -64,7 +64,7 @@ print(f"Write catalog: {trgt_cat}")
 # Input table (output of featurization_train.py) and MLflow settings
 INPUT_TABLE = f"{trgt_cat}.clncl_ds.fudgesicle_train"
 EXPERIMENT_NAME = f"/Shared/crc_risk_prediction_{trgt_cat}"
-MODEL_NAME = "crc_risk_xgboost_40features_tuned"
+MODEL_NAME = "crc_risk_xgboost_57features_tuned"
 RANDOM_SEED = 217
 TARGET_COL = "FUTURE_CRC_EVENT"
 
@@ -82,51 +82,69 @@ print(f"Optuna trials: {N_OPTUNA_TRIALS}")
 # ===========================================================================
 # 2. FEATURE LIST
 #
-# The 40 features selected by iterative SHAP winnowing in Book 9
-# (iteration 16, test AUPRC=0.1146).
+# The 57 features selected by iterative SHAP winnowing in Book 9.
+# CEA, CA 19-9, and FOBT/FIT were excluded before selection (circular
+# reasoning -- see CLAUDE.md for rationale).
 # ===========================================================================
 
 FEATURE_COLS = [
-    "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
-    "lab_PLATELETS_ACCELERATING_RISE",
-    "vis_visit_recency_last_gi",
+    "AGE_GROUP",
+    "HAS_PCP_AT_END",
     "IS_FEMALE",
     "IS_MARRIED_PARTNER",
-    "vit_BP_SYSTOLIC",
-    "lab_ALT_AST_RATIO",
-    "vit_WEIGHT_OZ",
-    "lab_comprehensive_iron_deficiency",
+    "RACE_ASIAN",
+    "RACE_CAUCASIAN",
+    "icd_ANEMIA_FLAG_12MO",
+    "icd_BLEED_CNT_12MO",
+    "icd_COMBINED_COMORBIDITY_12MO",
+    "icd_IRON_DEF_ANEMIA_FLAG_12MO",
+    "icd_MALIGNANCY_FLAG_EVER",
+    "icd_SYMPTOM_BURDEN_12MO",
+    "icd_chronic_gi_pattern",
+    "inp_med_inp_gi_hospitalization",
+    "inp_med_inp_ibd_meds_recency",
+    "inp_med_inp_obstruction_pattern",
+    "inp_med_inp_opioid_use_flag",
+    "lab_ALBUMIN_DROP_15PCT_FLAG",
+    "lab_ALBUMIN_VALUE",
+    "lab_ALK_PHOS_VALUE",
+    "lab_ANEMIA_GRADE",
+    "lab_ANEMIA_SEVERITY_SCORE",
+    "lab_AST_VALUE",
+    "lab_ESR_VALUE",
+    "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
+    "lab_HEMOGLOBIN_VALUE",
+    "lab_IRON_SATURATION_PCT",
+    "lab_PLATELETS_ACCELERATING_RISE",
     "lab_PLATELETS_VALUE",
     "lab_THROMBOCYTOSIS_FLAG",
-    "vit_MAX_WEIGHT_LOSS_PCT_60D",
-    "vit_WEIGHT_CHANGE_PCT_6M",
-    "vit_WEIGHT_TRAJECTORY_SLOPE",
-    "icd_MALIGNANCY_FLAG_EVER",
+    "lab_comprehensive_iron_deficiency",
     "months_since_cohort_entry",
-    "vis_visit_pcp_visits_12mo",
-    "vis_visit_outpatient_visits_12mo",
-    "vit_vital_recency_score",
-    "icd_CHARLSON_SCORE_12MO",
+    "out_med_broad_abx_recency",
+    "out_med_ibd_meds_recency",
+    "out_med_ppi_use_flag",
+    "proc_blood_transfusion_count_12mo",
+    "proc_high_imaging_intensity_flag",
+    "proc_mri_abd_pelvis_count_12mo",
+    "visit_acute_care_reliance",
+    "visit_gi_symptom_op_visits_12mo",
+    "visit_healthcare_intensity_score",
+    "visit_inp_last_24_months",
+    "visit_no_shows_12mo",
+    "visit_outpatient_visits_12mo",
+    "visit_pcp_visits_12mo",
+    "visit_primary_care_continuity_ratio",
+    "visit_recency_last_gi",
+    "visit_total_gi_symptom_visits_12mo",
+    "vit_BMI",
+    "vit_BMI_CHANGE_6M",
+    "vit_CACHEXIA_RISK_SCORE",
+    "vit_MAX_WEIGHT_LOSS_PCT_60D",
+    "vit_PULSE",
+    "vit_PULSE_PRESSURE",
     "vit_RECENCY_WEIGHT",
-    "HAS_PCP_AT_END",
-    "vis_visit_no_shows_12mo",
-    "lab_AST_VALUE",
-    "lab_CEA_VALUE",
-    "lab_ALK_PHOS_VALUE",
     "vit_SBP_VARIABILITY_6M",
-    "vis_visit_gi_symptom_op_visits_12mo",
-    "icd_IRON_DEF_ANEMIA_FLAG_12MO",
-    "vis_visit_total_gi_symptom_visits_12mo",
-    "icd_ANEMIA_FLAG_12MO",
-    "vis_visit_gi_symptoms_no_specialist",
-    "icd_SYMPTOM_BURDEN_12MO",
-    "icd_BLEED_CNT_12MO",
-    "proc_total_imaging_count_12mo",
-    "proc_ct_abd_pelvis_count_12mo",
-    "icd_PAIN_FLAG_12MO",
-    "lab_HEMOGLOBIN_VALUE",
-    "lab_ALBUMIN_VALUE",
-    "vis_visit_acute_care_reliance",
+    "vit_WEIGHT_TRAJECTORY_SLOPE",
 ]
 
 print(f"Feature count: {len(FEATURE_COLS)}")
@@ -221,7 +239,7 @@ del df_all, patient_labels, patients_trainval, patients_train, patients_val, pat
 #
 # Intelligent bounds based on domain knowledge:
 # - 250:1 class imbalance requires conservative regularization
-# - 40 features means moderate column sampling is fine
+# - 57 features means moderate column sampling is fine
 # - Shallow trees (max_depth 2-5) prevent memorizing rare positives
 # - High min_child_weight prevents splits on tiny subgroups
 # - Log-scale for learning rate and regularization strengths
@@ -464,7 +482,7 @@ print("Curves saved to /tmp/crc_tuned_model_curves.png")
 #
 # Compute SHAP values on a sample of test data (up to 5000 rows) using
 # TreeExplainer. Generates a beeswarm summary plot and a bar importance
-# plot showing all 40 features.
+# plot showing all 57 features.
 # ===========================================================================
 
 print("Computing SHAP values...")
@@ -501,7 +519,7 @@ shap.summary_plot(
     X_shap,
     feature_names=FEATURE_COLS,
     show=False,
-    max_display=40,
+    max_display=57,
 )
 plt.tight_layout()
 plt.savefig('/tmp/crc_tuned_shap_summary.png', dpi=150, bbox_inches='tight')
@@ -516,7 +534,7 @@ shap.summary_plot(
     feature_names=FEATURE_COLS,
     plot_type="bar",
     show=False,
-    max_display=40,
+    max_display=57,
 )
 plt.tight_layout()
 plt.savefig('/tmp/crc_tuned_shap_bar.png', dpi=150, bbox_inches='tight')
@@ -534,7 +552,7 @@ print("SHAP bar plot saved to /tmp/crc_tuned_shap_bar.png")
 mlflow.set_experiment(EXPERIMENT_NAME)
 print(f"MLflow experiment: {EXPERIMENT_NAME}")
 
-with mlflow.start_run(run_name=f"xgboost_40features_optuna_seed{RANDOM_SEED}") as run:
+with mlflow.start_run(run_name=f"xgboost_57features_optuna_seed{RANDOM_SEED}") as run:
     run_id = run.info.run_id
     print(f"Run ID: {run_id}")
 

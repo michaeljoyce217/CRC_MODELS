@@ -3,9 +3,10 @@
 #
 # CRC Risk Prediction: Featurization & Training Dataset Pipeline
 #
-# Builds the full cohort from scratch and engineers 40 selected features
+# Builds the full cohort from scratch and engineers 57 selected features
 # from Clarity source tables. These features were selected by iterative
-# SHAP winnowing (Book 9, iteration 16, test AUPRC=0.1146).
+# SHAP winnowing in Book 9 (after excluding CEA/CA19-9/FOBT circular
+# reasoning features).
 #
 # Output: {trgt_cat}.clncl_ds.fudgesicle_train
 #
@@ -13,19 +14,21 @@
 #   1. Configuration & imports
 #   2. Base patient identification (outpatient + inpatient encounters)
 #   3. Monthly observation grid (one row per patient-month)
-#   4. Demographics (age, gender, marital status, system tenure)
+#   4. Demographics (age, gender, marital status, race, system tenure)
 #   5. PCP status (active primary care provider at observation date)
 #   6. Medical exclusions (prior CRC, colectomy, hospice)
 #   7. Screening exclusions (VBC registry + internal procedure records)
 #   8. Label construction (CRC within 6mo, three-tier negative quality)
-#   9. Vitals features (8 features)
+#   9. Vitals features (9 features)
 #  10. ICD-10 diagnosis features (7 features)
-#  11. Lab features (11 features)
-#  12. Visit history features (9 features)
-#  13. Procedure features (2 features)
-#  14. Final join (all features combined, nulls filled)
-#  15. Save output table
-#  16. Validation & summary
+#  11. Lab features (14 features)
+#  12. Outpatient medication features (3 features)
+#  13. Inpatient medication features (4 features)
+#  14. Visit history features (10 features)
+#  15. Procedure features (3 features)
+#  16. Final join (all features combined, nulls filled)
+#  17. Save output table
+#  18. Validation & summary
 #
 # Requires: PySpark (Databricks), numpy, pandas
 # ===========================================================================
@@ -79,51 +82,67 @@ crc_icd_regex = r'^(C(?:18|19|20))'
 # Output Delta table
 OUTPUT_TABLE = f"{trgt_cat}.clncl_ds.fudgesicle_train"
 
-# The 40 features selected by iterative SHAP winnowing in Book 9.
-# These survived 17 iterations of multi-criteria removal from an
-# initial set of ~172 features. See feature_pipeline_by_book.md
-# for the full provenance of each feature.
+# The 57 features selected by iterative SHAP winnowing in Book 9.
+# CEA, CA 19-9, and FOBT/FIT were excluded before selection (circular
+# reasoning). See CLAUDE.md for full rationale.
 SELECTED_FEATURES = [
-    "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
-    "lab_PLATELETS_ACCELERATING_RISE",
-    "vis_visit_recency_last_gi",
+    "AGE_GROUP",
+    "HAS_PCP_AT_END",
     "IS_FEMALE",
     "IS_MARRIED_PARTNER",
-    "vit_BP_SYSTOLIC",
-    "lab_ALT_AST_RATIO",
-    "vit_WEIGHT_OZ",
-    "lab_comprehensive_iron_deficiency",
+    "RACE_ASIAN",
+    "RACE_CAUCASIAN",
+    "icd_ANEMIA_FLAG_12MO",
+    "icd_BLEED_CNT_12MO",
+    "icd_COMBINED_COMORBIDITY_12MO",
+    "icd_IRON_DEF_ANEMIA_FLAG_12MO",
+    "icd_MALIGNANCY_FLAG_EVER",
+    "icd_SYMPTOM_BURDEN_12MO",
+    "icd_chronic_gi_pattern",
+    "inp_med_inp_gi_hospitalization",
+    "inp_med_inp_ibd_meds_recency",
+    "inp_med_inp_obstruction_pattern",
+    "inp_med_inp_opioid_use_flag",
+    "lab_ALBUMIN_DROP_15PCT_FLAG",
+    "lab_ALBUMIN_VALUE",
+    "lab_ALK_PHOS_VALUE",
+    "lab_ANEMIA_GRADE",
+    "lab_ANEMIA_SEVERITY_SCORE",
+    "lab_AST_VALUE",
+    "lab_ESR_VALUE",
+    "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
+    "lab_HEMOGLOBIN_VALUE",
+    "lab_IRON_SATURATION_PCT",
+    "lab_PLATELETS_ACCELERATING_RISE",
     "lab_PLATELETS_VALUE",
     "lab_THROMBOCYTOSIS_FLAG",
-    "vit_MAX_WEIGHT_LOSS_PCT_60D",
-    "vit_WEIGHT_CHANGE_PCT_6M",
-    "vit_WEIGHT_TRAJECTORY_SLOPE",
-    "icd_MALIGNANCY_FLAG_EVER",
+    "lab_comprehensive_iron_deficiency",
     "months_since_cohort_entry",
-    "vis_visit_pcp_visits_12mo",
-    "vis_visit_outpatient_visits_12mo",
-    "vit_vital_recency_score",
-    "icd_CHARLSON_SCORE_12MO",
+    "out_med_broad_abx_recency",
+    "out_med_ibd_meds_recency",
+    "out_med_ppi_use_flag",
+    "proc_blood_transfusion_count_12mo",
+    "proc_high_imaging_intensity_flag",
+    "proc_mri_abd_pelvis_count_12mo",
+    "visit_acute_care_reliance",
+    "visit_gi_symptom_op_visits_12mo",
+    "visit_healthcare_intensity_score",
+    "visit_inp_last_24_months",
+    "visit_no_shows_12mo",
+    "visit_outpatient_visits_12mo",
+    "visit_pcp_visits_12mo",
+    "visit_primary_care_continuity_ratio",
+    "visit_recency_last_gi",
+    "visit_total_gi_symptom_visits_12mo",
+    "vit_BMI",
+    "vit_BMI_CHANGE_6M",
+    "vit_CACHEXIA_RISK_SCORE",
+    "vit_MAX_WEIGHT_LOSS_PCT_60D",
+    "vit_PULSE",
+    "vit_PULSE_PRESSURE",
     "vit_RECENCY_WEIGHT",
-    "HAS_PCP_AT_END",
-    "vis_visit_no_shows_12mo",
-    "lab_AST_VALUE",
-    "lab_CEA_VALUE",
-    "lab_ALK_PHOS_VALUE",
     "vit_SBP_VARIABILITY_6M",
-    "vis_visit_gi_symptom_op_visits_12mo",
-    "icd_IRON_DEF_ANEMIA_FLAG_12MO",
-    "vis_visit_total_gi_symptom_visits_12mo",
-    "icd_ANEMIA_FLAG_12MO",
-    "vis_visit_gi_symptoms_no_specialist",
-    "icd_SYMPTOM_BURDEN_12MO",
-    "icd_BLEED_CNT_12MO",
-    "proc_total_imaging_count_12mo",
-    "proc_ct_abd_pelvis_count_12mo",
-    "icd_PAIN_FLAG_12MO",
-    "lab_HEMOGLOBIN_VALUE",
-    "lab_ALBUMIN_VALUE",
-    "vis_visit_acute_care_reliance",
+    "vit_WEIGHT_TRAJECTORY_SLOPE",
 ]
 
 print(f"Selected features: {len(SELECTED_FEATURES)}")
@@ -228,6 +247,7 @@ print(f"Observation grid rows: {grid_count:,}")
 #   - System tenure: >= 24 months of encounters in Mercy's EHR
 #   - Data quality: plausible age, first-seen before observation date,
 #     tenure not longer than lifetime
+# Also computes AGE_GROUP (ordinal 0-5) and RACE one-hot flags.
 # ===========================================================================
 
 spark.sql(f"""
@@ -249,8 +269,19 @@ SELECT
   idx.PAT_ID,
   idx.END_DTTM,
   FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) AS AGE,
+  -- AGE_GROUP: ordinal 0-5 (matches Book 0)
+  CASE
+    WHEN FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) < 50 THEN 1
+    WHEN FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) < 55 THEN 2
+    WHEN FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) < 65 THEN 3
+    WHEN FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) < 75 THEN 4
+    ELSE 5
+  END AS AGE_GROUP,
   CASE WHEN p.GENDER = 'Female' THEN 1 ELSE 0 END AS IS_FEMALE,
   CASE WHEN p.MARITAL_STATUS IN ('Married', 'Significant other') THEN 1 ELSE 0 END AS IS_MARRIED_PARTNER,
+  -- Race one-hot flags (from RACE_BUCKETS in PATIENT_ENH)
+  CASE WHEN COALESCE(p.RACE_BUCKETS, 'Unknown') = 'Asian' THEN 1 ELSE 0 END AS RACE_ASIAN,
+  CASE WHEN COALESCE(p.RACE_BUCKETS, 'Unknown') = 'Caucasian' THEN 1 ELSE 0 END AS RACE_CAUCASIAN,
   CAST(months_between(idx.END_DTTM, fs.first_seen_dt) AS INT) AS OBS_MONTHS_PRIOR,
   fs.first_seen_dt,
   -- Data quality flag: catches impossible records (age out of range,
@@ -617,8 +648,11 @@ CREATE OR REPLACE TEMP VIEW cohort_base AS
 SELECT
   PAT_ID,
   END_DTTM,
+  AGE_GROUP,
   IS_FEMALE,
   IS_MARRIED_PARTNER,
+  RACE_ASIAN,
+  RACE_CAUCASIAN,
   HAS_PCP_AT_END,
   months_since_cohort_entry,
   FUTURE_CRC_EVENT,
@@ -631,24 +665,24 @@ print(f"Cohort base rows: {base_count:,}")
 
 
 # ===========================================================================
-# 9. VITALS FEATURES (8 features)
+# 9. VITALS FEATURES (9 features)
 #
 # Source: pat_enc_enh (outpatient encounters)
 # Lookback: 12 months before observation date
 #
 # Features:
-#   vit_BP_SYSTOLIC              - Latest systolic blood pressure
-#   vit_WEIGHT_OZ                - Latest weight in ounces
+#   vit_BMI                      - Latest Body Mass Index (kg/m2)
+#   vit_BMI_CHANGE_6M            - BMI change over 6 months
+#   vit_PULSE                    - Latest heart rate (bpm)
+#   vit_PULSE_PRESSURE           - SBP - DBP (mmHg)
 #   vit_RECENCY_WEIGHT           - Days since last weight measurement
-#   vit_vital_recency_score      - Ordinal 0-3 (freshness of measurements)
+#   vit_CACHEXIA_RISK_SCORE      - Wasting risk (0=none, 1=moderate, 2=high)
 #   vit_WEIGHT_TRAJECTORY_SLOPE  - Linear regression slope of weight over time
 #   vit_MAX_WEIGHT_LOSS_PCT_60D  - Maximum % weight loss in any 60-day window
-#   vit_WEIGHT_CHANGE_PCT_6M     - 6-month weight change percentage
 #   vit_SBP_VARIABILITY_6M       - Systolic BP standard deviation (6 months)
 # ===========================================================================
 
 # Step 1: Extract raw vitals with plausibility filters
-# BP: 60-280 mmHg; Weight: 50-800 lbs (converted from ounces)
 spark.sql(f"""
 CREATE OR REPLACE TEMP VIEW vitals_raw AS
 
@@ -659,8 +693,14 @@ SELECT
   DATEDIFF(c.END_DTTM, DATE(pe.CONTACT_DATE)) AS DAYS_BEFORE_END,
   CASE WHEN CAST(pe.BP_SYSTOLIC AS DOUBLE) BETWEEN 60 AND 280
        THEN CAST(pe.BP_SYSTOLIC AS DOUBLE) END AS BP_SYSTOLIC,
+  CASE WHEN CAST(pe.BP_DIASTOLIC AS DOUBLE) BETWEEN 30 AND 180
+       THEN CAST(pe.BP_DIASTOLIC AS DOUBLE) END AS BP_DIASTOLIC,
+  CASE WHEN CAST(pe.PULSE AS DOUBLE) BETWEEN 30 AND 220
+       THEN CAST(pe.PULSE AS DOUBLE) END AS PULSE,
   CASE WHEN CAST(pe.WEIGHT AS DOUBLE) / 16.0 BETWEEN 50 AND 800
-       THEN CAST(pe.WEIGHT AS DOUBLE) END AS WEIGHT_OZ
+       THEN CAST(pe.WEIGHT AS DOUBLE) END AS WEIGHT_OZ,
+  CASE WHEN CAST(pe.BMI AS DOUBLE) BETWEEN 10 AND 80
+       THEN CAST(pe.BMI AS DOUBLE) END AS BMI
 FROM cohort_base c
 JOIN clarity_cur.pat_enc_enh pe
   ON pe.PAT_ID = c.PAT_ID
@@ -672,54 +712,43 @@ JOIN clarity_cur.pat_enc_enh pe
 
 print("Raw vitals extracted")
 
-# Step 2: Compute all 8 vitals features using window functions and aggregations
+# Step 2: Compute all 9 vitals features
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW vitals_features AS
 
 WITH
--- Most recent BP reading
-latest_bp AS (
-  SELECT PAT_ID, END_DTTM, BP_SYSTOLIC, MEAS_DATE AS BP_DATE
+-- Most recent vitals
+latest_vitals AS (
+  SELECT PAT_ID, END_DTTM, BP_SYSTOLIC, BP_DIASTOLIC, PULSE, BMI,
+         WEIGHT_OZ, MEAS_DATE
   FROM (
-    SELECT PAT_ID, END_DTTM, BP_SYSTOLIC, MEAS_DATE,
+    SELECT PAT_ID, END_DTTM, BP_SYSTOLIC, BP_DIASTOLIC, PULSE, BMI,
+           WEIGHT_OZ, MEAS_DATE,
       ROW_NUMBER() OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE DESC) AS rn
     FROM vitals_raw
-    WHERE BP_SYSTOLIC IS NOT NULL
+    WHERE (BP_SYSTOLIC IS NOT NULL OR WEIGHT_OZ IS NOT NULL OR BMI IS NOT NULL)
   ) t WHERE rn = 1
 ),
 
--- Most recent weight reading
-latest_weight AS (
-  SELECT PAT_ID, END_DTTM, WEIGHT_OZ, MEAS_DATE AS WEIGHT_DATE
+-- BMI approximately 6 months ago (closest reading in 150-210 day window)
+bmi_6m AS (
+  SELECT PAT_ID, END_DTTM, BMI AS BMI_6M
   FROM (
-    SELECT PAT_ID, END_DTTM, WEIGHT_OZ, MEAS_DATE,
-      ROW_NUMBER() OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE DESC) AS rn
-    FROM vitals_raw
-    WHERE WEIGHT_OZ IS NOT NULL
-  ) t WHERE rn = 1
-),
-
--- Weight approximately 6 months ago (closest reading in 150-210 day window)
-weight_6m AS (
-  SELECT PAT_ID, END_DTTM, WEIGHT_OZ AS WEIGHT_OZ_6M
-  FROM (
-    SELECT PAT_ID, END_DTTM, WEIGHT_OZ,
+    SELECT PAT_ID, END_DTTM, BMI,
       ROW_NUMBER() OVER (
         PARTITION BY PAT_ID, END_DTTM
         ORDER BY ABS(DAYS_BEFORE_END - 180)
       ) AS rn
     FROM vitals_raw
-    WHERE WEIGHT_OZ IS NOT NULL
+    WHERE BMI IS NOT NULL
       AND DAYS_BEFORE_END BETWEEN 150 AND 210
   ) t WHERE rn = 1
 ),
 
 -- Weight trajectory: linear regression slope across all 12-month readings
--- Negative slope = weight loss trend. Requires >= 2 measurements.
 weight_trajectory AS (
   SELECT
-    PAT_ID,
-    END_DTTM,
+    PAT_ID, END_DTTM,
     REGR_SLOPE(WEIGHT_OZ, DAYS_BEFORE_END) AS WEIGHT_TRAJECTORY_SLOPE
   FROM vitals_raw
   WHERE WEIGHT_OZ IS NOT NULL
@@ -729,12 +758,7 @@ weight_trajectory AS (
 
 -- Maximum weight loss in any consecutive-measurement 60-day window
 weight_changes AS (
-  SELECT
-    PAT_ID,
-    END_DTTM,
-    WEIGHT_OZ,
-    MEAS_DATE,
-    DAYS_BEFORE_END,
+  SELECT PAT_ID, END_DTTM, WEIGHT_OZ, MEAS_DATE, DAYS_BEFORE_END,
     LAG(WEIGHT_OZ) OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE) AS PREV_WEIGHT_OZ,
     LAG(MEAS_DATE) OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE) AS PREV_MEAS_DATE
   FROM vitals_raw
@@ -742,30 +766,21 @@ weight_changes AS (
 ),
 
 max_weight_loss AS (
-  SELECT
-    PAT_ID,
-    END_DTTM,
-    MAX(
-      CASE
-        WHEN PREV_WEIGHT_OZ IS NOT NULL AND PREV_WEIGHT_OZ > 0
-         AND DATEDIFF(MEAS_DATE, PREV_MEAS_DATE) <= 60
-        THEN ((PREV_WEIGHT_OZ - WEIGHT_OZ) / PREV_WEIGHT_OZ) * 100
-      END
-    ) AS MAX_WEIGHT_LOSS_PCT_60D
+  SELECT PAT_ID, END_DTTM,
+    MAX(CASE
+      WHEN PREV_WEIGHT_OZ IS NOT NULL AND PREV_WEIGHT_OZ > 0
+       AND DATEDIFF(MEAS_DATE, PREV_MEAS_DATE) <= 60
+      THEN ((PREV_WEIGHT_OZ - WEIGHT_OZ) / PREV_WEIGHT_OZ) * 100
+    END) AS MAX_WEIGHT_LOSS_PCT_60D
   FROM weight_changes
   GROUP BY PAT_ID, END_DTTM
 ),
 
 -- Systolic BP variability (standard deviation over 6 months)
--- Requires >= 2 measurements for meaningful std dev
 bp_variability AS (
-  SELECT
-    PAT_ID,
-    END_DTTM,
-    STDDEV(BP_SYSTOLIC) AS SBP_VARIABILITY_6M
+  SELECT PAT_ID, END_DTTM, STDDEV(BP_SYSTOLIC) AS SBP_VARIABILITY_6M
   FROM vitals_raw
-  WHERE BP_SYSTOLIC IS NOT NULL
-    AND DAYS_BEFORE_END <= 180
+  WHERE BP_SYSTOLIC IS NOT NULL AND DAYS_BEFORE_END <= 180
   GROUP BY PAT_ID, END_DTTM
   HAVING COUNT(*) >= 2
 )
@@ -773,37 +788,30 @@ bp_variability AS (
 SELECT
   c.PAT_ID,
   c.END_DTTM,
-  ROUND(lb.BP_SYSTOLIC, 1) AS vit_BP_SYSTOLIC,
-  ROUND(lw.WEIGHT_OZ, 1) AS vit_WEIGHT_OZ,
-  DATEDIFF(c.END_DTTM, lw.WEIGHT_DATE) AS vit_RECENCY_WEIGHT,
-  -- Ordinal recency score: 3=very recent (<=30d), 2=recent, 1=moderate, 0=stale/missing
+  ROUND(lv.BMI, 1) AS vit_BMI,
+  ROUND(lv.BMI - b6.BMI_6M, 2) AS vit_BMI_CHANGE_6M,
+  ROUND(lv.PULSE, 0) AS vit_PULSE,
+  ROUND(lv.BP_SYSTOLIC - lv.BP_DIASTOLIC, 0) AS vit_PULSE_PRESSURE,
+  DATEDIFF(c.END_DTTM, lv.MEAS_DATE) AS vit_RECENCY_WEIGHT,
+  -- Cachexia risk: ordinal 0-2
   CASE
-    WHEN lw.WEIGHT_DATE IS NULL THEN 0
-    WHEN DATEDIFF(c.END_DTTM, lw.WEIGHT_DATE) <= 30 THEN 3
-    WHEN DATEDIFF(c.END_DTTM, lw.WEIGHT_DATE) <= 90 THEN 2
-    WHEN DATEDIFF(c.END_DTTM, lw.WEIGHT_DATE) <= 180 THEN 1
+    WHEN lv.BMI < 18.5 AND COALESCE(mwl.MAX_WEIGHT_LOSS_PCT_60D, 0) > 10 THEN 2
+    WHEN lv.BMI < 20 OR COALESCE(mwl.MAX_WEIGHT_LOSS_PCT_60D, 0) > 5 THEN 1
     ELSE 0
-  END AS vit_vital_recency_score,
+  END AS vit_CACHEXIA_RISK_SCORE,
   ROUND(wt.WEIGHT_TRAJECTORY_SLOPE, 4) AS vit_WEIGHT_TRAJECTORY_SLOPE,
   ROUND(mwl.MAX_WEIGHT_LOSS_PCT_60D, 2) AS vit_MAX_WEIGHT_LOSS_PCT_60D,
-  ROUND(
-    CASE
-      WHEN lw.WEIGHT_OZ IS NOT NULL AND w6.WEIGHT_OZ_6M IS NOT NULL
-      THEN ((lw.WEIGHT_OZ - w6.WEIGHT_OZ_6M) / NULLIF(w6.WEIGHT_OZ_6M, 0)) * 100
-    END, 2
-  ) AS vit_WEIGHT_CHANGE_PCT_6M,
   ROUND(bv.SBP_VARIABILITY_6M, 2) AS vit_SBP_VARIABILITY_6M
 
 FROM cohort_base c
-LEFT JOIN latest_bp lb ON c.PAT_ID = lb.PAT_ID AND c.END_DTTM = lb.END_DTTM
-LEFT JOIN latest_weight lw ON c.PAT_ID = lw.PAT_ID AND c.END_DTTM = lw.END_DTTM
-LEFT JOIN weight_6m w6 ON c.PAT_ID = w6.PAT_ID AND c.END_DTTM = w6.END_DTTM
+LEFT JOIN latest_vitals lv ON c.PAT_ID = lv.PAT_ID AND c.END_DTTM = lv.END_DTTM
+LEFT JOIN bmi_6m b6 ON c.PAT_ID = b6.PAT_ID AND c.END_DTTM = b6.END_DTTM
 LEFT JOIN weight_trajectory wt ON c.PAT_ID = wt.PAT_ID AND c.END_DTTM = wt.END_DTTM
 LEFT JOIN max_weight_loss mwl ON c.PAT_ID = mwl.PAT_ID AND c.END_DTTM = mwl.END_DTTM
 LEFT JOIN bp_variability bv ON c.PAT_ID = bv.PAT_ID AND c.END_DTTM = bv.END_DTTM
 """)
 
-print("Vitals features computed (8 features)")
+print("Vitals features computed (9 features)")
 
 
 # ===========================================================================
@@ -817,9 +825,9 @@ print("Vitals features computed (8 features)")
 #   icd_IRON_DEF_ANEMIA_FLAG_12MO   - Iron deficiency anemia (D50) in 12mo
 #   icd_ANEMIA_FLAG_12MO            - Any anemia (D50-D64) in 12mo
 #   icd_BLEED_CNT_12MO              - GI bleeding encounter count in 12mo
-#   icd_PAIN_FLAG_12MO              - Abdominal pain (R10) in 12mo
 #   icd_SYMPTOM_BURDEN_12MO         - Sum of 6 binary symptom flags in 12mo
-#   icd_CHARLSON_SCORE_12MO         - Charlson Comorbidity Index (12mo)
+#   icd_COMBINED_COMORBIDITY_12MO   - Charlson Comorbidity Index (12mo)
+#   icd_chronic_gi_pattern          - Chronic GI condition (IBD/diverticular/complexity)
 # ===========================================================================
 
 spark.sql(f"""
@@ -854,10 +862,9 @@ WITH all_dx AS (
   WHERE dd.CODE IS NOT NULL
 ),
 
--- Charlson Comorbidity Index: standard weighted scoring from ICD-10 codes
--- Uses 12-month lookback only. Each condition group contributes a weight (1-6).
+-- Charlson Comorbidity Index (renamed to COMBINED_COMORBIDITY to match Book 9)
 charlson AS (
-  SELECT PAT_ID, END_DTTM, SUM(charlson_wt) AS CHARLSON_SCORE_12MO
+  SELECT PAT_ID, END_DTTM, SUM(charlson_wt) AS COMBINED_COMORBIDITY_12MO
   FROM (
     SELECT DISTINCT PAT_ID, END_DTTM,
       CASE
@@ -890,27 +897,15 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
 
-  -- Prior non-CRC malignancy (any time in history)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^Z85' THEN 1 END), 0) AS icd_MALIGNANCY_FLAG_EVER,
-
-  -- Iron deficiency anemia in past 12 months (D50)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^D50' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
     AS icd_IRON_DEF_ANEMIA_FLAG_12MO,
-
-  -- Any anemia in past 12 months (D50-D53, D62-D64)
   COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(D5[0-3]|D6[234])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
     AS icd_ANEMIA_FLAG_12MO,
-
-  -- GI bleeding encounter count in past 12 months (K62.5, K92.1, K92.2)
   COALESCE(SUM(CASE WHEN dx.CODE RLIKE '^(K62\\.5|K92\\.[12])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 ELSE 0 END), 0)
     AS icd_BLEED_CNT_12MO,
 
-  -- Abdominal pain in past 12 months (R10)
-  COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^R10' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
-    AS icd_PAIN_FLAG_12MO,
-
   -- Symptom burden: sum of 6 binary symptom flags in 12 months
-  -- (bleeding + pain + bowel changes + weight loss + fatigue + anemia)
   (
     COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(K62\\.5|K92\\.[12])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0) +
     COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^R10' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0) +
@@ -920,32 +915,45 @@ SELECT
     COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(D5[0-3]|D6[234])' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 365 THEN 1 END), 0)
   ) AS icd_SYMPTOM_BURDEN_12MO,
 
-  -- Charlson Comorbidity Index
-  COALESCE(ch.CHARLSON_SCORE_12MO, 0) AS icd_CHARLSON_SCORE_12MO
+  COALESCE(ch.COMBINED_COMORBIDITY_12MO, 0) AS icd_COMBINED_COMORBIDITY_12MO,
+
+  -- Chronic GI pattern: IBD or diverticular disease or GI complexity >= 2
+  CASE WHEN (
+    COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^(K50|K51)' THEN 1 END), 0) = 1  -- IBD (Crohn's/UC)
+    OR COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^K57' THEN 1 END), 0) = 1      -- Diverticular disease
+    OR (
+      COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^K5[0-9]' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 730 THEN 1 END), 0) +
+      COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^K6[0-9]' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 730 THEN 1 END), 0) +
+      COALESCE(MAX(CASE WHEN dx.CODE RLIKE '^K9[0-5]' AND DATEDIFF(c.END_DTTM, dx.DX_DATE) <= 730 THEN 1 END), 0)
+    ) >= 2  -- GI complexity >= 2 code groups in 24mo
+  ) THEN 1 ELSE 0 END AS icd_chronic_gi_pattern
 
 FROM cohort_base c
 LEFT JOIN all_dx dx ON c.PAT_ID = dx.PAT_ID AND c.END_DTTM = dx.END_DTTM
 LEFT JOIN charlson ch ON c.PAT_ID = ch.PAT_ID AND c.END_DTTM = ch.END_DTTM
-GROUP BY c.PAT_ID, c.END_DTTM, ch.CHARLSON_SCORE_12MO
+GROUP BY c.PAT_ID, c.END_DTTM, ch.COMBINED_COMORBIDITY_12MO
 """)
 
 print("ICD10 features computed (7 features)")
 
 
 # ===========================================================================
-# 11. LAB FEATURES (11 features)
+# 11. LAB FEATURES (14 features)
 #
-# Source: res_components (via order_proc_enh -> order_results -> res_components)
-# Lookback: 24 months for latest values; time-point comparisons for acceleration
+# Source: order_proc_enh -> order_results -> clarity_component
+# Lookback: 24 months for latest values; 36 months for ESR/iron studies
 #
 # Features:
 #   lab_HEMOGLOBIN_VALUE                - Latest hemoglobin (g/dL)
-#   lab_PLATELETS_VALUE                 - Latest platelets (x10^3/uL)
+#   lab_PLATELETS_VALUE                 - Latest platelets (K/uL)
 #   lab_AST_VALUE                       - Latest AST (U/L)
 #   lab_ALK_PHOS_VALUE                  - Latest alkaline phosphatase (U/L)
 #   lab_ALBUMIN_VALUE                   - Latest albumin (g/dL)
-#   lab_CEA_VALUE                       - Latest CEA tumor marker (ng/mL)
-#   lab_ALT_AST_RATIO                   - ALT/AST ratio (De Ritis inverse)
+#   lab_ESR_VALUE                       - Latest ESR (mm/hr)
+#   lab_IRON_SATURATION_PCT             - Iron/TIBC * 100 (%)
+#   lab_ALBUMIN_DROP_15PCT_FLAG         - Albumin dropped >15% vs 6mo prior
+#   lab_ANEMIA_GRADE                    - WHO anemia grade (0-3)
+#   lab_ANEMIA_SEVERITY_SCORE           - Composite (0-6): grade + iron def + microcytosis
 #   lab_THROMBOCYTOSIS_FLAG             - Platelets > 450 (binary)
 #   lab_comprehensive_iron_deficiency   - Lab + ICD iron deficiency composite
 #   lab_HEMOGLOBIN_ACCELERATING_DECLINE - Hemoglobin dropping faster recently
@@ -953,7 +961,6 @@ print("ICD10 features computed (7 features)")
 # ===========================================================================
 
 # Step 1: Extract latest lab values for each component
-# Only from completed/resulted orders (ORDER_STATUS_C in 3, 5, 10)
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW lab_latest AS
 
@@ -972,15 +979,16 @@ WITH lab_results AS (
   JOIN clarity_cur.order_proc_enh op
     ON op.PAT_ID = c.PAT_ID
     AND DATE(op.ORDERING_DATE) < c.END_DTTM
-    AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 730)
+    AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 1095)  -- 3yr for ESR/iron
     AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
     AND op.ORDER_STATUS_C IN (3, 5, 10)
   JOIN clarity.order_results ores
     ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
   JOIN clarity.clarity_component cc
     ON cc.COMPONENT_ID = ores.COMPONENT_ID
-  WHERE cc.NAME IN ('HEMOGLOBIN', 'PLATELETS', 'AST', 'ALT', 'ALBUMIN',
-                     'ALKALINE PHOSPHATASE', 'CEA', 'MCV', 'FERRITIN')
+  WHERE cc.NAME IN ('HEMOGLOBIN', 'PLATELETS', 'AST', 'ALBUMIN',
+                     'ALKALINE PHOSPHATASE', 'MCV', 'FERRITIN',
+                     'ESR', 'IRON', 'TIBC')
     AND DATE(ores.RESULT_TIME) < c.END_DTTM
     AND TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
 )
@@ -991,12 +999,13 @@ SELECT
   MAX(CASE WHEN COMPONENT_NAME = 'HEMOGLOBIN' THEN VALUE END) AS HEMOGLOBIN_VALUE,
   MAX(CASE WHEN COMPONENT_NAME = 'PLATELETS' THEN VALUE END) AS PLATELETS_VALUE,
   MAX(CASE WHEN COMPONENT_NAME = 'AST' THEN VALUE END) AS AST_VALUE,
-  MAX(CASE WHEN COMPONENT_NAME = 'ALT' THEN VALUE END) AS ALT_VALUE,
   MAX(CASE WHEN COMPONENT_NAME = 'ALBUMIN' THEN VALUE END) AS ALBUMIN_VALUE,
   MAX(CASE WHEN COMPONENT_NAME = 'ALKALINE PHOSPHATASE' THEN VALUE END) AS ALK_PHOS_VALUE,
-  MAX(CASE WHEN COMPONENT_NAME = 'CEA' THEN VALUE END) AS CEA_VALUE,
   MAX(CASE WHEN COMPONENT_NAME = 'MCV' THEN VALUE END) AS MCV_VALUE,
-  MAX(CASE WHEN COMPONENT_NAME = 'FERRITIN' THEN VALUE END) AS FERRITIN_VALUE
+  MAX(CASE WHEN COMPONENT_NAME = 'FERRITIN' THEN VALUE END) AS FERRITIN_VALUE,
+  MAX(CASE WHEN COMPONENT_NAME = 'ESR' THEN VALUE END) AS ESR_VALUE,
+  MAX(CASE WHEN COMPONENT_NAME = 'IRON' THEN VALUE END) AS IRON_VALUE,
+  MAX(CASE WHEN COMPONENT_NAME = 'TIBC' THEN VALUE END) AS TIBC_VALUE
 FROM lab_results
 WHERE rn = 1
 GROUP BY PAT_ID, END_DTTM
@@ -1004,17 +1013,47 @@ GROUP BY PAT_ID, END_DTTM
 
 print("Latest lab values extracted")
 
-# Step 2: Lab acceleration features
-# Compare rate of change between recent period (0-30d vs 60-120d) and
-# earlier period (60-120d vs 150-210d). If recent decline is steeper,
-# the lab value is "accelerating" in that direction.
+# Step 2: Albumin 6 months prior (for drop flag)
+spark.sql("""
+CREATE OR REPLACE TEMP VIEW lab_albumin_prior AS
+
+WITH albumin_6m AS (
+  SELECT
+    c.PAT_ID, c.END_DTTM,
+    TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) AS VALUE,
+    DATEDIFF(c.END_DTTM, DATE(ores.RESULT_TIME)) AS DAYS_BEFORE,
+    ROW_NUMBER() OVER (
+      PARTITION BY c.PAT_ID, c.END_DTTM
+      ORDER BY ABS(DATEDIFF(c.END_DTTM, DATE(ores.RESULT_TIME)) - 180)
+    ) AS rn
+  FROM cohort_base c
+  JOIN clarity_cur.order_proc_enh op
+    ON op.PAT_ID = c.PAT_ID
+    AND DATE(op.ORDERING_DATE) < c.END_DTTM
+    AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 730)
+    AND op.ORDER_STATUS_C IN (3, 5, 10)
+  JOIN clarity.order_results ores
+    ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
+  JOIN clarity.clarity_component cc
+    ON cc.COMPONENT_ID = ores.COMPONENT_ID
+  WHERE cc.NAME = 'ALBUMIN'
+    AND DATEDIFF(c.END_DTTM, DATE(ores.RESULT_TIME)) BETWEEN 150 AND 210
+    AND TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
+)
+
+SELECT PAT_ID, END_DTTM, VALUE AS ALBUMIN_6M_PRIOR
+FROM albumin_6m WHERE rn = 1
+""")
+
+print("Albumin prior values extracted")
+
+# Step 3: Lab acceleration features
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW lab_acceleration AS
 
 WITH lab_history AS (
   SELECT
-    c.PAT_ID,
-    c.END_DTTM,
+    c.PAT_ID, c.END_DTTM,
     cc.NAME AS COMPONENT_NAME,
     TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) AS VALUE,
     DATEDIFF(c.END_DTTM, DATE(ores.RESULT_TIME)) AS DAYS_BEFORE
@@ -1034,10 +1073,8 @@ WITH lab_history AS (
     AND TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) IS NOT NULL
 ),
 
--- Values at 3 time points: current (~30d), 3mo (60-120d), 6mo (150-210d)
 time_points AS (
-  SELECT
-    PAT_ID, END_DTTM, COMPONENT_NAME,
+  SELECT PAT_ID, END_DTTM, COMPONENT_NAME,
     MAX(CASE WHEN DAYS_BEFORE <= 30 THEN VALUE END) AS current_value,
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 60 AND 120 THEN VALUE END) AS value_3mo_prior,
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 150 AND 210 THEN VALUE END) AS value_6mo_prior
@@ -1045,66 +1082,78 @@ time_points AS (
   GROUP BY PAT_ID, END_DTTM, COMPONENT_NAME
 )
 
-SELECT
-  PAT_ID,
-  END_DTTM,
-
-  -- Hemoglobin accelerating decline: recent velocity < -0.5/3mo AND steeper than earlier
+SELECT PAT_ID, END_DTTM,
   MAX(CASE
     WHEN COMPONENT_NAME = 'HEMOGLOBIN'
-     AND current_value IS NOT NULL
-     AND value_3mo_prior IS NOT NULL
-     AND value_6mo_prior IS NOT NULL
+     AND current_value IS NOT NULL AND value_3mo_prior IS NOT NULL AND value_6mo_prior IS NOT NULL
      AND ((current_value - value_3mo_prior) / 3.0) < -0.5
      AND ((current_value - value_3mo_prior) / 3.0) < ((value_3mo_prior - value_6mo_prior) / 3.0)
-    THEN 1 ELSE 0
-  END) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
-
-  -- Platelets accelerating rise: current > 450 AND recent velocity > earlier velocity
+    THEN 1 ELSE 0 END) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
   MAX(CASE
     WHEN COMPONENT_NAME = 'PLATELETS'
-     AND current_value IS NOT NULL
-     AND current_value > 450
-     AND value_3mo_prior IS NOT NULL
-     AND value_6mo_prior IS NOT NULL
+     AND current_value IS NOT NULL AND current_value > 450
+     AND value_3mo_prior IS NOT NULL AND value_6mo_prior IS NOT NULL
      AND ((current_value - value_3mo_prior) / 3.0) > ((value_3mo_prior - value_6mo_prior) / 3.0)
-    THEN 1 ELSE 0
-  END) AS lab_PLATELETS_ACCELERATING_RISE
-
+    THEN 1 ELSE 0 END) AS lab_PLATELETS_ACCELERATING_RISE
 FROM time_points
 GROUP BY PAT_ID, END_DTTM
 """)
 
 print("Lab acceleration features computed")
 
-# Step 3: Combine all lab features into a single view
+# Step 4: Combine all lab features
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW lab_features AS
 
 SELECT
   c.PAT_ID,
   c.END_DTTM,
-
-  -- Direct lab values
   ll.HEMOGLOBIN_VALUE AS lab_HEMOGLOBIN_VALUE,
   ll.PLATELETS_VALUE AS lab_PLATELETS_VALUE,
   ll.AST_VALUE AS lab_AST_VALUE,
   ll.ALK_PHOS_VALUE AS lab_ALK_PHOS_VALUE,
   ll.ALBUMIN_VALUE AS lab_ALBUMIN_VALUE,
-  ll.CEA_VALUE AS lab_CEA_VALUE,
+  ll.ESR_VALUE AS lab_ESR_VALUE,
 
-  -- ALT/AST ratio (inverse De Ritis ratio; values > 1 suggest non-hepatic cause)
-  CASE WHEN ll.AST_VALUE > 0 THEN ROUND(ll.ALT_VALUE / ll.AST_VALUE, 3) END AS lab_ALT_AST_RATIO,
+  -- Iron saturation: iron / TIBC * 100
+  CASE WHEN ll.TIBC_VALUE > 0
+    THEN ROUND(ll.IRON_VALUE / ll.TIBC_VALUE * 100, 1)
+  END AS lab_IRON_SATURATION_PCT,
 
-  -- Thrombocytosis: platelets > 450 is a known CRC-associated finding
+  -- Albumin drop > 15% from 6mo prior
+  CASE WHEN ll.ALBUMIN_VALUE IS NOT NULL AND ap.ALBUMIN_6M_PRIOR IS NOT NULL
+       AND ll.ALBUMIN_VALUE < ap.ALBUMIN_6M_PRIOR * 0.85
+    THEN 1 ELSE 0
+  END AS lab_ALBUMIN_DROP_15PCT_FLAG,
+
+  -- WHO anemia grade: 0=normal, 1=mild, 2=moderate, 3=severe
+  CASE
+    WHEN ll.HEMOGLOBIN_VALUE IS NULL THEN NULL
+    WHEN ll.HEMOGLOBIN_VALUE >= 12.0 THEN 0
+    WHEN ll.HEMOGLOBIN_VALUE >= 10.0 THEN 1
+    WHEN ll.HEMOGLOBIN_VALUE >= 8.0 THEN 2
+    ELSE 3
+  END AS lab_ANEMIA_GRADE,
+
+  -- Anemia severity score: grade (0-3) + iron deficiency (+2) + microcytosis (+1)
+  COALESCE(
+    CASE
+      WHEN ll.HEMOGLOBIN_VALUE >= 12.0 THEN 0
+      WHEN ll.HEMOGLOBIN_VALUE >= 10.0 THEN 1
+      WHEN ll.HEMOGLOBIN_VALUE >= 8.0 THEN 2
+      WHEN ll.HEMOGLOBIN_VALUE IS NOT NULL THEN 3
+      ELSE 0
+    END
+    + CASE WHEN ll.FERRITIN_VALUE < 15 AND ll.HEMOGLOBIN_VALUE < 12 THEN 2 ELSE 0 END
+    + CASE WHEN ll.MCV_VALUE < 80 THEN 1 ELSE 0 END
+  , 0) AS lab_ANEMIA_SEVERITY_SCORE,
+
   CASE WHEN ll.PLATELETS_VALUE > 450 THEN 1 ELSE 0 END AS lab_THROMBOCYTOSIS_FLAG,
 
-  -- Acceleration features
   COALESCE(la.lab_HEMOGLOBIN_ACCELERATING_DECLINE, 0) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
   COALESCE(la.lab_PLATELETS_ACCELERATING_RISE, 0) AS lab_PLATELETS_ACCELERATING_RISE,
 
-  -- Lab-only iron deficiency component (combined with ICD flag in final join
-  -- to create lab_comprehensive_iron_deficiency)
+  -- Lab-only iron deficiency (combined with ICD flag in final join)
   CASE
     WHEN (ll.HEMOGLOBIN_VALUE < 12 AND ll.MCV_VALUE < 80) THEN 1
     WHEN (ll.FERRITIN_VALUE < 30 AND ll.HEMOGLOBIN_VALUE < 13) THEN 1
@@ -1113,28 +1162,183 @@ SELECT
 
 FROM cohort_base c
 LEFT JOIN lab_latest ll ON c.PAT_ID = ll.PAT_ID AND c.END_DTTM = ll.END_DTTM
+LEFT JOIN lab_albumin_prior ap ON c.PAT_ID = ap.PAT_ID AND c.END_DTTM = ap.END_DTTM
 LEFT JOIN lab_acceleration la ON c.PAT_ID = la.PAT_ID AND c.END_DTTM = la.END_DTTM
 """)
 
-print("Lab features combined (11 features)")
+print("Lab features combined (14 features)")
 
 
 # ===========================================================================
-# 12. VISIT HISTORY FEATURES (9 features)
+# 12. OUTPATIENT MEDICATION FEATURES (3 features)
+#
+# Source: order_med_enh (outpatient prescriptions)
+# Lookback: 12 months
+#
+# Features:
+#   out_med_ppi_use_flag         - Any proton pump inhibitor use
+#   out_med_broad_abx_recency   - Days since last broad-spectrum antibiotic
+#   out_med_ibd_meds_recency    - Days since last IBD medication
+# ===========================================================================
+
+spark.sql(f"""
+CREATE OR REPLACE TEMP VIEW outpatient_med_features AS
+
+WITH outpatient_meds AS (
+  SELECT
+    c.PAT_ID,
+    c.END_DTTM,
+    LOWER(med.GENERIC_NAME) AS generic_name,
+    DATE(ome.ORDER_START_TIME) AS rx_date,
+    DATEDIFF(c.END_DTTM, DATE(ome.ORDER_START_TIME)) AS days_since
+  FROM cohort_base c
+  JOIN clarity_cur.order_med_enh ome
+    ON ome.PAT_ID = c.PAT_ID
+    AND DATE(ome.ORDER_START_TIME) < c.END_DTTM
+    AND DATE(ome.ORDER_START_TIME) >= DATE_SUB(c.END_DTTM, 365)
+    AND DATE(ome.ORDER_START_TIME) >= DATE('2021-07-01')
+    AND ome.ORDERING_MODE_C <> 2  -- Exclude inpatient
+    AND ome.ORDER_STATUS_C IN (2, 5)  -- Sent or Completed
+    AND ome.ORDER_CLASS <> 'Historical Med'
+  JOIN clarity.clarity_medication med
+    ON med.MEDICATION_ID = ome.MEDICATION_ID
+  WHERE med.GENERIC_NAME IS NOT NULL
+)
+
+SELECT
+  c.PAT_ID,
+  c.END_DTTM,
+
+  -- PPI use flag
+  COALESCE(MAX(CASE
+    WHEN om.generic_name RLIKE '(omeprazole|pantoprazole|lansoprazole|esomeprazole|rabeprazole|dexlansoprazole)'
+    THEN 1 END), 0) AS out_med_ppi_use_flag,
+
+  -- Broad-spectrum antibiotics recency (days since last Rx; NULL -> large number in final join)
+  MIN(CASE
+    WHEN om.generic_name RLIKE '(cephalexin|ceftriaxone|cefdinir|cefuroxime|cefpodoxime|ciprofloxacin|levofloxacin|moxifloxacin|amoxicillin.*clavulanate|piperacillin|meropenem|ertapenem)'
+    THEN om.days_since END) AS out_med_broad_abx_recency,
+
+  -- IBD medication recency (5-ASA, immunosuppressants, biologics)
+  MIN(CASE
+    WHEN om.generic_name RLIKE '(mesalamine|sulfasalazine|balsalazide|olsalazine|azathioprine|mercaptopurine|methotrexate|infliximab|adalimumab|vedolizumab|ustekinumab|tofacitinib|ozanimod)'
+    THEN om.days_since END) AS out_med_ibd_meds_recency
+
+FROM cohort_base c
+LEFT JOIN outpatient_meds om ON c.PAT_ID = om.PAT_ID AND c.END_DTTM = om.END_DTTM
+GROUP BY c.PAT_ID, c.END_DTTM
+""")
+
+print("Outpatient medication features computed (3 features)")
+
+
+# ===========================================================================
+# 13. INPATIENT MEDICATION FEATURES (4 features)
+#
+# Source: order_med_enh (inpatient) + mar_admin_info_enh (administration)
+# Lookback: 12 months
+#
+# Features:
+#   inp_med_inp_gi_hospitalization - GI-related hospitalization flag
+#   inp_med_inp_ibd_meds_recency  - Days since inpatient IBD medication
+#   inp_med_inp_obstruction_pattern - Laxative + opioid same admission
+#   inp_med_inp_opioid_use_flag   - Any inpatient opioid
+# ===========================================================================
+
+spark.sql(f"""
+CREATE OR REPLACE TEMP VIEW inpatient_med_features AS
+
+WITH inpatient_meds AS (
+  SELECT
+    c.PAT_ID,
+    c.END_DTTM,
+    LOWER(med.GENERIC_NAME) AS generic_name,
+    DATE(mar.TAKEN_TIME) AS admin_date,
+    DATEDIFF(c.END_DTTM, DATE(mar.TAKEN_TIME)) AS days_since,
+    hsp.PAT_ENC_CSN_ID AS admission_csn
+  FROM cohort_base c
+  JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
+    ON hsp.PAT_ID = c.PAT_ID
+    AND DATE(hsp.HOSP_ADMSN_TIME) < c.END_DTTM
+    AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE_SUB(c.END_DTTM, 365)
+    AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE('2021-07-01')
+    AND hsp.ADT_PATIENT_STAT_C <> 1
+    AND hsp.ADMIT_CONF_STAT_C <> 3
+  JOIN clarity_cur.order_med_enh ome
+    ON ome.PAT_ID = c.PAT_ID
+    AND ome.PAT_ENC_CSN_ID = hsp.PAT_ENC_CSN_ID
+    AND ome.ORDERING_MODE_C = 2  -- Inpatient only
+  JOIN prod.clarity_cur.mar_admin_info_enh mar
+    ON mar.ORDER_MED_ID = ome.ORDER_MED_ID
+    AND mar.TAKEN_TIME IS NOT NULL
+    AND UPPER(TRIM(mar.ACTION)) IN (
+      'GIVEN', 'PATIENT/FAMILY ADMIN', 'GIVEN-SEE OVERRIDE',
+      'NEW BAG', 'BOLUS', 'PUSH', 'APPLIED'
+    )
+  JOIN clarity.clarity_medication med
+    ON med.MEDICATION_ID = ome.MEDICATION_ID
+  WHERE med.GENERIC_NAME IS NOT NULL
+),
+
+-- Per-admission medication flags
+admission_flags AS (
+  SELECT
+    PAT_ID, END_DTTM, admission_csn,
+    MAX(CASE WHEN generic_name RLIKE '(oxycodone|hydromorphone|morphine|fentanyl|hydrocodone|tramadol|methadone|meperidine)'
+        THEN 1 ELSE 0 END) AS has_opioid,
+    MAX(CASE WHEN generic_name RLIKE '(polyethylene glycol|bisacodyl|senna|docusate|lactulose|magnesium citrate)'
+        THEN 1 ELSE 0 END) AS has_laxative,
+    MAX(CASE WHEN generic_name RLIKE '(mesalamine|sulfasalazine|azathioprine|mercaptopurine|infliximab|adalimumab|vedolizumab|ustekinumab)'
+        THEN 1 ELSE 0 END) AS has_ibd_med,
+    MIN(CASE WHEN generic_name RLIKE '(mesalamine|sulfasalazine|azathioprine|mercaptopurine|infliximab|adalimumab|vedolizumab|ustekinumab)'
+        THEN days_since END) AS ibd_days_since
+  FROM inpatient_meds
+  GROUP BY PAT_ID, END_DTTM, admission_csn
+)
+
+SELECT
+  c.PAT_ID,
+  c.END_DTTM,
+
+  -- GI hospitalization flag (admission with laxative or GI bleed meds)
+  COALESCE(MAX(af.has_laxative), 0) AS inp_med_inp_gi_hospitalization,
+
+  -- IBD medication recency (days since)
+  MIN(af.ibd_days_since) AS inp_med_inp_ibd_meds_recency,
+
+  -- Obstruction pattern: laxative + opioid in same admission
+  COALESCE(MAX(CASE WHEN af.has_laxative = 1 AND af.has_opioid = 1 THEN 1 ELSE 0 END), 0)
+    AS inp_med_inp_obstruction_pattern,
+
+  -- Inpatient opioid use flag
+  COALESCE(MAX(af.has_opioid), 0) AS inp_med_inp_opioid_use_flag
+
+FROM cohort_base c
+LEFT JOIN admission_flags af ON c.PAT_ID = af.PAT_ID AND c.END_DTTM = af.END_DTTM
+GROUP BY c.PAT_ID, c.END_DTTM
+""")
+
+print("Inpatient medication features computed (4 features)")
+
+
+# ===========================================================================
+# 14. VISIT HISTORY FEATURES (10 features)
 #
 # Source: pat_enc_enh (outpatient), PAT_ENC_HSP_HAR_ENH (inpatient/ED),
 #         pat_enc_dx_enh + hsp_acct_dx_list_enh (GI symptom diagnoses)
-# Lookback: 12 months for counts; 24 months for GI specialist recency
+# Lookback: 12 months for counts; 24 months for GI specialist recency/inpatient
 #
 # Features:
-#   vis_visit_recency_last_gi                - Days since last GI specialist visit
-#   vis_visit_pcp_visits_12mo                - PCP visit count (12mo)
-#   vis_visit_outpatient_visits_12mo         - Total outpatient visits (12mo)
-#   vis_visit_no_shows_12mo                  - No-show count (12mo)
-#   vis_visit_gi_symptom_op_visits_12mo      - Outpatient visits with GI symptom dx (12mo)
-#   vis_visit_total_gi_symptom_visits_12mo   - All visits with GI symptom dx (12mo)
-#   vis_visit_gi_symptoms_no_specialist      - GI symptoms present but no GI referral
-#   vis_visit_acute_care_reliance            - ED/inpatient to outpatient ratio
+#   visit_recency_last_gi                - Days since last GI specialist visit
+#   visit_pcp_visits_12mo                - PCP visit count (12mo)
+#   visit_outpatient_visits_12mo         - Total outpatient visits (12mo)
+#   visit_no_shows_12mo                  - No-show count (12mo)
+#   visit_gi_symptom_op_visits_12mo      - Outpatient visits with GI symptom dx (12mo)
+#   visit_total_gi_symptom_visits_12mo   - All visits with GI symptom dx (12mo)
+#   visit_acute_care_reliance            - ED/inpatient to outpatient ratio
+#   visit_healthcare_intensity_score     - Weighted visit intensity (op+2*ED+3*inp)
+#   visit_inp_last_24_months             - Inpatient admissions in 24 months
+#   visit_primary_care_continuity_ratio  - PCP visits / total outpatient visits
 # ===========================================================================
 
 spark.sql("""
@@ -1187,12 +1391,16 @@ gi_symptom_acute AS (
   WHERE dx.CODE RLIKE '^(K62\\.5|K92|K59|R19|D50|R10|R63\\.4|R53)'
 ),
 
--- Total ED/inpatient encounters (12mo) for acute care reliance ratio
+-- ED/inpatient encounters (12mo) -- split by type for intensity scoring
 acute_care AS (
   SELECT
     c.PAT_ID,
     c.END_DTTM,
-    COUNT(DISTINCT hsp.PAT_ENC_CSN_ID) AS ed_inp_visits
+    COUNT(DISTINCT hsp.PAT_ENC_CSN_ID) AS ed_inp_visits,
+    -- ED visits (ADT_PATIENT_STAT_C = 4 = ED, or emergency department admission)
+    COUNT(DISTINCT CASE WHEN hsp.ADT_PATIENT_STAT_C = 4 THEN hsp.PAT_ENC_CSN_ID END) AS ed_visits,
+    -- True inpatient (not ED)
+    COUNT(DISTINCT CASE WHEN hsp.ADT_PATIENT_STAT_C <> 4 THEN hsp.PAT_ENC_CSN_ID END) AS inp_visits
   FROM cohort_base c
   JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
     ON hsp.PAT_ID = c.PAT_ID
@@ -1200,6 +1408,23 @@ acute_care AS (
     AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE_SUB(c.END_DTTM, 365)
     AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE('2021-07-01')
     AND hsp.ADT_PATIENT_STAT_C <> 1
+    AND hsp.ADMIT_CONF_STAT_C <> 3
+  GROUP BY c.PAT_ID, c.END_DTTM
+),
+
+-- Inpatient admissions in 24 months (broader lookback)
+inp_24mo AS (
+  SELECT
+    c.PAT_ID,
+    c.END_DTTM,
+    COUNT(DISTINCT hsp.PAT_ENC_CSN_ID) AS inp_last_24_months
+  FROM cohort_base c
+  JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
+    ON hsp.PAT_ID = c.PAT_ID
+    AND DATE(hsp.HOSP_ADMSN_TIME) < c.END_DTTM
+    AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE_SUB(c.END_DTTM, 730)
+    AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE('2021-07-01')
+    AND hsp.ADT_PATIENT_STAT_C NOT IN (1, 4)  -- Not pre-admit, not ED-only
     AND hsp.ADMIT_CONF_STAT_C <> 3
   GROUP BY c.PAT_ID, c.END_DTTM
 ),
@@ -1235,10 +1460,7 @@ op_metrics AS (
               OR UPPER(SPECIALTY) LIKE '%INTERNAL MED%')
          THEN 1 ELSE 0 END) AS pcp_visits_12mo,
     -- Appointment no-shows
-    SUM(CASE WHEN APPT_STATUS_C IN (3, 4) THEN 1 ELSE 0 END) AS no_shows_12mo,
-    -- GI specialist visits
-    SUM(CASE WHEN APPT_STATUS_C IN (2, 6) AND UPPER(SPECIALTY) LIKE '%GASTRO%'
-         THEN 1 ELSE 0 END) AS gi_visits_12mo
+    SUM(CASE WHEN APPT_STATUS_C IN (3, 4) THEN 1 ELSE 0 END) AS no_shows_12mo
   FROM outpatient
   GROUP BY PAT_ID, END_DTTM
 ),
@@ -1261,48 +1483,56 @@ SELECT
   c.PAT_ID,
   c.END_DTTM,
   -- Days since last GI specialist visit (9999 if none in 24mo)
-  COALESCE(gr.days_since_last_gi, 9999) AS vis_visit_recency_last_gi,
-  COALESCE(om.pcp_visits_12mo, 0) AS vis_visit_pcp_visits_12mo,
-  COALESCE(om.outpatient_visits_12mo, 0) AS vis_visit_outpatient_visits_12mo,
-  COALESCE(om.no_shows_12mo, 0) AS vis_visit_no_shows_12mo,
-  COALESCE(gsop.gi_symptom_op_visits_12mo, 0) AS vis_visit_gi_symptom_op_visits_12mo,
+  COALESCE(gr.days_since_last_gi, 9999) AS visit_recency_last_gi,
+  COALESCE(om.pcp_visits_12mo, 0) AS visit_pcp_visits_12mo,
+  COALESCE(om.outpatient_visits_12mo, 0) AS visit_outpatient_visits_12mo,
+  COALESCE(om.no_shows_12mo, 0) AS visit_no_shows_12mo,
+  COALESCE(gsop.gi_symptom_op_visits_12mo, 0) AS visit_gi_symptom_op_visits_12mo,
   -- Total GI symptom visits across all settings
   COALESCE(gsop.gi_symptom_op_visits_12mo, 0) + COALESCE(gsac.gi_symptom_acute_visits_12mo, 0)
-    AS vis_visit_total_gi_symptom_visits_12mo,
-  -- Care gap: patient has GI symptoms but hasn't seen a GI specialist
-  CASE
-    WHEN (COALESCE(gsop.gi_symptom_op_visits_12mo, 0) + COALESCE(gsac.gi_symptom_acute_visits_12mo, 0)) > 0
-     AND COALESCE(om.gi_visits_12mo, 0) = 0
-    THEN 1 ELSE 0
-  END AS vis_visit_gi_symptoms_no_specialist,
+    AS visit_total_gi_symptom_visits_12mo,
   -- Acute care reliance: ratio of ED/inpatient to outpatient visits
-  -- High ratio suggests patient uses acute care instead of primary care
   CASE
     WHEN COALESCE(om.outpatient_visits_12mo, 0) > 0
     THEN ROUND(COALESCE(ac.ed_inp_visits, 0) * 1.0 / om.outpatient_visits_12mo, 3)
     ELSE COALESCE(ac.ed_inp_visits, 0) * 1.0
-  END AS vis_visit_acute_care_reliance
+  END AS visit_acute_care_reliance,
+  -- Healthcare intensity: outpatient + 2*ED + 3*inpatient (weighted utilization)
+  COALESCE(om.outpatient_visits_12mo, 0)
+    + 2 * COALESCE(ac.ed_visits, 0)
+    + 3 * COALESCE(ac.inp_visits, 0)
+    AS visit_healthcare_intensity_score,
+  -- Inpatient admissions in 24 months
+  COALESCE(i24.inp_last_24_months, 0) AS visit_inp_last_24_months,
+  -- Primary care continuity: PCP share of outpatient visits
+  CASE
+    WHEN COALESCE(om.outpatient_visits_12mo, 0) > 0
+    THEN ROUND(COALESCE(om.pcp_visits_12mo, 0) * 1.0 / om.outpatient_visits_12mo, 3)
+    ELSE 0
+  END AS visit_primary_care_continuity_ratio
 
 FROM cohort_base c
 LEFT JOIN op_metrics om ON c.PAT_ID = om.PAT_ID AND c.END_DTTM = om.END_DTTM
 LEFT JOIN gi_symptom_op_counts gsop ON c.PAT_ID = gsop.PAT_ID AND c.END_DTTM = gsop.END_DTTM
 LEFT JOIN gi_symptom_acute_counts gsac ON c.PAT_ID = gsac.PAT_ID AND c.END_DTTM = gsac.END_DTTM
 LEFT JOIN acute_care ac ON c.PAT_ID = ac.PAT_ID AND c.END_DTTM = ac.END_DTTM
+LEFT JOIN inp_24mo i24 ON c.PAT_ID = i24.PAT_ID AND c.END_DTTM = i24.END_DTTM
 LEFT JOIN gi_recency gr ON c.PAT_ID = gr.PAT_ID AND c.END_DTTM = gr.END_DTTM
 """)
 
-print("Visit features computed (9 features)")
+print("Visit features computed (10 features)")
 
 
 # ===========================================================================
-# 13. PROCEDURE FEATURES (2 features)
+# 15. PROCEDURE FEATURES (3 features)
 #
 # Source: order_proc_enh (completed orders only)
 # Lookback: 12 months
 #
 # Features:
-#   proc_ct_abd_pelvis_count_12mo   - CT abdomen/pelvis count (12mo)
-#   proc_total_imaging_count_12mo   - CT + MRI abdomen/pelvis count (12mo)
+#   proc_blood_transfusion_count_12mo  - Blood transfusion count (12mo)
+#   proc_high_imaging_intensity_flag   - 3+ abdominal/pelvic imaging in 12mo
+#   proc_mri_abd_pelvis_count_12mo     - MRI abdomen/pelvis count (12mo)
 #
 # Note: colonoscopy is deliberately excluded because screened patients
 # have already been removed from the cohort.
@@ -1311,48 +1541,70 @@ print("Visit features computed (9 features)")
 spark.sql("""
 CREATE OR REPLACE TEMP VIEW proc_features AS
 
+WITH proc_raw AS (
+  SELECT
+    c.PAT_ID,
+    c.END_DTTM,
+
+    -- Blood transfusion
+    CASE
+      WHEN op.PROC_CODE IN ('36430','36440','36450','36455','36456','86900','86901')
+        OR LOWER(op.PROC_NAME) LIKE '%transfus%'
+        OR LOWER(op.PROC_NAME) LIKE '%blood product%'
+      THEN 1 ELSE 0
+    END AS is_transfusion,
+
+    -- MRI abdomen/pelvis
+    CASE
+      WHEN op.PROC_CODE IN ('74181','74182','74183')
+        OR LOWER(op.PROC_NAME) LIKE '%mri%abd%'
+        OR LOWER(op.PROC_NAME) LIKE '%mri%pelv%'
+      THEN 1 ELSE 0
+    END AS is_mri_abd,
+
+    -- Any abdominal/pelvic imaging (CT or MRI)
+    CASE
+      WHEN op.PROC_CODE IN ('74150','74160','74170','74176','74177','74178',
+                             '74181','74182','74183')
+        OR LOWER(op.PROC_NAME) LIKE '%ct%abd%'
+        OR LOWER(op.PROC_NAME) LIKE '%ct%pelv%'
+        OR LOWER(op.PROC_NAME) LIKE '%mri%abd%'
+        OR LOWER(op.PROC_NAME) LIKE '%mri%pelv%'
+      THEN 1 ELSE 0
+    END AS is_abd_imaging
+
+  FROM cohort_base c
+  JOIN clarity_cur.order_proc_enh op
+    ON op.PAT_ID = c.PAT_ID
+    AND DATE(op.ORDERING_DATE) < c.END_DTTM
+    AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 365)
+    AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
+    AND op.ORDER_STATUS_C = 5  -- Completed only
+    AND op.RPT_GRP_SIX IN ('116001', '116002')
+)
+
 SELECT
   c.PAT_ID,
   c.END_DTTM,
-
-  -- CT abdomen/pelvis count (12 months)
-  COALESCE(SUM(CASE
-    WHEN op.PROC_CODE IN ('74150','74160','74170','74176','74177','74178')
-      OR LOWER(op.PROC_NAME) LIKE '%ct%abd%'
-      OR LOWER(op.PROC_NAME) LIKE '%ct%pelv%'
-    THEN 1 ELSE 0
-  END), 0) AS proc_ct_abd_pelvis_count_12mo,
-
-  -- Total abdominal/pelvic imaging: CT + MRI (12 months)
-  COALESCE(SUM(CASE
-    WHEN op.PROC_CODE IN ('74150','74160','74170','74176','74177','74178')
-      OR LOWER(op.PROC_NAME) LIKE '%ct%abd%'
-      OR LOWER(op.PROC_NAME) LIKE '%ct%pelv%'
-      OR op.PROC_CODE IN ('74181','74182','74183')
-      OR LOWER(op.PROC_NAME) LIKE '%mri%abd%'
-      OR LOWER(op.PROC_NAME) LIKE '%mri%pelv%'
-    THEN 1 ELSE 0
-  END), 0) AS proc_total_imaging_count_12mo
+  COALESCE(SUM(pr.is_transfusion), 0) AS proc_blood_transfusion_count_12mo,
+  -- High imaging intensity: 3+ abdominal/pelvic imaging studies in 12 months
+  CASE WHEN COALESCE(SUM(pr.is_abd_imaging), 0) >= 3 THEN 1 ELSE 0 END
+    AS proc_high_imaging_intensity_flag,
+  COALESCE(SUM(pr.is_mri_abd), 0) AS proc_mri_abd_pelvis_count_12mo
 
 FROM cohort_base c
-LEFT JOIN clarity_cur.order_proc_enh op
-  ON op.PAT_ID = c.PAT_ID
-  AND DATE(op.ORDERING_DATE) < c.END_DTTM
-  AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 365)
-  AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
-  AND op.ORDER_STATUS_C = 5  -- Completed only
-  AND op.RPT_GRP_SIX IN ('116001', '116002')
+LEFT JOIN proc_raw pr ON c.PAT_ID = pr.PAT_ID AND c.END_DTTM = pr.END_DTTM
 GROUP BY c.PAT_ID, c.END_DTTM
 """)
 
-print("Procedure features computed (2 features)")
+print("Procedure features computed (3 features)")
 
 
 # ===========================================================================
-# 14. FINAL JOIN
+# 16. FINAL JOIN
 #
-# Join all feature views together and select the final 40 features plus
-# identifiers (PAT_ID, END_DTTM, FUTURE_CRC_EVENT, SPLIT).
+# Join all feature views together and select the final 57 features plus
+# identifiers (PAT_ID, END_DTTM, FUTURE_CRC_EVENT, ICD10_GROUP).
 #
 # Null handling:
 #   - Most numeric features: COALESCE to 0
@@ -1369,39 +1621,46 @@ SELECT
   c.FUTURE_CRC_EVENT,
   c.ICD10_GROUP,
 
-  -- Demographics (4 features)
+  -- Demographics (6 features)
+  c.AGE_GROUP,
   c.IS_FEMALE,
   c.IS_MARRIED_PARTNER,
+  c.RACE_ASIAN,
+  c.RACE_CAUCASIAN,
   c.HAS_PCP_AT_END,
   COALESCE(c.months_since_cohort_entry, 0) AS months_since_cohort_entry,
 
-  -- Vitals (8 features)
-  COALESCE(v.vit_BP_SYSTOLIC, 0) AS vit_BP_SYSTOLIC,
-  COALESCE(v.vit_WEIGHT_OZ, 0) AS vit_WEIGHT_OZ,
+  -- Vitals (9 features)
+  COALESCE(v.vit_BMI, 0) AS vit_BMI,
+  COALESCE(v.vit_BMI_CHANGE_6M, 0) AS vit_BMI_CHANGE_6M,
+  COALESCE(v.vit_PULSE, 0) AS vit_PULSE,
+  COALESCE(v.vit_PULSE_PRESSURE, 0) AS vit_PULSE_PRESSURE,
   COALESCE(v.vit_RECENCY_WEIGHT, 9999) AS vit_RECENCY_WEIGHT,
-  COALESCE(v.vit_vital_recency_score, 0) AS vit_vital_recency_score,
+  COALESCE(v.vit_CACHEXIA_RISK_SCORE, 0) AS vit_CACHEXIA_RISK_SCORE,
   COALESCE(v.vit_WEIGHT_TRAJECTORY_SLOPE, 0) AS vit_WEIGHT_TRAJECTORY_SLOPE,
   COALESCE(v.vit_MAX_WEIGHT_LOSS_PCT_60D, 0) AS vit_MAX_WEIGHT_LOSS_PCT_60D,
-  COALESCE(v.vit_WEIGHT_CHANGE_PCT_6M, 0) AS vit_WEIGHT_CHANGE_PCT_6M,
   COALESCE(v.vit_SBP_VARIABILITY_6M, 0) AS vit_SBP_VARIABILITY_6M,
 
   -- ICD-10 (7 features)
   COALESCE(i.icd_MALIGNANCY_FLAG_EVER, 0) AS icd_MALIGNANCY_FLAG_EVER,
-  COALESCE(i.icd_CHARLSON_SCORE_12MO, 0) AS icd_CHARLSON_SCORE_12MO,
+  COALESCE(i.icd_COMBINED_COMORBIDITY_12MO, 0) AS icd_COMBINED_COMORBIDITY_12MO,
   COALESCE(i.icd_IRON_DEF_ANEMIA_FLAG_12MO, 0) AS icd_IRON_DEF_ANEMIA_FLAG_12MO,
   COALESCE(i.icd_ANEMIA_FLAG_12MO, 0) AS icd_ANEMIA_FLAG_12MO,
   COALESCE(i.icd_SYMPTOM_BURDEN_12MO, 0) AS icd_SYMPTOM_BURDEN_12MO,
   COALESCE(i.icd_BLEED_CNT_12MO, 0) AS icd_BLEED_CNT_12MO,
-  COALESCE(i.icd_PAIN_FLAG_12MO, 0) AS icd_PAIN_FLAG_12MO,
+  COALESCE(i.icd_chronic_gi_pattern, 0) AS icd_chronic_gi_pattern,
 
-  -- Labs (11 features)
+  -- Labs (14 features)
   COALESCE(l.lab_HEMOGLOBIN_VALUE, 0) AS lab_HEMOGLOBIN_VALUE,
   COALESCE(l.lab_PLATELETS_VALUE, 0) AS lab_PLATELETS_VALUE,
   COALESCE(l.lab_AST_VALUE, 0) AS lab_AST_VALUE,
   COALESCE(l.lab_ALK_PHOS_VALUE, 0) AS lab_ALK_PHOS_VALUE,
   COALESCE(l.lab_ALBUMIN_VALUE, 0) AS lab_ALBUMIN_VALUE,
-  COALESCE(l.lab_CEA_VALUE, 0) AS lab_CEA_VALUE,
-  COALESCE(l.lab_ALT_AST_RATIO, 0) AS lab_ALT_AST_RATIO,
+  COALESCE(l.lab_ESR_VALUE, 0) AS lab_ESR_VALUE,
+  COALESCE(l.lab_IRON_SATURATION_PCT, 0) AS lab_IRON_SATURATION_PCT,
+  COALESCE(l.lab_ALBUMIN_DROP_15PCT_FLAG, 0) AS lab_ALBUMIN_DROP_15PCT_FLAG,
+  COALESCE(l.lab_ANEMIA_GRADE, 0) AS lab_ANEMIA_GRADE,
+  COALESCE(l.lab_ANEMIA_SEVERITY_SCORE, 0) AS lab_ANEMIA_SEVERITY_SCORE,
   COALESCE(l.lab_THROMBOCYTOSIS_FLAG, 0) AS lab_THROMBOCYTOSIS_FLAG,
   -- Comprehensive iron deficiency: TRUE if EITHER ICD diagnosis OR lab criteria met
   CASE
@@ -1412,24 +1671,40 @@ SELECT
   COALESCE(l.lab_HEMOGLOBIN_ACCELERATING_DECLINE, 0) AS lab_HEMOGLOBIN_ACCELERATING_DECLINE,
   COALESCE(l.lab_PLATELETS_ACCELERATING_RISE, 0) AS lab_PLATELETS_ACCELERATING_RISE,
 
-  -- Visits (9 features)
-  COALESCE(vis.vis_visit_recency_last_gi, 9999) AS vis_visit_recency_last_gi,
-  COALESCE(vis.vis_visit_pcp_visits_12mo, 0) AS vis_visit_pcp_visits_12mo,
-  COALESCE(vis.vis_visit_outpatient_visits_12mo, 0) AS vis_visit_outpatient_visits_12mo,
-  COALESCE(vis.vis_visit_no_shows_12mo, 0) AS vis_visit_no_shows_12mo,
-  COALESCE(vis.vis_visit_gi_symptom_op_visits_12mo, 0) AS vis_visit_gi_symptom_op_visits_12mo,
-  COALESCE(vis.vis_visit_total_gi_symptom_visits_12mo, 0) AS vis_visit_total_gi_symptom_visits_12mo,
-  COALESCE(vis.vis_visit_gi_symptoms_no_specialist, 0) AS vis_visit_gi_symptoms_no_specialist,
-  COALESCE(vis.vis_visit_acute_care_reliance, 0) AS vis_visit_acute_care_reliance,
+  -- Outpatient medications (3 features)
+  COALESCE(om.out_med_ppi_use_flag, 0) AS out_med_ppi_use_flag,
+  COALESCE(om.out_med_broad_abx_recency, 9999) AS out_med_broad_abx_recency,
+  COALESCE(om.out_med_ibd_meds_recency, 9999) AS out_med_ibd_meds_recency,
 
-  -- Procedures (2 features)
-  COALESCE(p.proc_total_imaging_count_12mo, 0) AS proc_total_imaging_count_12mo,
-  COALESCE(p.proc_ct_abd_pelvis_count_12mo, 0) AS proc_ct_abd_pelvis_count_12mo
+  -- Inpatient medications (4 features)
+  COALESCE(im.inp_med_inp_gi_hospitalization, 0) AS inp_med_inp_gi_hospitalization,
+  COALESCE(im.inp_med_inp_ibd_meds_recency, 9999) AS inp_med_inp_ibd_meds_recency,
+  COALESCE(im.inp_med_inp_obstruction_pattern, 0) AS inp_med_inp_obstruction_pattern,
+  COALESCE(im.inp_med_inp_opioid_use_flag, 0) AS inp_med_inp_opioid_use_flag,
+
+  -- Visits (10 features)
+  COALESCE(vis.visit_recency_last_gi, 9999) AS visit_recency_last_gi,
+  COALESCE(vis.visit_pcp_visits_12mo, 0) AS visit_pcp_visits_12mo,
+  COALESCE(vis.visit_outpatient_visits_12mo, 0) AS visit_outpatient_visits_12mo,
+  COALESCE(vis.visit_no_shows_12mo, 0) AS visit_no_shows_12mo,
+  COALESCE(vis.visit_gi_symptom_op_visits_12mo, 0) AS visit_gi_symptom_op_visits_12mo,
+  COALESCE(vis.visit_total_gi_symptom_visits_12mo, 0) AS visit_total_gi_symptom_visits_12mo,
+  COALESCE(vis.visit_acute_care_reliance, 0) AS visit_acute_care_reliance,
+  COALESCE(vis.visit_healthcare_intensity_score, 0) AS visit_healthcare_intensity_score,
+  COALESCE(vis.visit_inp_last_24_months, 0) AS visit_inp_last_24_months,
+  COALESCE(vis.visit_primary_care_continuity_ratio, 0) AS visit_primary_care_continuity_ratio,
+
+  -- Procedures (3 features)
+  COALESCE(p.proc_blood_transfusion_count_12mo, 0) AS proc_blood_transfusion_count_12mo,
+  COALESCE(p.proc_high_imaging_intensity_flag, 0) AS proc_high_imaging_intensity_flag,
+  COALESCE(p.proc_mri_abd_pelvis_count_12mo, 0) AS proc_mri_abd_pelvis_count_12mo
 
 FROM cohort_base c
 LEFT JOIN vitals_features v ON c.PAT_ID = v.PAT_ID AND c.END_DTTM = v.END_DTTM
 LEFT JOIN icd_features i ON c.PAT_ID = i.PAT_ID AND c.END_DTTM = i.END_DTTM
 LEFT JOIN lab_features l ON c.PAT_ID = l.PAT_ID AND c.END_DTTM = l.END_DTTM
+LEFT JOIN outpatient_med_features om ON c.PAT_ID = om.PAT_ID AND c.END_DTTM = om.END_DTTM
+LEFT JOIN inpatient_med_features im ON c.PAT_ID = im.PAT_ID AND c.END_DTTM = im.END_DTTM
 LEFT JOIN visit_features vis ON c.PAT_ID = vis.PAT_ID AND c.END_DTTM = vis.END_DTTM
 LEFT JOIN proc_features p ON c.PAT_ID = p.PAT_ID AND c.END_DTTM = p.END_DTTM
 """)
@@ -1439,7 +1714,7 @@ print(f"Final feature table rows: {final_count:,}")
 
 
 # ===========================================================================
-# 15. SAVE OUTPUT TABLE
+# 17. SAVE OUTPUT TABLE
 #
 # Persist the final feature table as a Delta table for downstream training.
 # ===========================================================================
@@ -1455,7 +1730,7 @@ print(f"Rows: {saved_count:,}")
 
 
 # ===========================================================================
-# 16. VALIDATION & SUMMARY
+# 18. VALIDATION & SUMMARY
 #
 # Sanity checks on the output table:
 #   - Null counts per feature (should all be 0 after COALESCE)
