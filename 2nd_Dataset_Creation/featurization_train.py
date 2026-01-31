@@ -279,9 +279,9 @@ SELECT
   END AS AGE_GROUP,
   CASE WHEN p.GENDER = 'Female' THEN 1 ELSE 0 END AS IS_FEMALE,
   CASE WHEN p.MARITAL_STATUS IN ('Married', 'Significant other') THEN 1 ELSE 0 END AS IS_MARRIED_PARTNER,
-  -- Race one-hot flags (from RACE_BUCKETS in PATIENT_ENH)
-  CASE WHEN COALESCE(p.RACE_BUCKETS, 'Unknown') = 'Asian' THEN 1 ELSE 0 END AS RACE_ASIAN,
-  CASE WHEN COALESCE(p.RACE_BUCKETS, 'Unknown') = 'Caucasian' THEN 1 ELSE 0 END AS RACE_CAUCASIAN,
+  -- Race one-hot flags (bucket p.RACE the same way Book 0 does)
+  CASE WHEN p.RACE = 'Asian' THEN 1 ELSE 0 END AS RACE_ASIAN,
+  CASE WHEN p.RACE = 'Caucasian' THEN 1 ELSE 0 END AS RACE_CAUCASIAN,
   CAST(months_between(idx.END_DTTM, fs.first_seen_dt) AS INT) AS OBS_MONTHS_PRIOR,
   fs.first_seen_dt,
   -- Data quality flag: catches impossible records (age out of range,
