@@ -2078,6 +2078,152 @@ print("="*70)
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ### Feature Dictionary
+# MAGIC
+# MAGIC Describes each surviving feature: what it measures, how it was derived, and its lookback window.
+
+# COMMAND ----------
+
+# --- Feature Dictionary ---
+
+FEATURE_DICTIONARY = {
+    # === DEMOGRAPHICS (Book 0) ===
+    'AGE_GROUP':            ('Demographics', 'Age in 5-year bands (45-49, 50-54, ...75+)', 'Ordinal (0-5)', 'Point-in-time'),
+    'HAS_PCP_AT_END':       ('Demographics', 'Has established primary care provider at observation date', 'Binary flag', 'Point-in-time'),
+    'IS_FEMALE':            ('Demographics', 'Patient gender is female', 'Binary flag', 'Static'),
+    'IS_MARRIED_PARTNER':   ('Demographics', 'Married or in significant relationship', 'Binary flag', 'Static'),
+    'RACE_ASIAN':           ('Demographics', 'Patient race is Asian', 'Binary flag', 'Static'),
+    'RACE_CAUCASIAN':       ('Demographics', 'Patient race is Caucasian/White', 'Binary flag', 'Static'),
+
+    # === TEMPORAL (Book 0) ===
+    'months_since_cohort_entry': ('Temporal', 'Months since first observation date', 'Raw value (months)', 'From cohort entry'),
+
+    # === ICD-10 DIAGNOSES (Book 2) ===
+    'icd_ANEMIA_FLAG_12MO':          ('ICD-10', 'Any anemia diagnosis (D50-D64)', 'Binary flag', '12 months'),
+    'icd_BLEED_CNT_12MO':            ('ICD-10', 'Count of GI bleeding encounters (K62.5, K92.1, K92.2)', 'Count', '12 months'),
+    'icd_COMBINED_COMORBIDITY_12MO': ('ICD-10', 'Charlson Comorbidity Index from ICD-10 codes', 'Composite score (0-6+)', '12 months'),
+    'icd_IRON_DEF_ANEMIA_FLAG_12MO': ('ICD-10', 'Iron deficiency anemia specifically (D50)', 'Binary flag', '12 months'),
+    'icd_MALIGNANCY_FLAG_EVER':      ('ICD-10', 'History of any prior non-CRC malignancy (Z85)', 'Binary flag', 'Ever'),
+    'icd_SYMPTOM_BURDEN_12MO':       ('ICD-10', 'Sum of 6 GI symptom flags (bleeding, pain, bowel changes, weight loss, anemia, other)', 'Composite score (0-6)', '12 months'),
+    'icd_chronic_gi_pattern':        ('ICD-10', 'Chronic GI condition: IBD, diverticular disease, or GI complexity >= 2', 'Binary flag', 'Ever/24 months'),
+
+    # === LABS (Book 4) ===
+    'lab_ALBUMIN_DROP_15PCT_FLAG':          ('Labs', 'Albumin dropped >15% vs 6-month prior value', 'Binary flag', '6 months'),
+    'lab_ALBUMIN_VALUE':                    ('Labs', 'Latest serum albumin (g/dL)', 'Raw value', '2 years, most recent'),
+    'lab_ALK_PHOS_VALUE':                   ('Labs', 'Latest alkaline phosphatase (U/L)', 'Raw value', '2 years, most recent'),
+    'lab_ANEMIA_GRADE':                     ('Labs', 'WHO anemia grade from hemoglobin/hematocrit', 'Ordinal (0=normal, 1=mild, 2=moderate, 3=severe)', 'Most recent'),
+    'lab_ANEMIA_SEVERITY_SCORE':            ('Labs', 'Composite: WHO grade (0-3) + iron deficiency (+2) + microcytosis (+1)', 'Composite score (0-6)', 'Most recent'),
+    'lab_AST_VALUE':                        ('Labs', 'Latest AST liver enzyme (U/L)', 'Raw value', '2 years, most recent'),
+    'lab_ESR_VALUE':                        ('Labs', 'Latest erythrocyte sedimentation rate (mm/hr)', 'Raw value', '3 years, most recent'),
+    'lab_HEMOGLOBIN_ACCELERATING_DECLINE':  ('Labs', 'Hemoglobin declining >0.5 g/dL/month AND rate accelerating', 'Binary flag', '6 months'),
+    'lab_HEMOGLOBIN_VALUE':                 ('Labs', 'Latest hemoglobin (g/dL)', 'Raw value', '2 years, most recent'),
+    'lab_IRON_SATURATION_PCT':              ('Labs', 'Serum iron saturation (iron/TIBC * 100)', 'Derived ratio (%)', '3 years, most recent'),
+    'lab_PLATELETS_ACCELERATING_RISE':      ('Labs', 'Platelets >450 AND rate of rise accelerating', 'Binary flag', '6 months'),
+    'lab_PLATELETS_VALUE':                  ('Labs', 'Latest platelet count (K/uL)', 'Raw value', '2 years, most recent'),
+    'lab_THROMBOCYTOSIS_FLAG':              ('Labs', 'Platelets >450 K/uL', 'Binary flag', 'Most recent'),
+    'lab_comprehensive_iron_deficiency':    ('Labs', 'Iron deficiency by ICD D50 OR lab criteria (low Hgb + low MCV or low ferritin)', 'Binary flag', 'ICD 12mo / labs 2yrs'),
+
+    # === OUTPATIENT MEDICATIONS (Book 5.1) ===
+    'out_med_broad_abx_recency': ('Outpatient Meds', 'Days since last broad-spectrum antibiotic Rx, binned', 'Ordinal/Recency', '12 months'),
+    'out_med_ibd_meds_recency':  ('Outpatient Meds', 'Days since last IBD medication (5-ASA, immunosuppressants, biologics)', 'Ordinal/Recency', '12 months'),
+    'out_med_ppi_use_flag':      ('Outpatient Meds', 'Any proton pump inhibitor use', 'Binary flag', '12 months'),
+
+    # === INPATIENT MEDICATIONS (Book 5.2) ===
+    'inp_med_inp_gi_hospitalization': ('Inpatient Meds', 'Any hospitalization with GI-related diagnosis', 'Binary flag', '12 months'),
+    'inp_med_inp_ibd_meds_recency':  ('Inpatient Meds', 'Days since last inpatient IBD medication', 'Ordinal/Recency', '12 months'),
+    'inp_med_inp_obstruction_pattern': ('Inpatient Meds', 'Obstruction/ileus pattern: laxatives + opioids in same admission', 'Binary flag', '12 months'),
+    'inp_med_inp_opioid_use_flag':   ('Inpatient Meds', 'Any opioid administered during hospitalization', 'Binary flag', '12 months'),
+
+    # === VISIT HISTORY (Book 6) ===
+    'visit_acute_care_reliance':           ('Visits', 'Ratio of acute care (ED + inpatient) to outpatient visits', 'Derived ratio', '12 months'),
+    'visit_gi_symptom_op_visits_12mo':     ('Visits', 'Outpatient visits with GI symptoms (K92, K59, R19, R10)', 'Count', '12 months'),
+    'visit_healthcare_intensity_score':    ('Visits', 'Utilization intensity from ED + inpatient + specialty visits', 'Ordinal (0-3)', '12 months'),
+    'visit_inp_last_24_months':            ('Visits', 'Any inpatient hospitalization', 'Binary flag', '24 months'),
+    'visit_no_shows_12mo':                 ('Visits', 'Missed/no-show appointments', 'Count', '12 months'),
+    'visit_outpatient_visits_12mo':        ('Visits', 'Total outpatient visits (all types)', 'Count', '12 months'),
+    'visit_pcp_visits_12mo':               ('Visits', 'Primary care provider visits', 'Count', '12 months'),
+    'visit_primary_care_continuity_ratio': ('Visits', 'PCP visits / total outpatient visits', 'Derived ratio (0-1)', '12 months'),
+    'visit_recency_last_gi':               ('Visits', 'Days since last GI-related visit', 'Recency (days)', '12 months'),
+    'visit_total_gi_symptom_visits_12mo':  ('Visits', 'All GI symptom visits (inpatient + outpatient)', 'Count', '12 months'),
+
+    # === PROCEDURES (Book 7) ===
+    'proc_blood_transfusion_count_12mo': ('Procedures', 'RBC transfusion count (objective bleeding indicator)', 'Count', '12 months'),
+    'proc_high_imaging_intensity_flag':  ('Procedures', '>=2 imaging studies (CT/MRI/US)', 'Binary flag', '12 months'),
+    'proc_mri_abd_pelvis_count_12mo':    ('Procedures', 'Abdominal/pelvic MRI count', 'Count', '12 months'),
+
+    # === VITALS (Book 1) ===
+    'vit_BMI':                     ('Vitals', 'Body Mass Index (kg/m2)', 'Raw value', 'Most recent, 12mo'),
+    'vit_BMI_CHANGE_6M':           ('Vitals', 'BMI change over 6 months', 'Rate of change', '6 months'),
+    'vit_CACHEXIA_RISK_SCORE':     ('Vitals', 'Wasting risk from weight loss + low BMI combination', 'Ordinal (0=none, 1=moderate, 2=high)', '6-12 months'),
+    'vit_MAX_WEIGHT_LOSS_PCT_60D': ('Vitals', 'Maximum % weight loss in any 60-day window', 'Rate of change (%)', '6-12 months'),
+    'vit_PULSE':                   ('Vitals', 'Latest heart rate (bpm)', 'Raw value', 'Most recent, 12mo'),
+    'vit_PULSE_PRESSURE':          ('Vitals', 'Systolic BP minus Diastolic BP (mmHg)', 'Derived value', 'Most recent, 12mo'),
+    'vit_RECENCY_WEIGHT':          ('Vitals', 'Days since last weight measurement', 'Recency (days)', '12 months'),
+    'vit_SBP_VARIABILITY_6M':      ('Vitals', 'Systolic BP standard deviation (instability measure)', 'Derived value (mmHg)', '6 months'),
+    'vit_WEIGHT_TRAJECTORY_SLOPE': ('Vitals', 'Linear regression slope of weight over time (lbs/month)', 'Rate of change', '6-12 months'),
+}
+
+print("="*70)
+print("FEATURE DICTIONARY (57 Final Features)")
+print("="*70)
+
+# Group by domain
+from collections import defaultdict
+by_domain = defaultdict(list)
+for feat in sorted(final_features):
+    if feat in FEATURE_DICTIONARY:
+        domain, desc, ftype, lookback = FEATURE_DICTIONARY[feat]
+        by_domain[domain].append((feat, desc, ftype, lookback))
+    else:
+        by_domain['Unknown'].append((feat, '(not in dictionary)', '', ''))
+
+domain_order = ['Demographics', 'Temporal', 'ICD-10', 'Labs', 'Outpatient Meds',
+                'Inpatient Meds', 'Visits', 'Procedures', 'Vitals', 'Unknown']
+
+for domain in domain_order:
+    if domain not in by_domain:
+        continue
+    features = by_domain[domain]
+    print(f"\n{'─'*70}")
+    print(f"  {domain.upper()} ({len(features)} features)")
+    print(f"{'─'*70}")
+    for feat, desc, ftype, lookback in features:
+        print(f"\n  {feat}")
+        print(f"    {desc}")
+        print(f"    Type: {ftype}  |  Window: {lookback}")
+
+# Summary by type
+type_counts = defaultdict(int)
+for feat in final_features:
+    if feat in FEATURE_DICTIONARY:
+        ftype = FEATURE_DICTIONARY[feat][2]
+        if 'Binary' in ftype:
+            type_counts['Binary flags'] += 1
+        elif 'Raw' in ftype:
+            type_counts['Raw values'] += 1
+        elif 'Count' in ftype:
+            type_counts['Counts'] += 1
+        elif 'Composite' in ftype or 'Ordinal' in ftype:
+            type_counts['Composite/Ordinal'] += 1
+        elif 'Derived' in ftype or 'Ratio' in ftype or 'ratio' in ftype:
+            type_counts['Derived ratios'] += 1
+        elif 'Rate' in ftype or 'change' in ftype:
+            type_counts['Rates of change'] += 1
+        elif 'Recency' in ftype:
+            type_counts['Recency measures'] += 1
+        else:
+            type_counts['Other'] += 1
+
+print(f"\n{'='*70}")
+print("FEATURE TYPE SUMMARY")
+print("="*70)
+for ftype, count in sorted(type_counts.items(), key=lambda x: -x[1]):
+    print(f"  {ftype:<25} {count:>3}")
+print(f"  {'TOTAL':<25} {sum(type_counts.values()):>3}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Save Final Outputs
 # MAGIC
 # MAGIC Outputs saved to `feature_selection_outputs/`:
