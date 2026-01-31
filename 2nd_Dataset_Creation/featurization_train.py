@@ -848,17 +848,17 @@ WITH all_dx AS (
 
   UNION ALL
 
-  -- Inpatient diagnoses
-  SELECT c.PAT_ID, c.END_DTTM, dd.CODE, DATE(hsp.HOSP_ADMSN_TIME) AS DX_DATE
+  -- Inpatient diagnoses (join on HSP_ACCOUNT_ID and use discharge date, matching Book 2)
+  SELECT c.PAT_ID, c.END_DTTM, dd.CODE, DATE(hsp.DISCH_DATE_TIME) AS DX_DATE
   FROM cohort_base c
   JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
     ON hsp.PAT_ID = c.PAT_ID
-    AND DATE(hsp.HOSP_ADMSN_TIME) < c.END_DTTM
-    AND DATE(hsp.HOSP_ADMSN_TIME) >= DATE('2021-07-01')
+    AND DATE(hsp.DISCH_DATE_TIME) < c.END_DTTM
+    AND DATE(hsp.DISCH_DATE_TIME) >= DATE('2021-07-01')
     AND hsp.ADT_PATIENT_STAT_C <> 1
     AND hsp.ADMIT_CONF_STAT_C <> 3
   JOIN clarity_cur.hsp_acct_dx_list_enh dd
-    ON dd.PRIM_ENC_CSN_ID = hsp.PAT_ENC_CSN_ID
+    ON dd.HSP_ACCOUNT_ID = hsp.HSP_ACCOUNT_ID
   WHERE dd.CODE IS NOT NULL
 ),
 
@@ -982,6 +982,7 @@ WITH lab_results AS (
     AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 1095)  -- 3yr for ESR/iron
     AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
     AND op.ORDER_STATUS_C IN (3, 5, 10)
+    AND op.LAB_STATUS_C IN (3, 5)  -- Verified/final results only (Book 4)
   JOIN clarity.order_results ores
     ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
   JOIN clarity.clarity_component cc
@@ -1032,6 +1033,7 @@ WITH albumin_6m AS (
     AND DATE(op.ORDERING_DATE) < c.END_DTTM
     AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 730)
     AND op.ORDER_STATUS_C IN (3, 5, 10)
+    AND op.LAB_STATUS_C IN (3, 5)
   JOIN clarity.order_results ores
     ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
   JOIN clarity.clarity_component cc
@@ -1064,6 +1066,7 @@ WITH lab_history AS (
     AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 730)
     AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
     AND op.ORDER_STATUS_C IN (3, 5, 10)
+    AND op.LAB_STATUS_C IN (3, 5)
   JOIN clarity.order_results ores
     ON ores.ORDER_PROC_ID = op.ORDER_PROC_ID
   JOIN clarity.clarity_component cc
@@ -1273,7 +1276,11 @@ WITH inpatient_meds AS (
     AND mar.TAKEN_TIME IS NOT NULL
     AND UPPER(TRIM(mar.ACTION)) IN (
       'GIVEN', 'PATIENT/FAMILY ADMIN', 'GIVEN-SEE OVERRIDE',
-      'NEW BAG', 'BOLUS', 'PUSH', 'APPLIED'
+      'ADMIN BY ANOTHER CLINICIAN (COMMENT)', 'NEW BAG', 'BOLUS', 'PUSH',
+      'STARTED BY ANOTHER CLINICIAN', 'BAG SWITCHED',
+      'CLINIC SAMPLE ADMINISTERED', 'APPLIED', 'FEEDING STARTED',
+      'ACKNOWLEDGED', 'CONTRAST GIVEN', 'NEW BAG-SEE OVERRIDE',
+      'BOLUS FROM BAG'
     )
   JOIN clarity.clarity_medication med
     ON med.MEDICATION_ID = ome.MEDICATION_ID
@@ -1346,6 +1353,8 @@ CREATE OR REPLACE TEMP VIEW visit_features AS
 
 WITH
 -- All outpatient encounters in our integrated system (12 months)
+-- Uses clarity_ser_enh for provider specialty (matching Book 6)
+-- and VISIT_PROV_ID = PCP_PROV_ID for PCP detection (matching Book 6)
 outpatient AS (
   SELECT
     c.PAT_ID,
@@ -1353,7 +1362,8 @@ outpatient AS (
     pe.PAT_ENC_CSN_ID,
     DATE(pe.CONTACT_DATE) AS VISIT_DATE,
     pe.APPT_STATUS_C,
-    dep.SPECIALTY
+    UPPER(ser.SPECIALTY_NAME) AS SPECIALTY_NAME,
+    CASE WHEN pe.VISIT_PROV_ID = pe.PCP_PROV_ID THEN 1 ELSE 0 END AS IS_PCP_VISIT
   FROM cohort_base c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
@@ -1362,6 +1372,8 @@ outpatient AS (
     AND DATE(pe.CONTACT_DATE) >= DATE('2021-07-01')
   JOIN clarity_cur.dep_loc_ploc_sa_enh dep
     ON dep.department_id = COALESCE(pe.DEPARTMENT_ID, pe.EFFECTIVE_DEPT_ID)
+  LEFT JOIN clarity_cur.clarity_ser_enh ser
+    ON ser.PROV_ID = pe.VISIT_PROV_ID
   WHERE dep.RPT_GRP_SIX IN ('116001', '116002')
 ),
 
@@ -1430,6 +1442,7 @@ inp_24mo AS (
 ),
 
 -- Days since last GI specialist visit (24mo lookback for recency)
+-- Uses clarity_ser_enh for provider specialty (matching Book 6)
 gi_recency AS (
   SELECT
     c.PAT_ID,
@@ -1441,9 +1454,9 @@ gi_recency AS (
     AND DATE(pe.CONTACT_DATE) < c.END_DTTM
     AND DATE(pe.CONTACT_DATE) >= DATE_SUB(c.END_DTTM, 730)
     AND pe.APPT_STATUS_C IN (2, 6)
-  JOIN clarity_cur.dep_loc_ploc_sa_enh dep
-    ON dep.department_id = COALESCE(pe.DEPARTMENT_ID, pe.EFFECTIVE_DEPT_ID)
-  WHERE UPPER(dep.SPECIALTY) LIKE '%GASTRO%'
+  JOIN clarity_cur.clarity_ser_enh ser
+    ON ser.PROV_ID = pe.VISIT_PROV_ID
+  WHERE UPPER(ser.SPECIALTY_NAME) IN ('GASTROENTEROLOGY', 'COLON AND RECTAL SURGERY')
   GROUP BY c.PAT_ID, c.END_DTTM
 ),
 
@@ -1454,13 +1467,11 @@ op_metrics AS (
     END_DTTM,
     -- Total completed outpatient visits
     SUM(CASE WHEN APPT_STATUS_C IN (2, 6) THEN 1 ELSE 0 END) AS outpatient_visits_12mo,
-    -- PCP visits (primary care, family medicine, internal medicine)
-    SUM(CASE WHEN APPT_STATUS_C IN (2, 6)
-         AND (UPPER(SPECIALTY) LIKE '%PRIMARY%' OR UPPER(SPECIALTY) LIKE '%FAMILY%'
-              OR UPPER(SPECIALTY) LIKE '%INTERNAL MED%')
+    -- PCP visits: patient saw their own PCP (matching Book 6)
+    SUM(CASE WHEN APPT_STATUS_C IN (2, 6) AND IS_PCP_VISIT = 1
          THEN 1 ELSE 0 END) AS pcp_visits_12mo,
-    -- Appointment no-shows
-    SUM(CASE WHEN APPT_STATUS_C IN (3, 4) THEN 1 ELSE 0 END) AS no_shows_12mo
+    -- Appointment no-shows only (status 4; excludes cancellations, matching Book 6)
+    SUM(CASE WHEN APPT_STATUS_C = 4 THEN 1 ELSE 0 END) AS no_shows_12mo
   FROM outpatient
   GROUP BY PAT_ID, END_DTTM
 ),
@@ -1576,11 +1587,11 @@ WITH proc_raw AS (
   FROM cohort_base c
   JOIN clarity_cur.order_proc_enh op
     ON op.PAT_ID = c.PAT_ID
-    AND DATE(op.ORDERING_DATE) < c.END_DTTM
-    AND DATE(op.ORDERING_DATE) >= DATE_SUB(c.END_DTTM, 365)
-    AND DATE(op.ORDERING_DATE) >= DATE('2021-07-01')
+    AND DATE(op.RESULT_TIME) < c.END_DTTM
+    AND DATE(op.RESULT_TIME) >= DATE_SUB(c.END_DTTM, 365)
+    AND DATE(op.RESULT_TIME) >= DATE('2021-07-01')
     AND op.ORDER_STATUS_C = 5  -- Completed only
-    AND op.RPT_GRP_SIX IN ('116001', '116002')
+    AND op.RESULT_TIME IS NOT NULL
 )
 
 SELECT

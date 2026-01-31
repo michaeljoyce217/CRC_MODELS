@@ -430,6 +430,28 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 - **Cohort Period**: Jan 2023 - Sept 2024
 - **Random Seed**: 217 (for all random operations)
 
+### Column Reference Rule (CRITICAL)
+
+**NEVER guess or infer column names on Clarity EHR tables.** Always verify column references by checking the corresponding Book notebook that uses the same table. Errors in column names cause runtime failures that require a round-trip to Databricks to diagnose.
+
+**Specific table/column gotchas discovered:**
+- `dep_loc_ploc_sa_enh` does NOT have a `SPECIALTY` column. Use `clarity_ser_enh.SPECIALTY_NAME` via provider join (see Book 6).
+- `PATIENT_ENH` has `RACE` (raw string), not `RACE_BUCKETS` (that's a derived column from Book 0's CTE).
+- `hsp_acct_dx_list_enh` joins to `PAT_ENC_HSP_HAR_ENH` via `HSP_ACCOUNT_ID`, not `PRIM_ENC_CSN_ID` (Book 2 is the reference for ICD joins).
+- Inpatient diagnosis dates should use `DISCH_DATE_TIME` (when diagnoses are finalized), not `HOSP_ADMSN_TIME` (Book 2).
+- Procedure dates should use `RESULT_TIME` (when procedure was done), not `ORDERING_DATE` (Book 7).
+- PCP visits: Book 6 uses `pe.VISIT_PROV_ID = pe.PCP_PROV_ID` (patient saw their own PCP), not department specialty matching.
+- No-shows: `APPT_STATUS_C = 4` only (Book 6). Status 3 = cancellation, not no-show.
+- Lab quality: Book 4 requires `LAB_STATUS_C IN (3, 5)` in addition to `ORDER_STATUS_C`.
+- MAR actions: Book 5.2 accepts 16 action types, not 7.
+
+**When writing new SQL against Clarity tables, always cross-reference the Book that uses the same source table.**
+
+### Known Open Issues in `featurization_train.py`
+
+1. **Missing inpatient lab path**: Book 4 uses TWO lab sources (outpatient via `order_results` and inpatient via `res_components`). `featurization_train.py` only has the outpatient path, missing ~44% of lab data. This is a significant gap that needs the full Book 4 inpatient join chain: `order_proc_enh` -> `clarity_eap` -> `spec_test_rel` -> `res_db_main` -> `res_components` -> `clarity_component`.
+2. **AGE_GROUP encoding**: Book 0 produces string categories (`'age_45_49'`, `'age_50_64'`, etc.). `featurization_train.py` produces ordinal integers (1-5). The model was trained on whatever Book 8/9 produced — need to verify which encoding the model expects.
+
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
 **CRITICAL: `USE CATALOG` is ALWAYS `prod`.** Full source data (Clarity EHR tables) lives only in `prod`. The `dev` and `test` catalogs do NOT have complete data. Every notebook/script must set:
