@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning. Training scripts (`train.py`, `train_optuna.py`, `featurization_train.py`) need feature list updates to match the 49-feature final set.
+**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning. `featurization_train.py` has been rewritten to consolidate Books 0-8 into a single standalone pipeline with the 49-feature set, including the inpatient lab path. Training scripts (`train.py`, `train_optuna.py`) still need feature list updates to match the 49-feature final set.
 
 ---
 
@@ -411,17 +411,17 @@ See `docs/book4_cea_fobt_removal_guide.md` for the cell-by-cell change log.
 
 Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databricks notebooks:
 
-| Script | Purpose | Model Name |
-|--------|---------|------------|
-| `featurization_train.py` | Production featurization pipeline with dynamic cohort window | N/A (produces feature table) |
-| `train.py` | Conservative XGBoost with 49 features | `crc_risk_xgboost_49features` |
-| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_49features_tuned` |
+| Script | Purpose | Model Name | Status |
+|--------|---------|------------|--------|
+| `featurization_train.py` | Standalone Books 0-8 pipeline (49 features) | N/A (produces `herald_train_wide`) | **COMPLETE** |
+| `train.py` | Conservative XGBoost with 49 features | `crc_risk_xgboost_49features` | Needs rewrite |
+| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_49features_tuned` | Needs rewrite |
 
-**Note:** Feature lists in all three scripts need updating to match the 49-feature final set from `Final_EDA/feature_selection_rationale.md`.
+**Note:** `train.py` and `train_optuna.py` still need feature list updates to match the 49-feature final set from `Final_EDA/feature_selection_rationale.md`.
 
 `train.py` and `train_optuna.py` can run concurrently — they use different model names, run names, and temp file paths.
 
-`featurization_train.py` uses a dynamic cohort window: end of last complete month (1-day data lag) → 12-month exclusion buffer → 24-month rolling observation window.
+`featurization_train.py` consolidates Books 0-8 into a single standalone script. It rebuilds the cohort, engineers only the 49 selected features, and writes intermediate tables (`herald_train_vitals`, `herald_train_icd10`, `herald_train_labs`, `herald_train_inpatient_meds`, `herald_train_visits`, `herald_train_procedures`) plus the final wide table (`herald_train_wide`). Uses a fixed study period (2023-01-01 to 2024-09-30) matching Book 0. Includes the full dual-source lab path (outpatient + inpatient).
 
 ---
 
@@ -454,8 +454,9 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 
 ### Known Open Issues in `featurization_train.py`
 
-1. **Missing inpatient lab path**: Book 4 uses TWO lab sources (outpatient via `order_results` and inpatient via `res_components`). `featurization_train.py` only has the outpatient path, missing ~44% of lab data. This is a significant gap that needs the full Book 4 inpatient join chain: `order_proc_enh` -> `clarity_eap` -> `spec_test_rel` -> `res_db_main` -> `res_components` -> `clarity_component`.
-2. **AGE_GROUP encoding**: Book 0 produces string categories (`'age_45_49'`, `'age_50_64'`, etc.). `featurization_train.py` produces ordinal integers (1-5). The model was trained on whatever Book 8/9 produced — need to verify which encoding the model expects.
+1. ~~**Missing inpatient lab path**~~: **RESOLVED.** The rewritten script includes the full dual-source lab path (outpatient via `order_results` + inpatient via `res_components` join chain).
+2. ~~**AGE_GROUP encoding**~~: **RESOLVED.** The rewritten script uses ordinal integers (1-5) matching Book 8's compilation logic.
+3. **`visit_primary_care_continuity_ratio` NULL handling**: Book 6 returns NULL when a patient has no outpatient visits. `featurization_train.py` currently returns 0. This is a known discrepancy — intentionally left for comparison testing. Should be changed to NULL before production use.
 
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
