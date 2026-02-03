@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Rerunning Books 0-9 after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. Training scripts (`train.py`, `train_optuna.py`, `featurization_train.py`) ready; feature lists will be updated after Book 9 rerun.
+**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning. Training scripts (`train.py`, `train_optuna.py`, `featurization_train.py`) need feature list updates to match the 49-feature final set.
 
 ---
 
@@ -134,6 +134,12 @@ CRC_MODELS/
 ├── Original_Methodology/           # Original clustering/SHAP notebooks
 │   ├── CORRELATION_HIERARCHICAL_FEATURE_CLUSTERING.py/.ipynb/.html
 │   └── CRC_ITER1_MODEL-PREVALENCE.py/.ipynb/.html
+├── Final_EDA/                      # Final run outputs with notebooks and artifacts
+│   ├── V2_Book0 through V2_Book9   # Databricks notebooks with outputs
+│   ├── iteration_tracking.csv      # SHAP winnowing metrics per iteration
+│   ├── features_by_iteration.json  # Feature lists at each iteration
+│   ├── cv_stability_report.json    # 5-fold CV stability analysis
+│   └── feature_selection_rationale.md  # Reasoning for 49-feature final set
 ├── claude.md                       # Project instructions (this file)
 └── README.md
 ```
@@ -212,18 +218,20 @@ Create `V2_Book9_Feature_Selection.py` using a **Hybrid Two-Phase Approach**:
 
 | Phase | Method | Features | Purpose |
 |-------|--------|----------|---------|
-| **Phase 1** | Cluster-Based Reduction | 171 → ~70-80 | Remove redundant/correlated features |
-| **Phase 2** | Iterative SHAP Winnowing | ~70-80 → Final | Fine-tune with 20-25 removals per iteration |
+| **Phase 1** | Cluster-Based Reduction | 167 → 143 | Remove redundant/correlated features |
+| **Phase 2** | Iterative SHAP Winnowing | 143 → 26 | Fine-tune with up to 10 removals per iteration |
+| **Phase 3** | CV Stability Analysis | 26 → 26 (all stable) | Validate selection across 5 folds |
 
 ### Input
-- Wide feature table from Book 8 compilation (~171 features)
+- Wide feature table from Book 8 compilation (167 features after quality checks)
 - Train/val/test split assignments from Book 0
 
 ### Output
-- Final reduced feature set (determined by validation gate, not arbitrary target)
+- **49 final features** (48 CV-stable from iter12 + 1 clinical addition)
 - Cluster assignments with justification
 - SHAP importance rankings per iteration
 - Iteration tracking CSV with overfitting metrics
+- CV stability report (5-fold cross-validation)
 
 ---
 
@@ -369,23 +377,20 @@ TARGET_CLUSTER_RANGE = (40, 70)
 
 ---
 
-### Expected Outcome
+### Actual Outcome (Latest Run)
 
 ```
-Starting:     ~170 features
-After Phase 1: ~100-130 features (40-70 clusters)
-After Phase 2: 25-50 features (iterates until 2+ criteria not met)
+Starting:      167 features (after Book 8 quality checks)
+After Phase 1: 143 features (62 clusters at threshold 0.75)
+After Phase 2:  26 features (20 iterations, stopped at MIN_FEATURES_THRESHOLD)
+After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
 
-Each iteration removes 10-30 features that meet 2+ of:
-  - Near-zero SHAP (< 0.0002)
-  - Negative-biased (ratio < 0.15)
-  - Bottom 8%
-
-Stops when remaining features are all "valuable" (don't meet criteria)
-or reaches MIN_FEATURES_THRESHOLD (25).
+Final selection: 49 features
+  = 48 CV-stable features from iteration 12 output
+  + 1 clinical addition (lab_HEMOGLOBIN_ACCELERATING_DECLINE)
 ```
 
-The actual stopping point depends on the data - we let the validation gate decide.
+See `Final_EDA/feature_selection_rationale.md` for full reasoning behind the 49-feature choice.
 
 ---
 
@@ -409,10 +414,10 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 | Script | Purpose | Model Name |
 |--------|---------|------------|
 | `featurization_train.py` | Production featurization pipeline with dynamic cohort window | N/A (produces feature table) |
-| `train.py` | Conservative XGBoost with 40 features | `crc_risk_xgboost_40features` |
-| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_40features_tuned` |
+| `train.py` | Conservative XGBoost with 49 features | `crc_risk_xgboost_49features` |
+| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_49features_tuned` |
 
-**Note:** Feature lists in all three scripts will need updating after Book 9 rerun produces a new final feature set (the CEA/FOBT removal may change which features survive selection).
+**Note:** Feature lists in all three scripts need updating to match the 49-feature final set from `Final_EDA/feature_selection_rationale.md`.
 
 `train.py` and `train_optuna.py` can run concurrently — they use different model names, run names, and temp file paths.
 
@@ -425,7 +430,7 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 - **Platform**: Databricks with PySpark
 - **Data**: Can't query directly (siloed environment) - work from code
 - **Table**: `{trgt_cat}.clncl_ds.herald_eda_train_final_cohort`
-- **Class Imbalance**: 250:1 (0.41% positive rate)
+- **Class Imbalance**: 277:1 (0.36% positive rate)
 - **Prediction Window**: 6 months
 - **Cohort Period**: Jan 2023 - Sept 2024
 - **Random Seed**: 217 (for all random operations)
@@ -479,7 +484,7 @@ spark.sql('USE CATALOG prod')
 ## Key Technical Decisions
 
 1. **Stratified Patient-Level Split**: 70/15/15 train/val/test split with multi-class stratification by cancer type (C18/C19/C20) - ensures balanced populations across splits
-2. **3-Fold CV**: For computational efficiency with ~171 features
+2. **5-Fold CV**: For feature selection stability analysis across train/val splits
 3. **Linear Code Style**: No nested functions - keep readable for debugging
 4. **Documentation**: "What This Cell Does" + "Conclusion" markdown cells
 5. **Dynamic Clustering Threshold**: Silhouette-based instead of fixed 0.7
@@ -493,7 +498,7 @@ spark.sql('USE CATALOG prod')
 
 The SOP specifies ChiSquared (for categorical features) and ANOVA (for numerical features) as statistical methods for feature selection. This pipeline uses **Risk Ratios** and **Mutual Information** instead. This is a deliberate methodological choice, not an oversight.
 
-**Why p-value-based tests are inappropriate at this scale:** With N=831,000 observations, traditional hypothesis tests (ChiSquared, ANOVA) become meaningless. At this sample size, even trivially small effects achieve statistical significance (p < 0.001). A feature with Risk Ratio of 1.01—clinically irrelevant—would pass a ChiSquared test with flying colors simply because the massive sample size crushes sampling noise. The p-value answers "is this association unlikely due to chance?" but at N=831K, the answer is always "yes" for any non-zero effect, regardless of whether that effect matters clinically.
+**Why p-value-based tests are inappropriate at this scale:** With N=858,000 observations, traditional hypothesis tests (ChiSquared, ANOVA) become meaningless. At this sample size, even trivially small effects achieve statistical significance (p < 0.001). A feature with Risk Ratio of 1.01—clinically irrelevant—would pass a ChiSquared test with flying colors simply because the massive sample size crushes sampling noise. The p-value answers "is this association unlikely due to chance?" but at N=858K, the answer is always "yes" for any non-zero effect, regardless of whether that effect matters clinically.
 
 **Why Risk Ratios and Mutual Information are superior for this use case:** Risk Ratios directly quantify *effect size*—a 3.6× risk elevation for rapid weight loss is clinically interpretable and actionable, while "p < 0.001" conveys no magnitude. Mutual Information captures the *information content* of features, including non-linear relationships that correlation-based tests miss. Both metrics scale appropriately with clinical relevance rather than sample size. The SOP lists Mutual Information as an acceptable method (II.3.b.i), and Risk Ratios are the standard effect size measure in epidemiology for categorical outcomes.
 
@@ -516,14 +521,19 @@ claude
 1. **Upload notebooks to Databricks** (Books 0-9 in order)
 2. **Run Books 0-8** to create the wide feature table with SPLIT column
 3. **Run Book 9** for feature selection:
-   - Phase 1: Cluster-based reduction (~171 → ~70-80 features)
-   - Phase 2: Iterative SHAP winnowing (~70-80 → final)
+   - Phase 1: Cluster-based reduction (167 → 143 features)
+   - Phase 2: Iterative SHAP winnowing (143 → 26, 20 iterations)
+   - Phase 3: CV stability analysis (5-fold, all 26 confirmed stable)
    - Checkpoints saved after each step (kill anytime, resume on re-run)
-4. **Outputs** in `feature_selection_outputs/`:
+4. **Final feature set**: 49 features (see `Final_EDA/feature_selection_rationale.md`)
+5. **Outputs** in `feature_selection_outputs/` and `Final_EDA/`:
    - `final_features.txt` - Feature list
    - `final_features.py` - Importable Python list
    - `final_model.pkl` - Trained model
    - `iteration_tracking.csv` - Metrics per iteration
+   - `cv_stability_report.json` - CV stability analysis
+   - `features_by_iteration.json` - Feature lists at each iteration
+   - `feature_selection_rationale.md` - Reasoning for 49-feature selection
 
 ---
 
