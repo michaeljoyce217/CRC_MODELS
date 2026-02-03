@@ -1435,8 +1435,8 @@ SELECT
   -- Primary care continuity
   CASE
     WHEN COALESCE(om.outpatient_visits_12mo, 0) > 0
-    THEN ROUND(COALESCE(om.pcp_visits_12mo, 0) * 1.0 / om.outpatient_visits_12mo, 2)
-    ELSE NULL
+    THEN ROUND(COALESCE(om.pcp_visits_12mo, 0) * 1.0 / om.outpatient_visits_12mo, 3)
+    ELSE 0
   END AS visit_primary_care_continuity_ratio,
   -- No-shows in 12 months
   COALESCE(ns.no_shows_12mo, 0) AS visit_no_shows_12mo,
