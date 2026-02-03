@@ -456,7 +456,7 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 
 1. ~~**Missing inpatient lab path**~~: **RESOLVED.** The rewritten script includes the full dual-source lab path (outpatient via `order_results` + inpatient via `res_components` join chain).
 2. ~~**AGE_GROUP encoding**~~: **RESOLVED.** The rewritten script uses ordinal integers (1-5) matching Book 8's compilation logic.
-3. **`visit_primary_care_continuity_ratio` NULL handling**: Book 6 returns NULL when a patient has no outpatient visits (and rounds to 2 decimal places). `featurization_train.py` returns 0 (and rounds to 3 decimal places). This will cause a mismatch on comparison. Fix after rerunning Books 6-9.
+3. ~~**`visit_primary_care_continuity_ratio` NULL handling**~~: **RESOLVED.** Now matches Book 6: returns NULL when no outpatient visits, rounds to 2 decimal places.
 
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
