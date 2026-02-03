@@ -454,9 +454,24 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 
 ### Known Open Issues in `featurization_train.py`
 
+All previously tracked issues are resolved:
+
 1. ~~**Missing inpatient lab path**~~: **RESOLVED.** The rewritten script includes the full dual-source lab path (outpatient via `order_results` + inpatient via `res_components` join chain).
 2. ~~**AGE_GROUP encoding**~~: **RESOLVED.** The rewritten script uses ordinal integers (1-5) matching Book 8's compilation logic.
 3. ~~**`visit_primary_care_continuity_ratio` NULL handling**~~: **RESOLVED.** Now matches Book 6: returns NULL when no outpatient visits, rounds to 2 decimal places.
+
+### Book 8 Transformation Cell: What Fires and What Doesn't
+
+Book 8's "Transforming Features to Prevent Memorization" cell has four transformations. Two execute; two are dead code due to `vit_` prefix mismatch:
+
+| Transformation | Column Check | Actual Column | Fires? | featurization_train.py |
+|---|---|---|---|---|
+| `_DAYS_SINCE` → ordinal `_RECENCY` | Dynamic search | `vit_DAYS_SINCE_*` | **Yes** | Computed inline in SQL (never creates `_DAYS_SINCE`) |
+| `AGE` → `AGE_GROUP` (1-5) | `'AGE'` | `AGE` | **Yes** | Done in compilation SQL |
+| `WEIGHT_OZ` → `WEIGHT_QUARTILE` (1-4) | `'WEIGHT_OZ'` | `vit_WEIGHT_OZ` | **No** (dead code) | Keeps raw `vit_WEIGHT_OZ` (matches) |
+| `BMI` → `BMI_CATEGORY` (1-4) | `'BMI'` | `vit_BMI` | **No** (dead code) | Keeps raw `vit_BMI` (matches) |
+
+Book 9 consumed `herald_eda_train_wide_cleaned`, which has raw `vit_BMI` and raw `vit_WEIGHT_OZ`. The model was trained on raw values, not categories. `featurization_train.py` output should match for all 49 features.
 
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
