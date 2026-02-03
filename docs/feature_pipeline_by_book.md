@@ -1,3 +1,17 @@
+---
+geometry: "margin=0.75in"
+fontsize: 10pt
+header-includes:
+  - \usepackage{longtable}
+  - \usepackage{booktabs}
+  - \usepackage{array}
+  - \usepackage{etoolbox}
+  - \setlength{\tabcolsep}{3pt}
+  - \renewcommand{\arraystretch}{1.15}
+  - \renewcommand{\_}{\textunderscore\hspace{0pt}}
+  - \AtBeginEnvironment{longtable}{\small}
+---
+
 # CRC Model: Feature Pipeline by Notebook
 
 This document traces every feature from raw clinical data through each reduction stage, with derivation details explaining how each feature is computed.
@@ -13,24 +27,24 @@ This document traces every feature from raw clinical data through each reduction
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource |
-|-----------------|--------|---------------|---------------|
-| Gender | PATIENT_ENH | Yes | Patient.gender |
-| Birth date (for age) | PATIENT_ENH | Yes | Patient.birthDate |
-| Marital status | PATIENT_ENH | Yes | Patient.maritalStatus |
-| Race | PATIENT_ENH | Partial | US Core Patient.race extension |
-| Encounter dates | PAT_ENC_ENH, PAT_ENC_HSP_HAR_ENH | Yes | Encounter.period |
-| PCP assignment (with eff/term dates) | pat_pcp, clarity_ser_enh | Partial | CareTeam / PractitionerRole |
-| Months since first encounter | PAT_ENC_ENH, PAT_ENC_HSP_HAR_ENH | Yes | Derived from Encounter.period |
+| Raw Data Element | Source | FHIR Mapping |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| Gender | PATIENT_ENH | Patient.gender |
+| Birth date (for age) | PATIENT_ENH | Patient.birthDate |
+| Marital status | PATIENT_ENH | Patient.maritalStatus |
+| Race | PATIENT_ENH | US Core Patient.race ext. (Partial) |
+| Encounter dates | PAT_ENC_ENH, PAT_ENC_HSP_HAR_ENH | Encounter.period |
+| PCP assignment (with eff/term dates) | pat_pcp, clarity_ser_enh | CareTeam / PractitionerRole (Partial) |
+| Months since first encounter | PAT_ENC_ENH, PAT_ENC_HSP_HAR_ENH | Derived from Encounter.period |
 
 ### 2. Features Engineered (13 features)
 
 | Feature | Derivation | FHIR-Derivable |
-|---------|-----------|----------------|
+|:------------------------------|:---------------------------------------------------------------|:----------|
 | AGE | Integer: `FLOOR(DATEDIFF(END_DTTM, BIRTH_DATE) / 365.25)`. Filtered to 45-100. | Yes |
 | IS_FEMALE | Binary 1/0: 1 if `GENDER = 'Female'` | Yes |
 | IS_MARRIED_PARTNER | Binary 1/0: 1 if `MARITAL_STATUS IN ('Married', 'Significant other')` | Yes |
-| RACE_CAUCASIAN | Binary 1/0: 1 if RACE_BUCKETS = 'Caucasian'. Raw RACE mapped: 'Unknown/Refused'→NULL, small groups→'Other_Small'. | Partial |
+| RACE_CAUCASIAN | Binary 1/0: 1 if RACE_BUCKETS = 'Caucasian'. Raw RACE mapped: 'Unknown/Refused'->NULL, small groups->'Other_Small'. | Partial |
 | RACE_BLACK_OR_AFRICAN_AMERICAN | Binary 1/0: 1 if RACE_BUCKETS = 'Black or African American' | Partial |
 | RACE_HISPANIC | Binary 1/0: 1 if RACE_BUCKETS = 'Hispanic' | Partial |
 | RACE_ASIAN | Binary 1/0: 1 if RACE_BUCKETS = 'Asian' | Partial |
@@ -46,7 +60,7 @@ This document traces every feature from raw clinical data through each reduction
 Book 8 passes through all Book 0 columns except screening metadata. The columns Book 8 explicitly drops: `LABEL_CONFIDENCE`, `current_screen_status`, and all `vbc_*`/`last_*_date` screening audit columns.
 
 | Feature | Derivation | FHIR-Derivable |
-|---------|-----------|----------------|
+|:------------------------------|:---------------------------------------------------------------|:----------|
 | IS_FEMALE | Binary gender flag | Yes |
 | IS_MARRIED_PARTNER | Binary marital status flag | Yes |
 | HAS_PCP_AT_END | Active PCP at observation date | Partial |
@@ -59,29 +73,21 @@ Book 8 passes through all Book 0 columns except screening metadata. The columns 
 | HAS_FULL_24M_HISTORY | Always 1 (constant after filtering) | Yes |
 | AGE_GROUP | Categorical age band (age_45_49, age_50_64, age_65_74, age_75_plus) | Yes |
 
-### 4. Features in Final Model (3 of 26)
-
-| Feature | Derivation | FHIR-Derivable |
-|---------|-----------|----------------|
-| AGE_GROUP | Categorical age band | Yes |
-| RACE_CAUCASIAN | Binary: 1 if Caucasian | Partial |
-| months_since_cohort_entry | Months since first cohort observation | Yes |
-
 ---
 
 ## Book 1: Vitals
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource / LOINC |
-|-----------------|--------|---------------|----------------------|
-| Systolic blood pressure | pat_enc_enh.BP_SYSTOLIC | Yes | Observation (85354-9) |
-| Diastolic blood pressure | pat_enc_enh.BP_DIASTOLIC | Yes | Observation (85354-9) |
-| Weight (ounces) | pat_enc_enh.WEIGHT | Yes | Observation (29463-7) |
-| Pulse / heart rate | pat_enc_enh.PULSE | Yes | Observation (8867-4) |
-| BMI | pat_enc_enh.BMI | Yes | Observation (39156-5) |
-| Temperature | pat_enc_enh.TEMPERATURE | Yes | Observation (8310-5) |
-| Respiratory rate | pat_enc_enh.RESP_RATE | Yes | Observation (9279-1) |
+| Raw Data Element | Source | FHIR Mapping (LOINC) |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| Systolic blood pressure | pat_enc_enh.BP_SYSTOLIC | Observation (85354-9) |
+| Diastolic blood pressure | pat_enc_enh.BP_DIASTOLIC | Observation (85354-9) |
+| Weight (ounces) | pat_enc_enh.WEIGHT | Observation (29463-7) |
+| Pulse / heart rate | pat_enc_enh.PULSE | Observation (8867-4) |
+| BMI | pat_enc_enh.BMI | Observation (39156-5) |
+| Temperature | pat_enc_enh.TEMPERATURE | Observation (8310-5) |
+| Respiratory rate | pat_enc_enh.RESP_RATE | Observation (9279-1) |
 
 Plausibility filters: Weight 50-800 lbs, BP systolic 60-280, BP diastolic 40-180, Pulse 20-250, BMI 10-100, Temperature 95-105 F, Resp rate 5-60. Measurements within 12-month lookback from END_DTTM (Jul 2021 data cutoff).
 
@@ -110,23 +116,23 @@ Plausibility filters: Weight 50-800 lbs, BP systolic 60-280, BP diastolic 40-180
 Reduction selects optimal features per correlated group, adds 5 composites. All carry `vit_` prefix after Book 8 compilation.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:------------------------------|:---------------------------------------------------------------|:----------|
 | WEIGHT_OZ | Continuous (oz): most recent weight. ROW_NUMBER by date DESC. Plausibility [800, 12800] oz. | Yes |
 | BP_SYSTOLIC | Continuous (mmHg): most recent systolic BP. Plausibility [60, 280]. | Yes |
-| BMI | Continuous (kg/m²): most recent BMI. Plausibility [10, 100]. | Yes |
+| BMI | Continuous (kg/m2): most recent BMI. Plausibility [10, 100]. | Yes |
 | PULSE | Continuous (bpm): most recent heart rate. Plausibility [20, 250]. | Yes |
 | PULSE_PRESSURE | Continuous (mmHg): latest BP_SYSTOLIC - BP_DIASTOLIC. | Yes |
-| WEIGHT_CHANGE_PCT_6M | Continuous (%): `((latest_weight - weight_6mo_ago) / weight_6mo_ago) * 100`. Historical weight matched to ~180 days ± 30 days. | Yes |
+| WEIGHT_CHANGE_PCT_6M | Continuous (%): `((latest_weight - weight_6mo_ago) / weight_6mo_ago) * 100`. Historical weight matched to ~180 days +/- 30 days. | Yes |
 | MAX_WEIGHT_LOSS_PCT_60D | Continuous (%): max pct loss between consecutive weight measurements within 60 days of snapshot. | Yes |
 | WEIGHT_TRAJECTORY_SLOPE | Continuous: `REGR_SLOPE(WEIGHT_OZ, DAYS_BEFORE_END)` over all weights in 12-month window. Positive = gaining weight approaching snapshot. | Yes |
 | WEIGHT_LOSS_10PCT_6M | Binary 1/0: 1 if 6-month weight change <= -10%. | Yes |
 | RAPID_WEIGHT_LOSS_FLAG | Binary 1/0: 1 if MAX_WEIGHT_LOSS_PCT_60D >= 5%. | Yes |
 | DAYS_SINCE_WEIGHT | Integer: days from most recent weight measurement to snapshot date. | Yes |
 | SBP_VARIABILITY_6M | Continuous (mmHg): `STDDEV(BP_SYSTOLIC)` over 6-month window. | Yes |
-| BMI_CHANGE_6M | Continuous (kg/m²): absolute BMI change over 6 months (latest BMI - BMI ~180 days ago). | Yes |
+| BMI_CHANGE_6M | Continuous (kg/m2): absolute BMI change over 6 months (latest BMI - BMI ~180 days ago). | Yes |
 | HYPERTENSION_FLAG | Binary 1/0: 1 if SBP >= 140 or DBP >= 90. | Yes |
 | TACHYCARDIA_FLAG | Binary 1/0: 1 if PULSE > 100. | Yes |
-| FEVER_FLAG | Binary 1/0: 1 if TEMPERATURE > 100.4°F. | Yes |
+| FEVER_FLAG | Binary 1/0: 1 if TEMPERATURE > 100.4 F. | Yes |
 | OBESE_FLAG | Binary 1/0: 1 if BMI >= 30. | Yes |
 | UNDERWEIGHT_FLAG | Binary 1/0: 1 if BMI < 18.5. | Yes |
 | CACHEXIA_RISK_SCORE | Ordinal 0-2: composite of low BMI + weight loss. 2=BMI<20 AND 6mo loss >= 5%; 1=BMI<22+loss or BMI<20 alone; 0=other. | Yes |
@@ -136,31 +142,18 @@ Reduction selects optimal features per correlated group, adds 5 composites. All 
 | abnormal_weight_pattern | Binary 1/0: 1 if MAX_WEIGHT_LOSS_PCT_60D > 5 OR WEIGHT_TRAJECTORY_SLOPE < -0.5. | Yes |
 | bp_instability | Binary 1/0: 1 if SBP_VARIABILITY_6M > 15 mmHg. | Yes |
 
-### 4. Features in Final Model (8 of 26)
-
-| Feature | Derivation | FHIR |
-|---------|-----------|------|
-| vit_WEIGHT_OZ | Most recent weight in ounces | Yes |
-| vit_PULSE_PRESSURE | Latest SBP minus DBP | Yes |
-| vit_WEIGHT_CHANGE_PCT_6M | 6-month weight change percentage | Yes |
-| vit_MAX_WEIGHT_LOSS_PCT_60D | Max consecutive weight loss % in 60 days | Yes |
-| vit_WEIGHT_TRAJECTORY_SLOPE | Linear regression slope of weight over 12 months | Yes |
-| vit_RECENCY_WEIGHT | Days since most recent weight measurement (renamed from DAYS_SINCE_WEIGHT) | Yes |
-| vit_SBP_VARIABILITY_6M | Standard deviation of systolic BP over 6 months | Yes |
-| vit_CACHEXIA_RISK_SCORE | Cachexia risk composite (BMI + weight loss) | Yes |
-
 ---
 
 ## Book 2: ICD-10 Diagnoses
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource |
-|-----------------|--------|---------------|---------------|
-| Outpatient ICD-10 diagnosis codes | pat_enc_dx_enh (via pat_enc_enh) | Yes | Condition |
-| Inpatient ICD-10 diagnosis codes | hsp_acct_dx_list_enh (via pat_enc_hsp_har_enh, using DISCH_DATE_TIME) | Yes | Condition |
-| Problem list (active conditions) | problem_list_hx_enh (status='Active') | Yes | Condition (category=problem-list-item) |
-| Structured family history | prod.clarity.family_hx (MEDICAL_HX_C codes) | Partial | FamilyMemberHistory |
+| Raw Data Element | Source | FHIR Mapping |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| Outpatient ICD-10 diagnosis codes | pat_enc_dx_enh (via pat_enc_enh) | Condition |
+| Inpatient ICD-10 diagnosis codes | hsp_acct_dx_list_enh (via pat_enc_hsp_har_enh, using DISCH_DATE_TIME) | Condition |
+| Problem list (active conditions) | problem_list_hx_enh (status='Active') | Condition (category=problem-list-item) |
+| Structured family history | prod.clarity.family_hx (MEDICAL_HX_C codes) | FamilyMemberHistory (Partial) |
 
 **ICD-10 code families:** GI bleeding (K62.5, K92.1, K92.2), abdominal pain (R10.*), bowel changes (R19.4, K59.0, R19.7), weight loss (R63.4), fatigue (R53.1, R53.83), anemias (D50-D53, D62-D64), iron deficiency anemia (D50.*), polyps (D12.*, K63.5), IBD (K50.*, K51.*), prior malignancy (Z85.*), diabetes (E10.*, E11.*), obesity (E66.*), diverticular (K57.*), constipation (K59.0), and 20+ additional categories.
 
@@ -171,7 +164,7 @@ Reduction selects optimal features per correlated group, adds 5 composites. All 
 All three diagnosis sources (outpatient, inpatient, problem list) are unioned into a curated conditions table. Features span:
 
 | Feature Category | Count | Time Window | Description |
-|-----------------|-------|-------------|-------------|
+|:--------------------------|:--------|:-----------------|:-----------------------------------------------|
 | Symptom flags (12mo/24mo) | 12 | 12/24 months | Binary: any occurrence of each symptom ICD-10 family |
 | Symptom counts (12mo/24mo) | 12 | 12/24 months | Integer: count of diagnosis records per symptom |
 | Risk factor flags | 13 | Ever (lifetime) | Binary: polyps, IBD, malignancy, diabetes, obesity, etc. |
@@ -189,7 +182,7 @@ Note: Comorbidity scores (Charlson, Elixhauser) use outpatient diagnoses only (p
 All carry `icd_` prefix after the reduction step.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:------------------------------|:---------------------------------------------------------------|:----------|
 | icd_BLEED_FLAG_12MO | Binary 1/0: 1 if any K62.5/K92.1/K92.2 (GI hemorrhage) in 12mo before snapshot. Sources: outpatient dx, inpatient dx, problem list. | Yes |
 | icd_BLEED_CNT_12MO | Count: number of bleeding diagnosis records in 12mo. Each encounter/problem entry counted separately. | Yes |
 | icd_ANEMIA_FLAG_12MO | Binary 1/0: 1 if any D50-D53/D62-D64 (nutritional/other anemias) in 12mo. | Yes |
@@ -217,14 +210,6 @@ All carry `icd_` prefix after the reduction step.
 | icd_ELIXHAUSER_SCORE_12MO | Weighted score: simplified Elixhauser from 10 condition categories in 12mo outpatient diagnoses. Weights 1-2 (HTN, CHF, CAD, malignancy, diabetes, dementia, depression, substance use=1; renal, liver=2). | Yes |
 | icd_COMBINED_COMORBIDITY_12MO | Integer: `GREATEST(CHARLSON_SCORE_12MO, ELIXHAUSER_SCORE_12MO)`. | Yes |
 
-### 4. Features in Final Model (3 of 26)
-
-| Feature | Derivation | FHIR |
-|---------|-----------|------|
-| icd_BLEED_CNT_12MO | Count of GI bleeding diagnoses (K62.5, K92.1, K92.2) in 12 months | Yes |
-| icd_MALIGNANCY_FLAG_EVER | Binary: any personal history of malignant neoplasm (Z85.*) ever | Yes |
-| icd_SYMPTOM_BURDEN_12MO | Score 0-6: number of distinct CRC symptom categories present in 12 months | Yes |
-
 ---
 
 ## Book 3: Social Factors -- SKIPPED
@@ -238,13 +223,13 @@ All features excluded during development due to data quality issues. No features
 ### 1. Raw Data Gathered
 
 **Two lab data paths (combined):**
-- **Outpatient:** `order_results` → `clarity_component` (via order_proc_enh). Uses `RESULT_TIME` as date.
-- **Inpatient:** `order_proc_enh` → `clarity_eap` → `spec_test_rel` → `res_db_main` → `res_components` → `clarity_component`. Uses `COMP_VERIF_DTTM` as date.
+- **Outpatient:** `order_results` -> `clarity_component` (via order_proc_enh). Uses `RESULT_TIME` as date.
+- **Inpatient:** `order_proc_enh` -> `clarity_eap` -> `spec_test_rel` -> `res_db_main` -> `res_components` -> `clarity_component`. Uses `COMP_VERIF_DTTM` as date.
 
 Both paths filtered to `LAB_STATUS_C IN (3, 5)` (final/edited results) and `ORDER_STATUS_C` for completed orders.
 
-| Raw Lab Component | FHIR Available | FHIR LOINC |
-|------------------|---------------|------------|
+| Lab Component | FHIR | LOINC |
+|:--------------------------------|:---------|:----------|
 | Hemoglobin | Yes | 718-7 |
 | MCV | Yes | 787-2 |
 | Platelets | Yes | 777-3 |
@@ -264,12 +249,12 @@ Both paths filtered to `LAB_STATUS_C IN (3, 5)` (final/edited results) and `ORDE
 
 **Lookback windows:** Routine labs = 2 years (730 days). Slow-changing markers (CA125, Ferritin, CRP, ESR) = 3 years (1095 days).
 
-**Temporal reference points for trends:** current = most recent; 1mo/3mo/6mo/9mo/12mo prior = closest value to N days ago (±15 day tolerance windows).
+**Temporal reference points for trends:** current = most recent; 1mo/3mo/6mo/9mo/12mo prior = closest value to N days ago (+/-15 day tolerance windows).
 
 ### 2. Features Engineered (~80 before reduction)
 
 | Feature Category | Count | Description |
-|-----------------|-------|-------------|
+|:--------------------------|:--------|:--------------------------------------------------------------|
 | Latest lab values | ~18 | Most recent value per component via ROW_NUMBER |
 | 6-month changes | ~8 | current_value - value_6mo_prior for key labs |
 | 12-month changes | ~4 | current_value - value_12mo_prior |
@@ -285,21 +270,21 @@ Both paths filtered to `LAB_STATUS_C IN (3, 5)` (final/edited results) and `ORDE
 All carry `lab_` prefix.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:------------------------------|:---------------------------------------------------------------|:----------|
 | lab_HEMOGLOBIN_VALUE | Continuous (g/dL): most recent hemoglobin. Plausibility [3, 20]. | Yes |
 | lab_HEMOGLOBIN_6MO_CHANGE | Continuous (g/dL): current hemoglobin minus hemoglobin ~6mo prior. Negative = decline. | Yes |
-| lab_HEMOGLOBIN_DROP_10PCT_FLAG | Binary 1/0: 1 if current HGB < 0.9 × HGB_6mo_prior. | Yes |
+| lab_HEMOGLOBIN_DROP_10PCT_FLAG | Binary 1/0: 1 if current HGB < 0.9 x HGB_6mo_prior. | Yes |
 | lab_HEMOGLOBIN_ACCELERATING_DECLINE | Binary 1/0: 1 if HGB declining AND acceleration increasing. Requires recent velocity < -0.5 g/dL/month AND recent velocity more negative than prior velocity (0-3mo vs 3-6mo comparison). | Yes |
 | lab_HGB_TRAJECTORY | Ordinal 0-3: 0=stable/rising, 1=mild decline (0 to -1 g/dL over 12mo), 2=moderate (-1 to -2), 3=rapid (< -2 g/dL). | Yes |
 | lab_ANEMIA_GRADE | Ordinal 0-3: WHO classification. 0=normal (HGB>=12), 1=mild (11-12), 2=moderate (8-11), 3=severe (<8). | Yes |
-| lab_ANEMIA_SEVERITY_SCORE | Ordinal 0-6: anemia_grade (0-3) + iron_deficiency×2 + microcytosis(MCV<80)×1. | Yes |
+| lab_ANEMIA_SEVERITY_SCORE | Ordinal 0-6: anemia_grade (0-3) + iron_deficiency x 2 + microcytosis(MCV<80) x 1. | Yes |
 | lab_IRON_DEFICIENCY_ANEMIA_FLAG | Binary 1/0: 1 if HGB<12 AND MCV<80 AND (FERRITIN<30 OR iron sat<20%). | Yes |
-| lab_IRON_SATURATION_PCT | Continuous (%, 0-100): calculated as `(IRON_VALUE / TIBC_VALUE) × 100`. Uses most recent paired IRON and TIBC from same encounter where both non-null and TIBC>0. | Yes |
-| lab_PLATELETS_VALUE | Continuous (×10³/µL): most recent platelet count. Plausibility [10, 2000]. | Yes |
+| lab_IRON_SATURATION_PCT | Continuous (%, 0-100): calculated as `(IRON_VALUE / TIBC_VALUE) x 100`. Uses most recent paired IRON and TIBC from same encounter where both non-null and TIBC>0. | Yes |
+| lab_PLATELETS_VALUE | Continuous (x10^3/uL): most recent platelet count. Plausibility [10, 2000]. | Yes |
 | lab_PLATELETS_ACCELERATING_RISE | Binary 1/0: 1 if platelets > 450 AND rise accelerating (0-3mo velocity > 3-6mo velocity). | Yes |
-| lab_THROMBOCYTOSIS_FLAG | Binary 1/0: 1 if most recent platelets > 450 ×10³/µL. | Yes |
+| lab_THROMBOCYTOSIS_FLAG | Binary 1/0: 1 if most recent platelets > 450 x10^3/uL. | Yes |
 | lab_ALBUMIN_VALUE | Continuous (g/dL): most recent albumin. Plausibility [1, 6]. | Yes |
-| lab_ALBUMIN_DROP_15PCT_FLAG | Binary 1/0: 1 if current albumin < 0.85 × albumin_6mo_prior. | Yes |
+| lab_ALBUMIN_DROP_15PCT_FLAG | Binary 1/0: 1 if current albumin < 0.85 x albumin_6mo_prior. | Yes |
 | lab_AST_VALUE | Continuous (U/L): most recent AST. Plausibility [0, 2000]. | Yes |
 | lab_ALK_PHOS_VALUE | Continuous (U/L): most recent alkaline phosphatase. Plausibility [0, 2000]. | Yes |
 | lab_ALT_AST_RATIO | Continuous (unitless): ALT_VALUE / AST_VALUE when AST > 0. NULL if AST null/zero. | Yes |
@@ -312,27 +297,15 @@ All carry `lab_` prefix.
 | lab_inflammatory_burden | Binary 1/0 (composite): 1 if ANY of: CRP>10, THROMBOCYTOSIS=1, or ESR>30. | Yes |
 | lab_progressive_anemia | Binary 1/0 (composite): 1 if ANY of: HGB_TRAJECTORY is RAPID_DECLINE or MODERATE_DECLINE, or HEMOGLOBIN_ACCELERATING_DECLINE=1. | Yes |
 
-### 4. Features in Final Model (7 of 26)
-
-| Feature | Derivation | FHIR |
-|---------|-----------|------|
-| lab_ALBUMIN_VALUE | Most recent serum albumin (g/dL) | Yes |
-| lab_HEMOGLOBIN_ACCELERATING_DECLINE | Hemoglobin declining with accelerating rate | Yes |
-| lab_IRON_SATURATION_PCT | Calculated iron saturation: (Iron/TIBC)×100 | Yes |
-| lab_PLATELETS_ACCELERATING_RISE | Platelets rising with accelerating rate | Yes |
-| lab_PLATELETS_VALUE | Most recent platelet count (×10³/µL) | Yes |
-| lab_THROMBOCYTOSIS_FLAG | Platelets > 450 | Yes |
-| lab_comprehensive_iron_deficiency | Composite: IDA or microcytic anemia or low ferritin+anemia | Yes |
-
 ---
 
 ## Book 5.1: Outpatient Medications
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource |
-|-----------------|--------|---------------|---------------|
-| Outpatient medication orders (16 categories) | order_med_enh | Yes | MedicationRequest |
+| Raw Data Element | Source | FHIR Mapping |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| Outpatient medication orders (16 categories) | order_med_enh | MedicationRequest |
 
 **Filters:** `ORDERING_MODE_C <> 2` (exclude inpatient), `ORDER_STATUS_C IN (2, 5)` (Sent/Completed), `ORDER_CLASS <> 'Historical Med'`, `ORDER_START_TIME >= '2021-07-01'`. 24-month lookback from END_DTTM.
 
@@ -348,7 +321,7 @@ For each of 16 categories, 3 features: `{category}_use_flag` (binary 1/0), `{cat
 All carry `out_med_` prefix. Selection rules: hemorrhoid = keep flag + days_since; iron/laxative/antidiarrheal = keep flag; PPI/statin/metformin = keep flag; others = best MI score feature.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:--------------------------------------|:----------------------------------------------------------|:------|
 | out_med_iron_use_flag | Binary 1/0: any outpatient iron supplement order in 24mo | Yes |
 | out_med_laxative_use_flag | Binary 1/0: any outpatient laxative order in 24mo | Yes |
 | out_med_antidiarrheal_use_flag | Binary 1/0: any outpatient antidiarrheal order in 24mo | Yes |
@@ -367,13 +340,7 @@ All carry `out_med_` prefix. Selection rules: hemorrhoid = keep flag + days_sinc
 | out_med_gi_symptom_meds | Binary 1/0 (composite): 1 if ANY of laxative/antidiarrheal/antispasmodic | Yes |
 | out_med_alternating_bowel | Binary 1/0 (composite): 1 if BOTH laxative AND antidiarrheal (alternating bowel pattern) | Yes |
 | out_med_gi_bleeding_pattern | Binary 1/0 (composite): 1 if BOTH iron AND PPI (GI bleeding management) | Yes |
-| out_med_hemorrhoid_risk_score | Continuous (composite): `30 × exp(-hemorrhoid_meds_days_since / 30)`. Exponential decay; 0 if never prescribed. | Yes |
-
-### 4. Features in Final Model (1 of 26)
-
-| Feature | Derivation | FHIR |
-|---------|-----------|------|
-| out_med_broad_abx_recency | Recency of broad-spectrum antibiotic prescription (days_since or binned variant) | Yes |
+| out_med_hemorrhoid_risk_score | Continuous (composite): `30 x exp(-hemorrhoid_meds_days_since / 30)`. Exponential decay; 0 if never prescribed. | Yes |
 
 ---
 
@@ -381,22 +348,22 @@ All carry `out_med_` prefix. Selection rules: hemorrhoid = keep flag + days_sinc
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource |
-|-----------------|--------|---------------|---------------|
-| Inpatient medication administration records (16 categories) | order_med_enh + mar_admin_info_enh | Yes | MedicationAdministration |
+| Raw Data Element | Source | FHIR Mapping |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| Inpatient medication administration records (16 categories) | order_med_enh + mar_admin_info_enh | MedicationAdministration |
 
 **Key difference from outpatient:** Uses actual administration records (MAR `TAKEN_TIME`), not prescription orders. Filter: `ORDERING_MODE_C = 2` (inpatient), 16 accepted MAR action types (GIVEN, PUSH, BOLUS, NEW BAG, etc.), `TAKEN_TIME >= '2021-07-01'`. 24-month lookback.
 
 ### 2. Features Engineered (48 before reduction)
 
-Same 16 categories × 3 feature types as outpatient, but from confirmed inpatient administration. Column names carry `inp_` prefix from SQL, then `inp_med_` prefix added during save (creating `inp_med_inp_` double prefix).
+Same 16 categories x 3 feature types as outpatient, but from confirmed inpatient administration. Column names carry `inp_` prefix from SQL, then `inp_med_` prefix added during save (creating `inp_med_inp_` double prefix).
 
 ### 3. Features Sent to Book 9 (20 after book-level reduction)
 
 All carry `inp_med_inp_` prefix. Selection rules: hemorrhoid = flag + days_since; GI bleeding = flag + days_since; iron/laxative/opioid = flag; broad ABX/antidiarrheal/PPI = flag; others = best MI.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:--------------------------------------|:----------------------------------------------------------|:------|
 | inp_med_inp_iron_use_flag | Binary 1/0: any inpatient iron administration in 24mo | Yes |
 | inp_med_inp_laxative_use_flag | Binary 1/0: any inpatient laxative administration in 24mo | Yes |
 | inp_med_inp_antidiarrheal_use_flag | Binary 1/0: any inpatient antidiarrheal administration in 24mo | Yes |
@@ -414,25 +381,21 @@ All carry `inp_med_inp_` prefix. Selection rules: hemorrhoid = flag + days_since
 | inp_med_inp_any_hospitalization | Binary 1/0 (composite): ANY of iron/PPI/laxative/opioid/broad ABX administered inpatient | Yes |
 | inp_med_inp_gi_hospitalization | Binary 1/0 (composite): ANY of laxative/antidiarrheal/GI bleeding meds administered inpatient | Yes |
 
-### 4. Features in Final Model
-
-**None.** All 20 inpatient medication features were eliminated during Book 9 iterative SHAP winnowing.
-
 ---
 
 ## Book 6: Visit History
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource |
-|-----------------|--------|---------------|---------------|
-| Outpatient encounters (dates, status) | pat_enc_enh | Yes | Encounter |
-| Appointment status (completed/no-show) | pat_enc_enh.APPT_STATUS_C | Yes | Encounter.status |
-| Provider specialty | clarity_ser_enh.SPECIALTY_NAME | Yes | PractitionerRole.specialty |
-| PCP visit identification | pe.VISIT_PROV_ID = pe.PCP_PROV_ID | Yes | Encounter.participant |
-| ED encounters | pat_enc_hsp_har_enh (ACCT_CLASS='Emergency' or ED_EPISODE_ID IS NOT NULL) | Yes | Encounter (class=emergency) |
-| Inpatient admissions & LOS | pat_enc_hsp_har_enh (ACCT_CLASS='Inpatient') | Yes | Encounter (class=inpatient) |
-| GI symptom diagnoses on encounters | pat_enc_dx_enh / hsp_acct_dx_list_enh | Yes | Condition |
+| Raw Data Element | Source | FHIR Mapping |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| Outpatient encounters (dates, status) | pat_enc_enh | Encounter |
+| Appointment status (completed/no-show) | pat_enc_enh.APPT_STATUS_C | Encounter.status |
+| Provider specialty | clarity_ser_enh.SPECIALTY_NAME | PractitionerRole.specialty |
+| PCP visit identification | pe.VISIT_PROV_ID = pe.PCP_PROV_ID | Encounter.participant |
+| ED encounters | pat_enc_hsp_har_enh (ACCT_CLASS='Emergency' or ED_EPISODE_ID IS NOT NULL) | Encounter (class=emergency) |
+| Inpatient admissions & LOS | pat_enc_hsp_har_enh (ACCT_CLASS='Inpatient') | Encounter (class=inpatient) |
+| GI symptom diagnoses on encounters | pat_enc_dx_enh / hsp_acct_dx_list_enh | Condition |
 
 **GI Symptom ICD-10 codes on encounters:** `^(K92|K59|R19|R50|D50|K62)` (GI bleeding, bowel changes, abdominal pain, fever, anemia, anal/rectal).
 
@@ -443,7 +406,7 @@ All carry `inp_med_inp_` prefix. Selection rules: hemorrhoid = flag + days_since
 ### 2. Features Engineered (41 before reduction)
 
 | Feature Category | Count | Description |
-|-----------------|-------|-------------|
+|:--------------------------|:--------|:--------------------------------------------------------------|
 | ED counts (90d/12mo/24mo) | 4 | ED visits total and GI-symptom ED visits |
 | Inpatient counts | 4 | Admissions, GI-symptom admissions, total inpatient days |
 | Outpatient counts | 5 | Total visits, GI specialty, PCP, GI-symptom outpatient |
@@ -458,7 +421,7 @@ All carry `inp_med_inp_` prefix. Selection rules: hemorrhoid = flag + days_since
 19 surviving pre-reduction features + 5 new composites. All carry `visit_` prefix.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:--------------------------------------|:----------------------------------------------------------|:------|
 | visit_ed_last_12_months | Count: ED encounters in 12mo. ED = ACCT_CLASS='Emergency' or ED_EPISODE_ID IS NOT NULL. | Yes |
 | visit_ed_last_24_months | Count: ED encounters in 24mo. | Yes |
 | visit_gi_ed_last_12_months | Count: ED encounters in 12mo with GI symptom diagnosis attached (K92/K59/R19/R50/D50/K62). | Yes |
@@ -484,37 +447,28 @@ All carry `inp_med_inp_` prefix. Selection rules: hemorrhoid = flag + days_since
 | visit_complexity_category | Ordinal 0-3 (composite): 3=High (intensity>=3), 2=Moderate (intensity>=1), 1=Low (any visits), 0=None. | Yes |
 | visit_recent_acute_care | Binary 1/0 (composite): 1 if ED in last 90 days OR hospitalization in last 180 days. | Yes |
 
-### 4. Features in Final Model (4 of 26)
-
-| Feature | Derivation | FHIR |
-|---------|-----------|------|
-| visit_outpatient_visits_12mo | Count of completed outpatient visits in 12 months | Yes |
-| visit_recency_last_gi | Days since last GI specialty visit (renamed from visit_days_since_last_gi) | Yes |
-| visit_gi_symptoms_no_specialist | GI symptoms present but no specialist seen (care gap) | Yes |
-| visit_recent_acute_care | Any recent ED (90d) or hospitalization (180d) | Yes |
-
 ---
 
 ## Book 7: Procedures
 
 ### 1. Raw Data Gathered
 
-| Raw Data Element | Source | FHIR Available | FHIR Resource |
-|-----------------|--------|---------------|---------------|
-| CT abdomen/pelvis (18 internal codes) | order_proc_enh (RESULT_TIME, ORDER_STATUS_C=5) | Yes | Procedure / ImagingStudy |
-| MRI abdomen/pelvis (9 internal codes) | order_proc_enh | Yes | Procedure / ImagingStudy |
-| Upper GI endoscopy/EGD (4 codes) | order_proc_enh | Yes | Procedure |
-| Blood transfusion (4 codes) | order_proc_enh | Yes | Procedure |
-| Anoscopy (1 code: PRO105) | order_proc_enh | Yes | Procedure |
-| Hemorrhoid procedures (2 codes) | order_proc_enh | Yes | Procedure |
-| Iron infusions (IV iron formulations) | mar_admin_info_enh (MAR_ACTION_C=1, medication name matching) | Yes | MedicationAdministration |
+| Raw Data Element | Source | FHIR Mapping |
+|:-------------------------------|:--------------------------------------|:--------------------------------------|
+| CT abdomen/pelvis (18 internal codes) | order_proc_enh (RESULT_TIME, ORDER_STATUS_C=5) | Procedure / ImagingStudy |
+| MRI abdomen/pelvis (9 internal codes) | order_proc_enh | Procedure / ImagingStudy |
+| Upper GI endoscopy/EGD (4 codes) | order_proc_enh | Procedure |
+| Blood transfusion (4 codes) | order_proc_enh | Procedure |
+| Anoscopy (1 code: PRO105) | order_proc_enh | Procedure |
+| Hemorrhoid procedures (2 codes) | order_proc_enh | Procedure |
+| Iron infusions (IV iron formulations) | mar_admin_info_enh (MAR_ACTION_C=1, medication name matching) | MedicationAdministration |
 
 Note: Colonoscopy deliberately excluded (screened patients already removed from cohort). Procedure date = `RESULT_TIME` (when performed), not `ORDERING_DATE`.
 
 ### 2. Features Engineered (28 before reduction)
 
 | Feature Category | Count | Description |
-|-----------------|-------|-------------|
+|:--------------------------|:--------|:--------------------------------------------------------------|
 | Procedure counts (12mo) | 7 | Per-category counts in 12-month window |
 | Procedure counts (24mo) | 7 | Per-category counts in 24-month window |
 | Recency | 6 | Days since last procedure per category |
@@ -526,7 +480,7 @@ Note: Colonoscopy deliberately excluded (screened patients already removed from 
 14 surviving + 3 new composites. All carry `proc_` prefix.
 
 | Feature | Derivation | FHIR |
-|---------|-----------|------|
+|:--------------------------------------|:----------------------------------------------------------|:------|
 | proc_ct_abd_pelvis_count_12mo | Count: completed CT abdomen/pelvis orders (18 internal codes) in 12mo. COALESCE to 0. | Yes |
 | proc_mri_abd_pelvis_count_12mo | Count: completed MRI abdomen/pelvis orders (9 internal codes) in 12mo. COALESCE to 0. | Yes |
 | proc_upper_gi_count_12mo | Count: completed upper GI endoscopy/EGD orders (4 codes) in 12mo. COALESCE to 0. | Yes |
@@ -545,46 +499,28 @@ Note: Colonoscopy deliberately excluded (screened patients already removed from 
 | proc_diagnostic_cascade | Binary 1/0 (composite): 1 if imaging >= 2 AND upper GI >= 1 in 12mo (unresolved diagnostic workup). | Yes |
 | proc_acute_bleeding_pattern | Binary 1/0 (composite): 1 if (transfusion in last 90 days) OR (2+ transfusions in 12mo). Active/recurrent bleeding. | Yes |
 
-### 4. Features in Final Model
-
-**None.** All 17 procedure features were eliminated during Book 9 iterative SHAP winnowing.
-
 ---
 
 ## Pipeline Summary
 
 ### Feature Counts at Each Stage
 
-| Book | Domain | Raw Data | Engineered | After Book Reduction | Sent to Book 9 | In Final Model |
-|------|--------|----------|-----------|---------------------|----------------|---------------|
-| 0 | Demographics | 7 | 13 | -- | 11 | 3 |
-| 1 | Vitals | 7 | ~50 | 24 | 24 | 8 |
-| 2 | ICD-10 Diagnoses | ~50 code families | 116 | 26 | 26 | 3 |
-| 3 | Social Factors | -- | -- | -- | -- | -- |
-| 4 | Labs | 14 components | ~80 | 25 | 25 | 7 |
-| 5.1 | Outpatient Meds | 16 med categories | 48 | 19 | 19 | 1 |
-| 5.2 | Inpatient Meds | 16 med categories | 48 | 20 | 20 | 0 |
-| 6 | Visit History | 6 encounter types | 41 | 24 | 24 | 4 |
-| 7 | Procedures | 7 procedure types | 28 | 17 | 17 | 0 |
-| **Total** | | | **~424** | **~166** | **~166** | **26** |
-
-### Final 26 Features by Domain
-
-| Domain | Count | Features |
-|--------|-------|----------|
-| Demographics (Book 0) | 3 | AGE_GROUP, RACE_CAUCASIAN, months_since_cohort_entry |
-| Vitals (Book 1) | 8 | vit_WEIGHT_OZ, vit_PULSE_PRESSURE, vit_WEIGHT_CHANGE_PCT_6M, vit_MAX_WEIGHT_LOSS_PCT_60D, vit_WEIGHT_TRAJECTORY_SLOPE, vit_RECENCY_WEIGHT, vit_SBP_VARIABILITY_6M, vit_CACHEXIA_RISK_SCORE |
-| ICD-10 (Book 2) | 3 | icd_BLEED_CNT_12MO, icd_MALIGNANCY_FLAG_EVER, icd_SYMPTOM_BURDEN_12MO |
-| Labs (Book 4) | 7 | lab_ALBUMIN_VALUE, lab_HEMOGLOBIN_ACCELERATING_DECLINE, lab_IRON_SATURATION_PCT, lab_PLATELETS_ACCELERATING_RISE, lab_PLATELETS_VALUE, lab_THROMBOCYTOSIS_FLAG, lab_comprehensive_iron_deficiency |
-| Outpatient Meds (Book 5.1) | 1 | out_med_broad_abx_recency |
-| Visit History (Book 6) | 4 | visit_outpatient_visits_12mo, visit_recency_last_gi, visit_gi_symptoms_no_specialist, visit_recent_acute_care |
+| Book | Domain | Raw Data | Engineered | Sent to Book 9 |
+|:------|:-------------------|:-------------------|:-----------|:----------------|
+| 0 | Demographics | 7 | 13 | 11 |
+| 1 | Vitals | 7 | ~50 | 24 |
+| 2 | ICD-10 Diagnoses | ~50 code families | 116 | 26 |
+| 3 | Social Factors | -- | -- | -- |
+| 4 | Labs | 14 components | ~80 | 25 |
+| 5.1 | Outpatient Meds | 16 med categories | 48 | 19 |
+| 5.2 | Inpatient Meds | 16 med categories | 48 | 20 |
+| 6 | Visit History | 6 encounter types | 41 | 24 |
+| 7 | Procedures | 7 procedure types | 28 | 17 |
+| **Total** | | | **~424** | **~166** |
 
 ### FHIR Availability Summary
 
 | Stage | Total Features | FHIR-Derivable | Partial | Not Available |
-|-------|---------------|---------------|---------|--------------|
+|:----------------------|:----------------|:----------------|:--------------------------------------|:------------|
 | Raw data gathered | ~80 elements | ~75 | ~5 (PCP, family hx, race) | 0 |
 | Sent to Book 9 | ~166 | ~159 | ~7 (PCP, family hx, race features) | 0 |
-| Final 26 features | 26 | 25 | 1 (RACE_CAUCASIAN) | 0 |
-
-**Key finding:** 25 of the 26 final model features can be fully derived from standard FHIR resources. The sole Partial feature is `RACE_CAUCASIAN`, which depends on US Core race extension implementation. All medication features except one (broad-spectrum antibiotic recency) were eliminated. All procedure features were eliminated. The model relies primarily on vitals, labs, diagnoses, and visit patterns.
