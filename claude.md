@@ -143,7 +143,7 @@ CRC_MODELS/
 └── README.md
 ```
 
-**Notebook organization:** Each methodology folder (MERCY_EFFORTS, LUCEM_NODEM_NOVIS, LUCEM_NOVIS) has STANDARD and MED_ADVERSE subdirectories. When run on Databricks, each notebook generates its own checkpoint artifacts (iteration_tracking.csv, features_by_iteration.json, cv_stability_report.json) in its respective `feature_selection_outputs/` directory.
+**Notebook organization:** Each methodology folder (MERCY_EFFORTS, LUCEM_NODEM_NOVIS, LUCEM_NOVIS) has STANDARD and MED_ADVERSE subdirectories. When run on Databricks, each notebook generates its own checkpoint artifacts in its respective `feature_selection_outputs/` directory. Output filenames are prefixed by methodology: `mercy_standard_` for Standard and `mercy_med_adverse_` for Med-Averse (e.g., `mercy_standard_iteration_tracking.csv`, `mercy_med_adverse_iteration_tracking.csv`) so files don't collide when downloaded.
 
 ## Completed Work Summary
 
@@ -230,13 +230,16 @@ Implemented in `Mercy_Standard_Feature_Selection.ipynb` and `Mercy_Med_Adverse_F
 - Train/val/test split assignments from Book 0
 
 ### Output (per notebook run)
+
+All output filenames are prefixed by methodology: `mercy_standard_` (Standard) or `mercy_med_adverse_` (Med-Averse). Examples below use `{prefix}` as placeholder:
+
 - Cluster assignments with justification
 - SHAP importance rankings per iteration
-- `iteration_tracking.csv` - Metrics per iteration
-- `features_by_iteration.json` - Feature lists at each iteration
-- `cv_stability_report.json` - 5-fold CV stability analysis
-- `phase4_final_features.json` - Selected features with rationale
-- `phase5_production_model.json` - Trained production model
+- `{prefix}iteration_tracking.csv` - Metrics per iteration
+- `{prefix}features_by_iteration.json` - Feature lists at each iteration
+- `{prefix}cv_stability_report.json` - 5-fold CV stability analysis
+- `{prefix}phase4_final_features.json` - Selected features with rationale
+- `{prefix}phase5_production_model.json` - Trained production model
 - Spark table: `herald_std_final_features` (standard) or `herald_med_averse_final_features` (med-averse)
 
 ---
@@ -426,7 +429,7 @@ PHASE4_CLINICAL_MUST_KEEP = ['lab_HEMOGLOBIN_ACCELERATING_DECLINE']
 ```
 
 **Logic:**
-1. Load Phase 1-3 checkpoint artifacts (iteration_tracking.csv, features_by_iteration.json, cv_stability_report.json)
+1. Load Phase 1-3 checkpoint artifacts (`{prefix}iteration_tracking.csv`, `{prefix}features_by_iteration.json`, `{prefix}cv_stability_report.json`)
 2. Filter iterations by |train_val_gap| < 0.02 (overfitting guard)
 3. Find best val AUPRC among qualified iterations
 4. Apply 10% parsimony tolerance: keep iterations within 10% of best
@@ -460,7 +463,7 @@ n_estimators = 3000    # more trees (early stopping controls)
 **Outputs:**
 - Train/Val/Test metrics: AUPRC, AUROC, Brier score, Lift @ top 1%
 - SHAP importance ranking + beeswarm plot
-- Production model saved to `phase5_production_model.json`
+- Production model saved to `{prefix}phase5_production_model.json`
 
 ---
 
@@ -590,12 +593,12 @@ claude
    - Phase 4: Automated parsimony-aware iteration selection (~27 features)
    - Phase 5: Production model training with relaxed XGBoost params
    - Checkpoints saved after each step (kill anytime, resume on re-run)
-4. **Outputs** saved to `feature_selection_outputs/` on DBFS:
-   - `iteration_tracking.csv` - Metrics per iteration
-   - `features_by_iteration.json` - Feature lists at each iteration
-   - `cv_stability_report.json` - CV stability analysis
-   - `phase4_final_features.json` - Automated feature selection result
-   - `phase5_production_model.json` - Production model
+4. **Outputs** saved to `feature_selection_outputs/` on DBFS (filenames prefixed `mercy_standard_` or `mercy_med_adverse_`):
+   - `{prefix}iteration_tracking.csv` - Metrics per iteration
+   - `{prefix}features_by_iteration.json` - Feature lists at each iteration
+   - `{prefix}cv_stability_report.json` - CV stability analysis
+   - `{prefix}phase4_final_features.json` - Automated feature selection result
+   - `{prefix}phase5_production_model.json` - Production model
    - Spark table: `herald_std_final_features` or `herald_med_averse_final_features`
 
 ---
