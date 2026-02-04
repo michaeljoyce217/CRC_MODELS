@@ -127,9 +127,11 @@ CRC_MODELS/
 │   │   │   └── Mercy_Standard_Feature_Selection.ipynb  # Phases 1-5
 │   │   └── MED_ADVERSE/
 │   │       └── Mercy_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5 with med tiebreaking
-│   ├── LUCEM_NODEM_NOVIS/          # Future: alternate methodology (empty)
+│   ├── LUCEM_NODEM_NOVIS/          # No visit features + no demographics (Book 0 + Book 6 excluded)
 │   │   ├── STANDARD/
+│   │   │   └── Lucem_Nodem_Novis_Standard_Feature_Selection.ipynb  # Phases 1-5, visit_ + demographics excluded
 │   │   └── MED_ADVERSE/
+│   │       └── Lucem_Nodem_Novis_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5, visit_ + demographics excluded, med tiebreaking
 │   ├── LUCEM_NOVIS/                # No visit features (Book 6 excluded)
 │   │   ├── STANDARD/
 │   │   │   └── Lucem_Novis_Standard_Feature_Selection.ipynb  # Phases 1-5, visit_ excluded
@@ -153,8 +155,12 @@ CRC_MODELS/
 | Mercy Med-Averse | `mercy_med_adverse_` | `herald_med_averse_final_features` |
 | Lucem Novis Standard | `lucem_novis_standard_` | `herald_lucem_novis_std_final_features` |
 | Lucem Novis Med-Averse | `lucem_novis_med_adverse_` | `herald_lucem_novis_med_averse_final_features` |
+| Lucem Nodem Novis Standard | `lucem_nodem_novis_standard_` | `herald_lucem_nodem_novis_std_final_features` |
+| Lucem Nodem Novis Med-Averse | `lucem_nodem_novis_med_adverse_` | `herald_lucem_nodem_novis_med_averse_final_features` |
 
 **Lucem Novis variant:** Identical to the corresponding Mercy pipeline except all visit history features (Book 6, `visit_` prefix) are excluded at data load. This tests whether visit utilization patterns add predictive value beyond clinical signals.
+
+**Lucem Nodem Novis variant:** Excludes both visit history features (Book 6) AND demographic features (Book 0: `AGE`/`AGE_GROUP`, `IS_FEMALE`, `IS_MARRIED_PARTNER`, `RACE_*`, `HAS_PCP_AT_END`, `HAS_FULL_24M_HISTORY`, `OBS_MONTHS_PRIOR`). This tests whether the model can predict using only clinical signals (labs, vitals, diagnoses, medications, procedures) without demographic or utilization data.
 
 ## Completed Work Summary
 
@@ -598,6 +604,8 @@ claude
    - `Final_EDA/MERCY_EFFORTS/MED_ADVERSE/Mercy_Med_Adverse_Feature_Selection.ipynb`
    - `Final_EDA/LUCEM_NOVIS/STANDARD/Lucem_Novis_Standard_Feature_Selection.ipynb`
    - `Final_EDA/LUCEM_NOVIS/MED_ADVERSE/Lucem_Novis_Med_Adverse_Feature_Selection.ipynb`
+   - `Final_EDA/LUCEM_NODEM_NOVIS/STANDARD/Lucem_Nodem_Novis_Standard_Feature_Selection.ipynb`
+   - `Final_EDA/LUCEM_NODEM_NOVIS/MED_ADVERSE/Lucem_Nodem_Novis_Med_Adverse_Feature_Selection.ipynb`
 2. **Run Books 0-8** (in DATASET_CREATION) to create the wide feature table with SPLIT column
 3. **Run feature selection notebook** (Standard or Med-Averse):
    - Phase 1: Cluster-based reduction (167 → ~143 features)
