@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. Books 9 and 9b now include **Phase 4** (automated parsimony-aware feature selection) and **Phase 5** (production model training). The automated pipeline selects ~27 features via 10% parsimony tolerance, then retrains with production XGBoost parameters. See `Final_EDA/feature_selection_rationale.md` for background on the manual 49-feature selection that informed this approach.
+**Current Status**: All notebooks complete. Books 0-8 (dataset creation) are finalized. Feature selection notebooks (Mercy Standard and Med-Averse) include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). Phase 4 selects ~27 features via 10% parsimony tolerance; Phase 5 retrains with relaxed XGBoost parameters. **Next step**: Run notebooks on Databricks to generate final feature sets and production models. See `Final_EDA/feature_selection_rationale.md` for background on the earlier manual 49-feature selection.
 
 ---
 
@@ -94,7 +94,7 @@ The **original CRC_ITER1_MODEL-PREVALENCE.py** was a manual iterative process th
 4. **High-importance cluster protection** (top 20% max_shap = max 1 removal)
 5. **Global cap** of 30 removals per iteration
 
-The automated Book 9 now implements this exact logic.
+The automated feature selection notebooks (Mercy Standard / Med-Averse) now implement this exact logic.
 
 ---
 
@@ -120,16 +120,30 @@ CRC_MODELS/
 │   ├── CORRELATION_HIERARCHICAL_FEATURE_CLUSTERING.py/.ipynb/.html
 │   └── CRC_ITER1_MODEL-PREVALENCE.py/.ipynb/.html
 ├── Final_EDA/                      # Final run outputs with notebooks and artifacts
-│   ├── V2_Book0 through V2_Book8   # Databricks notebooks with outputs
-│   ├── Mercy_Standard_Feature_Selection.ipynb  # Book 9: standard pipeline (Phases 1-5)
-│   ├── Mercy_Med_Adverse_Feature_Selection.ipynb  # Book 9b: med-averse variant
-│   ├── iteration_tracking.csv      # SHAP winnowing metrics per iteration
-│   ├── features_by_iteration.json  # Feature lists at each iteration
-│   ├── cv_stability_report.json    # 5-fold CV stability analysis
-│   └── feature_selection_rationale.md  # Reasoning for 49-feature final set
+│   ├── DATASET_CREATION/           # Books 0-8: cohort + feature engineering
+│   │   └── V2_Book0 through V2_Book8 (.ipynb)
+│   ├── MERCY_EFFORTS/              # Mercy feature selection pipelines
+│   │   ├── STANDARD/
+│   │   │   └── Mercy_Standard_Feature_Selection.ipynb  # Phases 1-5
+│   │   └── MED_ADVERSE/
+│   │       └── Mercy_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5 with med tiebreaking
+│   ├── LUCEM_NODEM_NOVIS/          # Future: alternate methodology (empty)
+│   │   ├── STANDARD/
+│   │   └── MED_ADVERSE/
+│   ├── LUCEM_NOVIS/                # Future: alternate methodology (empty)
+│   │   ├── STANDARD/
+│   │   └── MED_ADVERSE/
+│   ├── OLD_EFFORTS/                # Archived/superseded notebooks (empty)
+│   ├── compiled/                   # Reduced production-ready scripts (Books 0-8)
+│   │   ├── reduced_V2_Book0 through reduced_V2_Book8 (.py)
+│   │   └── herald_test_train_pipeline.py
+│   ├── CRC_Feature_Dictionary_with_codes.xlsx
+│   └── feature_selection_rationale.md  # Reasoning for manual 49-feature selection
 ├── claude.md                       # Project instructions (this file)
 └── README.md
 ```
+
+**Notebook organization:** Each methodology folder (MERCY_EFFORTS, LUCEM_NODEM_NOVIS, LUCEM_NOVIS) has STANDARD and MED_ADVERSE subdirectories. When run on Databricks, each notebook generates its own checkpoint artifacts (iteration_tracking.csv, features_by_iteration.json, cv_stability_report.json) in its respective `feature_selection_outputs/` directory.
 
 ## Completed Work Summary
 
@@ -197,28 +211,33 @@ Analyzed two notebooks in Original_Methodology folder:
 
 ---
 
-## Phase 4: New Feature Selection Pipeline (COMPLETE)
+## Feature Selection Pipeline (COMPLETE)
 
 ### Pipeline Overview
 
-Create `V2_Book9_Feature_Selection.py` using a **Hybrid Two-Phase Approach**:
+Implemented in `Mercy_Standard_Feature_Selection.ipynb` and `Mercy_Med_Adverse_Feature_Selection.ipynb`:
 
 | Phase | Method | Features | Purpose |
 |-------|--------|----------|---------|
 | **Phase 1** | Cluster-Based Reduction | 167 → 143 | Remove redundant/correlated features |
 | **Phase 2** | Iterative SHAP Winnowing | 143 → 26 | Fine-tune with up to 10 removals per iteration |
-| **Phase 3** | CV Stability Analysis | 26 → 26 (all stable) | Validate selection across 5 folds |
+| **Phase 3** | CV Stability Analysis | validates all | Confirm selection across 5 folds |
+| **Phase 4** | Parsimony-Aware Selection | → ~27 | Automated iteration + CV filter + clinical add-backs |
+| **Phase 5** | Production Model Training | final set | Retrain with relaxed XGBoost params + SHAP analysis |
 
 ### Input
 - Wide feature table from Book 8 compilation (167 features after quality checks)
 - Train/val/test split assignments from Book 0
 
-### Output
-- **49 final features** (48 CV-stable from iter12 + 1 clinical addition)
+### Output (per notebook run)
 - Cluster assignments with justification
 - SHAP importance rankings per iteration
-- Iteration tracking CSV with overfitting metrics
-- CV stability report (5-fold cross-validation)
+- `iteration_tracking.csv` - Metrics per iteration
+- `features_by_iteration.json` - Feature lists at each iteration
+- `cv_stability_report.json` - 5-fold CV stability analysis
+- `phase4_final_features.json` - Selected features with rationale
+- `phase5_production_model.json` - Trained production model
+- Spark table: `herald_std_final_features` (standard) or `herald_med_averse_final_features` (med-averse)
 
 ---
 
@@ -364,28 +383,39 @@ TARGET_CLUSTER_RANGE = (40, 70)
 
 ---
 
-### Actual Outcome (Latest Run)
+### Prior Run Results (Manual 49-Feature Selection)
+
+The earlier manual run (documented in `Final_EDA/feature_selection_rationale.md`) produced:
 
 ```
 Starting:      167 features (after Book 8 quality checks)
 After Phase 1: 143 features (62 clusters at threshold 0.75)
 After Phase 2:  26 features (20 iterations, stopped at MIN_FEATURES_THRESHOLD)
 After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
-After Phase 4:  ~27 features (parsimony-aware selection + clinical add-backs)
-After Phase 5:  Production model trained with relaxed hyperparameters
+Manual pick:    49 features (iter12 CV-stable subset + 1 clinical addition)
 ```
 
-**Phase 4 selection logic:** 10% parsimony tolerance from best val AUPRC, then pick fewest features. Selects iter20 (26 features), adds back `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical must-keep, CV-stable at 3/5 folds) → 27 features.
+### Expected Outcome (Automated Phases 4-5)
 
-**Book 9b (Med-Averse):** Same pipeline but with tiebreaker penalties on medication features during Phases 1-2 SHAP winnowing. Output table: `herald_med_averse_final_features`.
+With Phase 4 automation using 10% parsimony tolerance:
 
-See `Final_EDA/feature_selection_rationale.md` for background on the earlier manual 49-feature selection.
+```
+Phase 4 selects: iter20 (26 features, fewest within 10% of best val AUPRC)
+CV stability filter: removes any features appearing in <3/5 folds
+Clinical add-back: lab_HEMOGLOBIN_ACCELERATING_DECLINE (if CV-stable)
+Expected final: ~27 features
+Phase 5: Production model trained on final feature set
+```
+
+**Notebooks must be run on Databricks to generate actual results.** Each methodology variant (Standard, Med-Averse) may produce different final feature sets.
+
+**Med-Averse difference:** Phases 1-2 apply `MED_TIEBREAK_BAND = 0.05` — when a medication and non-medication feature are similarly ranked during SHAP winnowing, the medication feature is removed first. Phases 3-5 are identical to Standard.
 
 ---
 
-### Phase 4: Automated Parsimony-Aware Feature Selection (NEW)
+### Phase 4: Automated Parsimony-Aware Feature Selection
 
-**Added to both Book 9 and Book 9b as new cells at the end of the notebook.**
+**Cells 55-59 in both Standard and Med-Averse notebooks.**
 
 **Parameters:**
 ```python
@@ -405,13 +435,15 @@ PHASE4_CLINICAL_MUST_KEEP = ['lab_HEMOGLOBIN_ACCELERATING_DECLINE']
 7. Add back CLINICAL_MUST_KEEP features if CV-stable
 8. Save to Spark table (`herald_std_final_features` or `herald_med_averse_final_features`)
 
-**Book 9b (Med-Averse) difference:** Phase 4 is identical to Book 9. The med-averse behavior is in Phases 1-2, which apply tiebreaker penalties to medication features during SHAP winnowing — when a medication and non-medication feature are similarly ranked, the medication feature is removed first. By Phase 4, this preference is already reflected in the iteration results.
+**Med-Averse difference:** Phase 4 is identical to Standard. The med-averse behavior is in Phases 1-2 (MED_TIEBREAK_BAND = 0.05), which is already reflected in the iteration results by Phase 4.
 
 **Why 10% parsimony tolerance:** With 250:1 class imbalance, val AUPRC oscillates (~SD 0.007). A 10% band captures iterations that are statistically indistinguishable. Published CRC ML models use 8-30 features (Li 2025, Hornbrook 2020). EPV ≥ 20 is recommended for ML with variable selection; at 27 features our EPV is ~115.
 
 ---
 
-### Phase 5: Production Model Training (NEW)
+### Phase 5: Production Model Training
+
+**Cells 60-63 in both Standard and Med-Averse notebooks.**
 
 **Production XGBoost parameters** (relaxed from winnowing's ultra-conservative):
 ```python
@@ -483,7 +515,7 @@ Book 8's "Transforming Features to Prevent Memorization" cell has four transform
 | `WEIGHT_OZ` → `WEIGHT_QUARTILE` (1-4) | `'WEIGHT_OZ'` | `vit_WEIGHT_OZ` | **No** (dead code) |
 | `BMI` → `BMI_CATEGORY` (1-4) | `'BMI'` | `vit_BMI` | **No** (dead code) |
 
-Book 9 consumed `herald_eda_train_wide_cleaned`, which has raw `vit_BMI` and raw `vit_WEIGHT_OZ`. The model was trained on raw values, not categories.
+The feature selection notebooks consume `herald_eda_train_wide_cleaned`, which has raw `vit_BMI` and raw `vit_WEIGHT_OZ`. The model was trained on raw values, not categories.
 
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
@@ -546,22 +578,25 @@ claude
 
 ## Running the Pipeline
 
-1. **Upload notebooks to Databricks** (Books 0-9 in order)
-2. **Run Books 0-8** to create the wide feature table with SPLIT column
-3. **Run Book 9** for feature selection:
-   - Phase 1: Cluster-based reduction (167 → 143 features)
-   - Phase 2: Iterative SHAP winnowing (143 → 26, 20 iterations)
-   - Phase 3: CV stability analysis (5-fold, all 26 confirmed stable)
+1. **Upload notebooks to Databricks:**
+   - `Final_EDA/DATASET_CREATION/V2_Book0` through `V2_Book8`
+   - `Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb`
+   - `Final_EDA/MERCY_EFFORTS/MED_ADVERSE/Mercy_Med_Adverse_Feature_Selection.ipynb`
+2. **Run Books 0-8** (in DATASET_CREATION) to create the wide feature table with SPLIT column
+3. **Run feature selection notebook** (Standard or Med-Averse):
+   - Phase 1: Cluster-based reduction (167 → ~143 features)
+   - Phase 2: Iterative SHAP winnowing (~143 → ~26, ~20 iterations)
+   - Phase 3: CV stability analysis (5-fold validation)
+   - Phase 4: Automated parsimony-aware iteration selection (~27 features)
+   - Phase 5: Production model training with relaxed XGBoost params
    - Checkpoints saved after each step (kill anytime, resume on re-run)
-4. **Final feature set**: 49 features (see `Final_EDA/feature_selection_rationale.md`)
-5. **Outputs** in `feature_selection_outputs/` and `Final_EDA/`:
-   - `final_features.txt` - Feature list
-   - `final_features.py` - Importable Python list
-   - `final_model.pkl` - Trained model
+4. **Outputs** saved to `feature_selection_outputs/` on DBFS:
    - `iteration_tracking.csv` - Metrics per iteration
-   - `cv_stability_report.json` - CV stability analysis
    - `features_by_iteration.json` - Feature lists at each iteration
-   - `feature_selection_rationale.md` - Reasoning for 49-feature selection
+   - `cv_stability_report.json` - CV stability analysis
+   - `phase4_final_features.json` - Automated feature selection result
+   - `phase5_production_model.json` - Production model
+   - Spark table: `herald_std_final_features` or `herald_med_averse_final_features`
 
 ---
 
