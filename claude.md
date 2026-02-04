@@ -130,9 +130,11 @@ CRC_MODELS/
 │   ├── LUCEM_NODEM_NOVIS/          # Future: alternate methodology (empty)
 │   │   ├── STANDARD/
 │   │   └── MED_ADVERSE/
-│   ├── LUCEM_NOVIS/                # Future: alternate methodology (empty)
+│   ├── LUCEM_NOVIS/                # No visit features (Book 6 excluded)
 │   │   ├── STANDARD/
+│   │   │   └── Lucem_Novis_Standard_Feature_Selection.ipynb  # Phases 1-5, visit_ excluded
 │   │   └── MED_ADVERSE/
+│   │       └── Lucem_Novis_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5, visit_ excluded, med tiebreaking
 │   ├── OLD_EFFORTS/                # Archived/superseded notebooks (empty)
 │   ├── compiled/                   # Reduced production-ready scripts (Books 0-8)
 │   │   ├── reduced_V2_Book0 through reduced_V2_Book8 (.py)
@@ -143,7 +145,16 @@ CRC_MODELS/
 └── README.md
 ```
 
-**Notebook organization:** Each methodology folder (MERCY_EFFORTS, LUCEM_NODEM_NOVIS, LUCEM_NOVIS) has STANDARD and MED_ADVERSE subdirectories. When run on Databricks, each notebook generates its own checkpoint artifacts in its respective `feature_selection_outputs/` directory. Output filenames are prefixed by methodology: `mercy_standard_` for Standard and `mercy_med_adverse_` for Med-Averse (e.g., `mercy_standard_iteration_tracking.csv`, `mercy_med_adverse_iteration_tracking.csv`) so files don't collide when downloaded.
+**Notebook organization:** Each methodology folder (MERCY_EFFORTS, LUCEM_NODEM_NOVIS, LUCEM_NOVIS) has STANDARD and MED_ADVERSE subdirectories. When run on Databricks, each notebook generates its own checkpoint artifacts in its respective `feature_selection_outputs/` directory. Output filenames are prefixed by methodology so files don't collide when downloaded:
+
+| Methodology | Prefix | Spark Table |
+|---|---|---|
+| Mercy Standard | `mercy_standard_` | `herald_std_final_features` |
+| Mercy Med-Averse | `mercy_med_adverse_` | `herald_med_averse_final_features` |
+| Lucem Novis Standard | `lucem_novis_standard_` | `herald_lucem_novis_std_final_features` |
+| Lucem Novis Med-Averse | `lucem_novis_med_adverse_` | `herald_lucem_novis_med_averse_final_features` |
+
+**Lucem Novis variant:** Identical to the corresponding Mercy pipeline except all visit history features (Book 6, `visit_` prefix) are excluded at data load. This tests whether visit utilization patterns add predictive value beyond clinical signals.
 
 ## Completed Work Summary
 
@@ -231,7 +242,7 @@ Implemented in `Mercy_Standard_Feature_Selection.ipynb` and `Mercy_Med_Adverse_F
 
 ### Output (per notebook run)
 
-All output filenames are prefixed by methodology: `mercy_standard_` (Standard) or `mercy_med_adverse_` (Med-Averse). Examples below use `{prefix}` as placeholder:
+All output filenames are prefixed by methodology (see table above). Examples below use `{prefix}` as placeholder:
 
 - Cluster assignments with justification
 - SHAP importance rankings per iteration
@@ -240,7 +251,7 @@ All output filenames are prefixed by methodology: `mercy_standard_` (Standard) o
 - `{prefix}cv_stability_report.json` - 5-fold CV stability analysis
 - `{prefix}phase4_final_features.json` - Selected features with rationale
 - `{prefix}phase5_production_model.json` - Trained production model
-- Spark table: `herald_std_final_features` (standard) or `herald_med_averse_final_features` (med-averse)
+- Spark table: per methodology (see table above)
 
 ---
 
@@ -585,6 +596,8 @@ claude
    - `Final_EDA/DATASET_CREATION/V2_Book0` through `V2_Book8`
    - `Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb`
    - `Final_EDA/MERCY_EFFORTS/MED_ADVERSE/Mercy_Med_Adverse_Feature_Selection.ipynb`
+   - `Final_EDA/LUCEM_NOVIS/STANDARD/Lucem_Novis_Standard_Feature_Selection.ipynb`
+   - `Final_EDA/LUCEM_NOVIS/MED_ADVERSE/Lucem_Novis_Med_Adverse_Feature_Selection.ipynb`
 2. **Run Books 0-8** (in DATASET_CREATION) to create the wide feature table with SPLIT column
 3. **Run feature selection notebook** (Standard or Med-Averse):
    - Phase 1: Cluster-based reduction (167 → ~143 features)
@@ -593,13 +606,13 @@ claude
    - Phase 4: Automated parsimony-aware iteration selection (~27 features)
    - Phase 5: Production model training with relaxed XGBoost params
    - Checkpoints saved after each step (kill anytime, resume on re-run)
-4. **Outputs** saved to `feature_selection_outputs/` on DBFS (filenames prefixed `mercy_standard_` or `mercy_med_adverse_`):
+4. **Outputs** saved to `feature_selection_outputs/` on DBFS (filenames prefixed per methodology — see table above):
    - `{prefix}iteration_tracking.csv` - Metrics per iteration
    - `{prefix}features_by_iteration.json` - Feature lists at each iteration
    - `{prefix}cv_stability_report.json` - CV stability analysis
    - `{prefix}phase4_final_features.json` - Automated feature selection result
    - `{prefix}phase5_production_model.json` - Production model
-   - Spark table: `herald_std_final_features` or `herald_med_averse_final_features`
+   - Spark table: per methodology (see table above)
 
 ---
 
