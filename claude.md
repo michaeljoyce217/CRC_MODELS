@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning. `featurization_train.py` has been rewritten to consolidate Books 0-8 into a single standalone pipeline with the 49-feature set, including the inpatient lab path. All three training scripts are complete: `train.py` (moderately conservative XGBoost + SHAP), `train_optuna.py` (50-trial Optuna search + SHAP). Both use hardcoded 49-feature lists, AUPRC/lift-by-quarter evaluation, and SHAP feature importances.
+**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning.
 
 ---
 
@@ -102,21 +102,6 @@ The automated Book 9 now implements this exact logic.
 
 ```
 CRC_MODELS/
-├── 2nd_Dataset_Creation/           # Working notebooks and training scripts
-│   ├── V2_Book0_Cohort_Creation.py # Base cohort with SGKF splits
-│   ├── V2_Book1_Vitals.py          # Vital signs features
-│   ├── V2_Book2_ICD10.py           # ICD-10 diagnosis features
-│   ├── V2_Book3_Social_Factors.py  # Social factors (all excluded)
-│   ├── V2_Book4_Labs_Combined.py   # Lab features (CEA/CA19-9/FOBT removed)
-│   ├── V2_Book5_1_Medications_Outpatient.py  # Outpatient medications
-│   ├── V2_Book5_2_Medications_Inpatient.py   # Inpatient medications
-│   ├── V2_Book6_Visit_History.py   # Visit history features
-│   ├── V2_Book7_Procedures.py      # Procedure features
-│   ├── V2_Book8_Compilation.py     # Joins all feature tables
-│   ├── V2_Book9_Feature_Selection.py  # Feature selection pipeline
-│   ├── featurization_train.py      # Production training featurization (standalone)
-│   ├── train.py                    # Conservative XGBoost training (standalone)
-│   └── train_optuna.py             # Optuna hyperparameter tuning (standalone)
 ├── docs/                           # Documentation and reference materials
 │   ├── presentation_design.md      # HTML presentation design doc
 │   ├── book4_cea_fobt_removal_guide.md  # Book 4 change guide
@@ -407,24 +392,6 @@ See `docs/book4_cea_fobt_removal_guide.md` for the cell-by-cell change log.
 
 ---
 
-## Training Scripts (Standalone Python)
-
-Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databricks notebooks:
-
-| Script | Purpose | Model Name | Status |
-|--------|---------|------------|--------|
-| `featurization_train.py` | Standalone Books 0-8 pipeline (49 features) | N/A (produces `herald_train_wide`) | **COMPLETE** |
-| `train.py` | Conservative XGBoost with 49 features | `crc_risk_xgboost_49features` | **COMPLETE** |
-| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_49features_tuned` | **COMPLETE** |
-
-**Note:** Both `train.py` and `train_optuna.py` use moderately conservative hyperparameters (relaxed from Book 9's ultra-conservative winnowing params) and compute SHAP feature importances. `train.py` uses fixed params (max_depth=4, gamma=1.0, reg_lambda=10); `train_optuna.py` searches broadly around those values (50 trials, val AUPRC objective).
-
-`train.py` and `train_optuna.py` can run concurrently — they use different model names, run names, and temp file paths.
-
-`featurization_train.py` consolidates Books 0-8 into a single standalone script. It rebuilds the cohort, engineers only the 49 selected features, and writes intermediate tables (`herald_train_vitals`, `herald_train_icd10`, `herald_train_labs`, `herald_train_inpatient_meds`, `herald_train_visits`, `herald_train_procedures`) plus the final wide table (`herald_train_wide`). Uses a fixed study period (2023-01-01 to 2024-09-30) matching Book 0. Includes the full dual-source lab path (outpatient + inpatient).
-
----
-
 ## Important Technical Context
 
 - **Platform**: Databricks with PySpark
@@ -452,26 +419,18 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 
 **When writing new SQL against Clarity tables, always cross-reference the Book that uses the same source table.**
 
-### Known Open Issues in `featurization_train.py`
-
-All previously tracked issues are resolved:
-
-1. ~~**Missing inpatient lab path**~~: **RESOLVED.** The rewritten script includes the full dual-source lab path (outpatient via `order_results` + inpatient via `res_components` join chain).
-2. ~~**AGE_GROUP encoding**~~: **RESOLVED.** The rewritten script uses ordinal integers (1-5) matching Book 8's compilation logic.
-3. ~~**`visit_primary_care_continuity_ratio` NULL handling**~~: **RESOLVED.** Now matches Book 6: returns NULL when no outpatient visits, rounds to 2 decimal places.
-
 ### Book 8 Transformation Cell: What Fires and What Doesn't
 
 Book 8's "Transforming Features to Prevent Memorization" cell has four transformations. Two execute; two are dead code due to `vit_` prefix mismatch:
 
-| Transformation | Column Check | Actual Column | Fires? | featurization_train.py |
-|---|---|---|---|---|
-| `_DAYS_SINCE` → ordinal `_RECENCY` | Dynamic search | `vit_DAYS_SINCE_*` | **Yes** | Computed inline in SQL (never creates `_DAYS_SINCE`) |
-| `AGE` → `AGE_GROUP` (1-5) | `'AGE'` | `AGE` | **Yes** | Done in compilation SQL |
-| `WEIGHT_OZ` → `WEIGHT_QUARTILE` (1-4) | `'WEIGHT_OZ'` | `vit_WEIGHT_OZ` | **No** (dead code) | Keeps raw `vit_WEIGHT_OZ` (matches) |
-| `BMI` → `BMI_CATEGORY` (1-4) | `'BMI'` | `vit_BMI` | **No** (dead code) | Keeps raw `vit_BMI` (matches) |
+| Transformation | Column Check | Actual Column | Fires? |
+|---|---|---|---|
+| `_DAYS_SINCE` → ordinal `_RECENCY` | Dynamic search | `vit_DAYS_SINCE_*` | **Yes** |
+| `AGE` → `AGE_GROUP` (1-5) | `'AGE'` | `AGE` | **Yes** |
+| `WEIGHT_OZ` → `WEIGHT_QUARTILE` (1-4) | `'WEIGHT_OZ'` | `vit_WEIGHT_OZ` | **No** (dead code) |
+| `BMI` → `BMI_CATEGORY` (1-4) | `'BMI'` | `vit_BMI` | **No** (dead code) |
 
-Book 9 consumed `herald_eda_train_wide_cleaned`, which has raw `vit_BMI` and raw `vit_WEIGHT_OZ`. The model was trained on raw values, not categories. `featurization_train.py` output should match for all 49 features.
+Book 9 consumed `herald_eda_train_wide_cleaned`, which has raw `vit_BMI` and raw `vit_WEIGHT_OZ`. The model was trained on raw values, not categories.
 
 ### Catalog Pattern (`trgt_cat` vs `prod`)
 
