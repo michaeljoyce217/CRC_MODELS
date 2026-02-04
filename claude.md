@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning.
+**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. Books 9 and 9b now include **Phase 4** (automated parsimony-aware feature selection) and **Phase 5** (production model training). The automated pipeline selects ~27 features via 10% parsimony tolerance, then retrains with production XGBoost parameters. See `Final_EDA/feature_selection_rationale.md` for background on the manual 49-feature selection that informed this approach.
 
 ---
 
@@ -120,7 +120,9 @@ CRC_MODELS/
 │   ├── CORRELATION_HIERARCHICAL_FEATURE_CLUSTERING.py/.ipynb/.html
 │   └── CRC_ITER1_MODEL-PREVALENCE.py/.ipynb/.html
 ├── Final_EDA/                      # Final run outputs with notebooks and artifacts
-│   ├── V2_Book0 through V2_Book9   # Databricks notebooks with outputs
+│   ├── V2_Book0 through V2_Book8   # Databricks notebooks with outputs
+│   ├── Mercy_Standard_Feature_Selection.ipynb  # Book 9: standard pipeline (Phases 1-5)
+│   ├── Mercy_Med_Adverse_Feature_Selection.ipynb  # Book 9b: med-averse variant
 │   ├── iteration_tracking.csv      # SHAP winnowing metrics per iteration
 │   ├── features_by_iteration.json  # Feature lists at each iteration
 │   ├── cv_stability_report.json    # 5-fold CV stability analysis
@@ -369,13 +371,64 @@ Starting:      167 features (after Book 8 quality checks)
 After Phase 1: 143 features (62 clusters at threshold 0.75)
 After Phase 2:  26 features (20 iterations, stopped at MIN_FEATURES_THRESHOLD)
 After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
-
-Final selection: 49 features
-  = 48 CV-stable features from iteration 12 output
-  + 1 clinical addition (lab_HEMOGLOBIN_ACCELERATING_DECLINE)
+After Phase 4:  ~27 features (parsimony-aware selection + clinical add-backs)
+After Phase 5:  Production model trained with relaxed hyperparameters
 ```
 
-See `Final_EDA/feature_selection_rationale.md` for full reasoning behind the 49-feature choice.
+**Phase 4 selection logic:** 10% parsimony tolerance from best val AUPRC, then pick fewest features. Selects iter20 (26 features), adds back `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical must-keep, CV-stable at 3/5 folds) → 27 features.
+
+**Book 9b (Med-Averse):** Same pipeline but with tiebreaker penalties on medication features during Phases 1-2 SHAP winnowing. Output table: `herald_med_averse_final_features`.
+
+See `Final_EDA/feature_selection_rationale.md` for background on the earlier manual 49-feature selection.
+
+---
+
+### Phase 4: Automated Parsimony-Aware Feature Selection (NEW)
+
+**Added to both Book 9 and Book 9b as new cells at the end of the notebook.**
+
+**Parameters:**
+```python
+PHASE4_GAP_THRESHOLD = 0.02        # Max |train-val gap|
+PARSIMONY_TOLERANCE_PCT = 10       # Within 10% of best val AUPRC
+PHASE4_CV_STABILITY_MIN_FOLDS = 3  # Minimum 3/5 CV folds
+PHASE4_CLINICAL_MUST_KEEP = ['lab_HEMOGLOBIN_ACCELERATING_DECLINE']
+```
+
+**Logic:**
+1. Load Phase 1-3 checkpoint artifacts (iteration_tracking.csv, features_by_iteration.json, cv_stability_report.json)
+2. Filter iterations by |train_val_gap| < 0.02 (overfitting guard)
+3. Find best val AUPRC among qualified iterations
+4. Apply 10% parsimony tolerance: keep iterations within 10% of best
+5. Among qualifying iterations, select the one with **fewest features** (Occam's razor)
+6. Apply CV stability filter (≥3/5 folds)
+7. Add back CLINICAL_MUST_KEEP features if CV-stable
+8. Save to Spark table (`herald_std_final_features` or `herald_med_averse_final_features`)
+
+**Book 9b (Med-Averse) difference:** Phase 4 is identical to Book 9. The med-averse behavior is in Phases 1-2, which apply tiebreaker penalties to medication features during SHAP winnowing — when a medication and non-medication feature are similarly ranked, the medication feature is removed first. By Phase 4, this preference is already reflected in the iteration results.
+
+**Why 10% parsimony tolerance:** With 250:1 class imbalance, val AUPRC oscillates (~SD 0.007). A 10% band captures iterations that are statistically indistinguishable. Published CRC ML models use 8-30 features (Li 2025, Hornbrook 2020). EPV ≥ 20 is recommended for ML with variable selection; at 27 features our EPV is ~115.
+
+---
+
+### Phase 5: Production Model Training (NEW)
+
+**Production XGBoost parameters** (relaxed from winnowing's ultra-conservative):
+```python
+max_depth = 4          # was 2-3 in winnowing
+gamma = 1.0            # was 2.0
+subsample = 0.6        # was 0.3-0.5
+colsample_bytree = 0.6 # was 0.3-0.5
+reg_alpha = 2.0        # was 5.0
+reg_lambda = 10.0      # was 50.0
+learning_rate = 0.005  # same
+n_estimators = 3000    # more trees (early stopping controls)
+```
+
+**Outputs:**
+- Train/Val/Test metrics: AUPRC, AUROC, Brier score, Lift @ top 1%
+- SHAP importance ranking + beeswarm plot
+- Production model saved to `phase5_production_model.json`
 
 ---
 
