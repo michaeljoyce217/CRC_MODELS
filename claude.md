@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning. `featurization_train.py` has been rewritten to consolidate Books 0-8 into a single standalone pipeline with the 49-feature set, including the inpatient lab path. Training scripts (`train.py`, `train_optuna.py`) still need feature list updates to match the 49-feature final set.
+**Current Status**: All notebooks complete. Books 0-9 rerun completed after removing circular-reasoning features (CEA, CA 19-9, FOBT/FIT) from Book 4. **Feature selection is finalized: 49 features** selected via iter12 CV-stable subset (48) + `lab_HEMOGLOBIN_ACCELERATING_DECLINE` (clinical addition). See `Final_EDA/feature_selection_rationale.md` for full reasoning. `featurization_train.py` has been rewritten to consolidate Books 0-8 into a single standalone pipeline with the 49-feature set, including the inpatient lab path. All three training scripts are complete: `train.py` (moderately conservative XGBoost + SHAP), `train_optuna.py` (50-trial Optuna search + SHAP). Both use hardcoded 49-feature lists, AUPRC/lift-by-quarter evaluation, and SHAP feature importances.
 
 ---
 
@@ -414,10 +414,10 @@ Three standalone Python scripts in `2nd_Dataset_Creation/` run outside Databrick
 | Script | Purpose | Model Name | Status |
 |--------|---------|------------|--------|
 | `featurization_train.py` | Standalone Books 0-8 pipeline (49 features) | N/A (produces `herald_train_wide`) | **COMPLETE** |
-| `train.py` | Conservative XGBoost with 49 features | `crc_risk_xgboost_49features` | Needs rewrite |
-| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_49features_tuned` | Needs rewrite |
+| `train.py` | Conservative XGBoost with 49 features | `crc_risk_xgboost_49features` | **COMPLETE** |
+| `train_optuna.py` | Optuna hyperparameter tuning (50 trials) | `crc_risk_xgboost_49features_tuned` | **COMPLETE** |
 
-**Note:** `train.py` and `train_optuna.py` still need feature list updates to match the 49-feature final set from `Final_EDA/feature_selection_rationale.md`.
+**Note:** Both `train.py` and `train_optuna.py` use moderately conservative hyperparameters (relaxed from Book 9's ultra-conservative winnowing params) and compute SHAP feature importances. `train.py` uses fixed params (max_depth=4, gamma=1.0, reg_lambda=10); `train_optuna.py` searches broadly around those values (50 trials, val AUPRC objective).
 
 `train.py` and `train_optuna.py` can run concurrently — they use different model names, run names, and temp file paths.
 

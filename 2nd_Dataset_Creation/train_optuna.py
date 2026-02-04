@@ -1,670 +1,545 @@
-# ===========================================================================
-# train_optuna.py
-#
-# CRC Risk Prediction: Optuna Hyperparameter Tuning Pipeline
-#
-# Uses Optuna TPE sampler to search for optimal XGBoost hyperparameters,
-# then trains a final model with the best params. Search space is bounded
-# by domain knowledge (250:1 class imbalance, 57 features).
-#
-# Input:  {trgt_cat}.clncl_ds.fudgesicle_train
-# Output: Tuned model registered in MLflow
-#
-# Pipeline stages:
-#   1. Configuration & imports
-#   2. Feature list (57 features from Book 9 SHAP winnowing)
-#   3. Load data & prepare train/val/test splits
-#   4. Optuna search space definition
-#   5. Optuna objective function
-#   6. Run Optuna study (50 trials)
-#   7. Train final model with best params
-#   8. Evaluate metrics (AUPRC, AUROC, overfitting check)
-#   9. SHAP analysis (feature importance on test sample)
-#  10. MLflow logging (params, metrics, model, plots, study summary)
-#  11. Register model in MLflow Model Registry
-#  12. Summary
-#
-# Requires: PySpark (Databricks), xgboost, shap, mlflow, scikit-learn,
-#           numpy, pandas, matplotlib, optuna
-# ===========================================================================
+"""
+train_optuna.py - Optuna Hyperparameter Tuning for CRC Risk Prediction (49 Features)
+
+Runs 50 Optuna trials to find optimal XGBoost hyperparameters, then retrains
+a final model with the best params, evaluates on train/val/test, computes SHAP
+feature importances, and saves outputs to disk.
+
+Search space is centered around moderately conservative defaults but allowed to
+explore broadly. The 250:1 class imbalance means some regularization is always
+needed, but the ultra-conservative Book 9 winnowing params are not required
+now that the 49-feature set is locked in.
+
+Model name: crc_risk_xgboost_49features_tuned
+
+Usage (Databricks):
+    Run as a Python script in Databricks. Requires:
+    - herald_train_wide table (output of featurization_train.py)
+    - Environment variable trgt_cat (defaults to 'dev')
+
+Outputs (saved to same directory as this script):
+    - crc_risk_xgboost_49features_tuned.pkl            : Best XGBoost model
+    - crc_risk_xgboost_49features_tuned_metrics.json    : Performance metrics + metadata
+    - crc_risk_xgboost_49features_tuned_shap.csv        : SHAP feature importances
+    - crc_risk_xgboost_49features_tuned_trials.csv      : All Optuna trial results
+"""
 
 import os
+import json
+import time
+import pickle
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
-import xgboost as xgb
+from sklearn.metrics import average_precision_score, roc_auc_score, brier_score_loss
+from xgboost import XGBClassifier
 import shap
-import mlflow
-import mlflow.xgboost
 import optuna
-from optuna.samplers import TPESampler
-from optuna.pruners import MedianPruner
-from sklearn.metrics import (
-    average_precision_score,
-    roc_auc_score,
-    precision_recall_curve,
-    roc_curve,
-)
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
+from pyspark.sql import SparkSession
 
-# Suppress Optuna info logs (still shows warnings/errors)
-optuna.logging.set_verbosity(optuna.logging.WARNING)
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
 
-# ===========================================================================
-# 1. CONFIGURATION
-# ===========================================================================
-
-# Catalog / schema -- trgt_cat controls where we WRITE intermediate/output tables.
-# Source data (Clarity EHR) lives only in prod, so USE CATALOG is always prod.
-trgt_cat = os.environ.get('trgt_cat', 'dev')
-spark.sql('USE CATALOG prod')
-print(f"Read catalog: prod")
-print(f"Write catalog: {trgt_cat}")
-
-# Input table (output of featurization_train.py) and MLflow settings
-INPUT_TABLE = f"{trgt_cat}.clncl_ds.fudgesicle_train"
-EXPERIMENT_NAME = f"/Shared/crc_risk_prediction_{trgt_cat}"
-MODEL_NAME = "crc_risk_xgboost_57features_tuned"
 RANDOM_SEED = 217
-TARGET_COL = "FUTURE_CRC_EVENT"
+MODEL_NAME = "crc_risk_xgboost_49features_tuned"
+N_TRIALS = 50
 
-# Optuna settings
-N_OPTUNA_TRIALS = 50
-N_ESTIMATORS = 5000
-EARLY_STOPPING_ROUNDS = 150
+# Catalog pattern: read source from prod, read/write our tables with trgt_cat
+trgt_cat = os.environ.get("trgt_cat", "dev")
 
-print(f"Input table: {INPUT_TABLE}")
-print(f"Experiment: {EXPERIMENT_NAME}")
-print(f"Model name: {MODEL_NAME}")
-print(f"Optuna trials: {N_OPTUNA_TRIALS}")
+# Output directory = same directory as this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# ---------------------------------------------------------------------------
+# 49 Final Features (hardcoded from Final_EDA/feature_selection_rationale.md)
+# ---------------------------------------------------------------------------
 
-# ===========================================================================
-# 2. FEATURE LIST
-#
-# The 57 features selected by iterative SHAP winnowing in Book 9.
-# CEA, CA 19-9, and FOBT/FIT were excluded before selection (circular
-# reasoning -- see CLAUDE.md for rationale).
-# ===========================================================================
-
-FEATURE_COLS = [
+FINAL_FEATURES = [
+    # Demographics (6)
     "AGE_GROUP",
     "HAS_PCP_AT_END",
     "IS_FEMALE",
     "IS_MARRIED_PARTNER",
-    "RACE_ASIAN",
     "RACE_CAUCASIAN",
-    "icd_ANEMIA_FLAG_12MO",
+    "RACE_HISPANIC",
+    # Temporal (1)
+    "months_since_cohort_entry",
+    # ICD-10 Diagnoses (6)
     "icd_BLEED_CNT_12MO",
-    "icd_COMBINED_COMORBIDITY_12MO",
+    "icd_FHX_CRC_COMBINED",
+    "icd_HIGH_RISK_HISTORY",
     "icd_IRON_DEF_ANEMIA_FLAG_12MO",
-    "icd_MALIGNANCY_FLAG_EVER",
     "icd_SYMPTOM_BURDEN_12MO",
     "icd_chronic_gi_pattern",
-    "inp_med_inp_gi_hospitalization",
-    "inp_med_inp_ibd_meds_recency",
-    "inp_med_inp_obstruction_pattern",
-    "inp_med_inp_opioid_use_flag",
+    # Laboratory Values (11)
     "lab_ALBUMIN_DROP_15PCT_FLAG",
     "lab_ALBUMIN_VALUE",
-    "lab_ALK_PHOS_VALUE",
     "lab_ANEMIA_GRADE",
     "lab_ANEMIA_SEVERITY_SCORE",
-    "lab_AST_VALUE",
-    "lab_ESR_VALUE",
+    "lab_CRP_6MO_CHANGE",
     "lab_HEMOGLOBIN_ACCELERATING_DECLINE",
-    "lab_HEMOGLOBIN_VALUE",
     "lab_IRON_SATURATION_PCT",
     "lab_PLATELETS_ACCELERATING_RISE",
     "lab_PLATELETS_VALUE",
     "lab_THROMBOCYTOSIS_FLAG",
     "lab_comprehensive_iron_deficiency",
-    "months_since_cohort_entry",
-    "out_med_broad_abx_recency",
-    "out_med_ibd_meds_recency",
-    "out_med_ppi_use_flag",
-    "proc_blood_transfusion_count_12mo",
-    "proc_high_imaging_intensity_flag",
-    "proc_mri_abd_pelvis_count_12mo",
-    "visit_acute_care_reliance",
+    # Inpatient Medications (5)
+    "inp_med_inp_any_hospitalization",
+    "inp_med_inp_gi_bleed_meds_recency",
+    "inp_med_inp_ibd_meds_recency",
+    "inp_med_inp_laxative_use_flag",
+    "inp_med_inp_opioid_use_flag",
+    # Visit History (7)
     "visit_gi_symptom_op_visits_12mo",
-    "visit_healthcare_intensity_score",
-    "visit_inp_last_24_months",
+    "visit_gi_symptoms_no_specialist",
     "visit_no_shows_12mo",
     "visit_outpatient_visits_12mo",
-    "visit_pcp_visits_12mo",
     "visit_primary_care_continuity_ratio",
     "visit_recency_last_gi",
     "visit_total_gi_symptom_visits_12mo",
+    # Procedures (2)
+    "proc_blood_transfusion_count_12mo",
+    "proc_total_imaging_count_12mo",
+    # Vitals (11)
     "vit_BMI",
-    "vit_BMI_CHANGE_6M",
-    "vit_CACHEXIA_RISK_SCORE",
     "vit_MAX_WEIGHT_LOSS_PCT_60D",
     "vit_PULSE",
     "vit_PULSE_PRESSURE",
     "vit_RECENCY_WEIGHT",
     "vit_SBP_VARIABILITY_6M",
+    "vit_UNDERWEIGHT_FLAG",
+    "vit_WEIGHT_CHANGE_PCT_6M",
+    "vit_WEIGHT_OZ",
     "vit_WEIGHT_TRAJECTORY_SLOPE",
+    "vit_vital_recency_score",
 ]
 
-print(f"Feature count: {len(FEATURE_COLS)}")
+assert len(FINAL_FEATURES) == 49, f"Expected 49 features, got {len(FINAL_FEATURES)}"
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def print_stage(msg):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"\n{'='*70}")
+    print(f"[{timestamp}] {msg}")
+    print(f"{'='*70}")
 
 
-# ===========================================================================
-# 3. LOAD DATA & PREPARE SPLITS
-#
-# Load the featurized table and perform patient-level stratified split.
-# Stratification preserves cancer type distribution (C18/C19/C20) across
-# all three splits (70/15/15). No patient appears in multiple splits.
-# ===========================================================================
-
-print("Loading data from Spark...")
-df_all = spark.table(INPUT_TABLE).select(
-    ["PAT_ID", TARGET_COL, "ICD10_GROUP"] + FEATURE_COLS
-).toPandas()
-print(f"Total rows loaded: {len(df_all):,}")
-print(f"Positive observations in table: {int((df_all[TARGET_COL] == 1).sum()):,}")
-
-# Patient-level stratified split
-# Multi-class stratification: 0=negative, 1=C18, 2=C19, 3=C20
-patient_labels = df_all.groupby("PAT_ID").agg(
-    is_positive=pd.NamedAgg(column=TARGET_COL, aggfunc="max"),
-    cancer_type=pd.NamedAgg(column="ICD10_GROUP", aggfunc="first"),
-).reset_index()
-
-cancer_type_map = {'C18': 1, 'C19': 2, 'C20': 3}
-patient_labels['strat_label'] = patient_labels.apply(
-    lambda row: cancer_type_map.get(row['cancer_type'], 0) if row['is_positive'] == 1 else 0,
-    axis=1
-)
-
-print(f"Total patients: {len(patient_labels):,}")
-print(f"Positive patients: {patient_labels['is_positive'].sum():,}")
-
-# Two-step split: first separate test (15%), then split remainder into train/val
-patients_trainval, patients_test = train_test_split(
-    patient_labels,
-    test_size=0.15,
-    stratify=patient_labels['strat_label'],
-    random_state=RANDOM_SEED,
-)
-
-patients_train, patients_val = train_test_split(
-    patients_trainval,
-    test_size=0.176,  # 15/85 ≈ 0.176 to get 15% of total
-    stratify=patients_trainval['strat_label'],
-    random_state=RANDOM_SEED,
-)
-
-train_pats = set(patients_train['PAT_ID'].values)
-val_pats = set(patients_val['PAT_ID'].values)
-test_pats = set(patients_test['PAT_ID'].values)
-
-# Assign split to each row
-df_all['SPLIT'] = df_all['PAT_ID'].map(
-    lambda pid: 'train' if pid in train_pats else ('val' if pid in val_pats else 'test')
-)
-
-df_train = df_all[df_all["SPLIT"] == "train"].copy()
-df_val = df_all[df_all["SPLIT"] == "val"].copy()
-df_test = df_all[df_all["SPLIT"] == "test"].copy()
-
-print(f"Train: {len(df_train):,} rows ({len(train_pats):,} patients)")
-print(f"Val:   {len(df_val):,} rows ({len(val_pats):,} patients)")
-print(f"Test:  {len(df_test):,} rows ({len(test_pats):,} patients)")
-
-# Prepare X, y arrays
-X_train = df_train[FEATURE_COLS].values
-y_train = df_train[TARGET_COL].values
-X_val = df_val[FEATURE_COLS].values
-y_val = df_val[TARGET_COL].values
-X_test = df_test[FEATURE_COLS].values
-y_test = df_test[TARGET_COL].values
-
-# Class imbalance ratio
-n_neg = int((y_train == 0).sum())
-n_pos = int((y_train == 1).sum())
-scale_pos_weight = n_neg / n_pos
-
-print(f"\nTrain positives: {n_pos:,} ({n_pos/len(y_train)*100:.3f}%)")
-print(f"Train negatives: {n_neg:,}")
-print(f"scale_pos_weight: {scale_pos_weight:.1f}")
-
-# Free memory
-del df_all, patient_labels, patients_trainval, patients_train, patients_val, patients_test
+def print_progress(msg, indent=2):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"{' '*indent}[{timestamp}] {msg}")
 
 
-# ===========================================================================
-# 4. OPTUNA SEARCH SPACE DEFINITION
-#
-# Intelligent bounds based on domain knowledge:
-# - 250:1 class imbalance requires conservative regularization
-# - 57 features means moderate column sampling is fine
-# - Shallow trees (max_depth 2-5) prevent memorizing rare positives
-# - High min_child_weight prevents splits on tiny subgroups
-# - Log-scale for learning rate and regularization strengths
-#
-# Fixed params (not tuned): objective, eval_metric, tree_method,
-# scale_pos_weight, n_estimators (early stopping handles tree count).
-# ===========================================================================
+def evaluate_split(model, X, y, feature_cols, split_name):
+    """Evaluate model on a single split. Returns metrics dict."""
+    y_pred = model.predict_proba(X[feature_cols])[:, 1]
 
-print("\n" + "=" * 60)
-print("OPTUNA SEARCH SPACE")
-print("=" * 60)
-print(f"{'Parameter':<22} {'Range':<25} {'Scale':<8}")
-print("-" * 60)
-print(f"{'max_depth':<22} {'[2, 5]':<25} {'int':<8}")
-print(f"{'min_child_weight':<22} {'[20, 100] step=10':<25} {'int':<8}")
-print(f"{'gamma':<22} {'[1.0, 4.0]':<25} {'float':<8}")
-print(f"{'subsample':<22} {'[0.2, 0.6]':<25} {'float':<8}")
-print(f"{'colsample_bytree':<22} {'[0.2, 0.5]':<25} {'float':<8}")
-print(f"{'colsample_bylevel':<22} {'[0.3, 0.7]':<25} {'float':<8}")
-print(f"{'reg_alpha':<22} {'[1.0, 15.0]':<25} {'log':<8}")
-print(f"{'reg_lambda':<22} {'[10.0, 100.0]':<25} {'log':<8}")
-print(f"{'learning_rate':<22} {'[0.001, 0.02]':<25} {'log':<8}")
-print("=" * 60)
-print(f"\nFixed: scale_pos_weight={scale_pos_weight:.1f}, "
-      f"n_estimators={N_ESTIMATORS}, early_stopping={EARLY_STOPPING_ROUNDS}")
+    auprc = average_precision_score(y, y_pred)
+    auroc = roc_auc_score(y, y_pred)
+    brier = brier_score_loss(y, y_pred)
+    baseline_rate = y.mean()
+    lift = auprc / baseline_rate if baseline_rate > 0 else 0
 
+    print(f"  {split_name:<6}  AUPRC: {auprc:.4f}  AUROC: {auroc:.4f}  "
+          f"Brier: {brier:.6f}  Lift: {lift:.1f}x  "
+          f"(N={len(y):,}, events={int(y.sum()):,}, base={baseline_rate:.4%})")
 
-# ===========================================================================
-# 5. OPTUNA OBJECTIVE FUNCTION
-#
-# Each trial samples hyperparameters from the search space, trains an
-# XGBoost model with early stopping on validation AUPRC, and returns
-# the best validation AUPRC as the objective value (maximized).
-# ===========================================================================
-
-def objective(trial):
-    """Optuna objective: train XGBoost with trial params, return val AUPRC."""
-
-    params = {
-        "objective": "binary:logistic",
-        "eval_metric": "aucpr",
-        "tree_method": "hist",
-        "scale_pos_weight": scale_pos_weight,
-        "random_state": RANDOM_SEED,
-        "verbosity": 0,
-        # Tuned hyperparameters
-        "max_depth": trial.suggest_int("max_depth", 2, 5),
-        "min_child_weight": trial.suggest_int("min_child_weight", 20, 100, step=10),
-        "gamma": trial.suggest_float("gamma", 1.0, 4.0),
-        "subsample": trial.suggest_float("subsample", 0.2, 0.6),
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.2, 0.5),
-        "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.3, 0.7),
-        "reg_alpha": trial.suggest_float("reg_alpha", 1.0, 15.0, log=True),
-        "reg_lambda": trial.suggest_float("reg_lambda", 10.0, 100.0, log=True),
-        "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.02, log=True),
+    return {
+        "auprc": float(auprc),
+        "auroc": float(auroc),
+        "brier": float(brier),
+        "baseline_rate": float(baseline_rate),
+        "lift": float(lift),
+        "n_samples": int(len(y)),
+        "n_events": int(y.sum()),
     }
 
-    model = xgb.XGBClassifier(
-        n_estimators=N_ESTIMATORS,
-        early_stopping_rounds=EARLY_STOPPING_ROUNDS,
-        **params,
-    )
 
+# ===========================================================================
+# STEP 1: Load Data
+# ===========================================================================
+
+print_stage("STEP 1: LOAD DATA")
+
+spark = SparkSession.builder.getOrCreate()
+spark.sql("USE CATALOG prod")
+
+table_name = f"{trgt_cat}.clncl_ds.herald_train_wide"
+print_progress(f"Reading table: {table_name}")
+
+start = time.time()
+df_pandas = spark.table(table_name).toPandas()
+elapsed = time.time() - start
+print_progress(f"Loaded {len(df_pandas):,} rows in {elapsed:.1f}s")
+
+# Validate that all 49 features are present
+missing = [f for f in FINAL_FEATURES if f not in df_pandas.columns]
+if missing:
+    raise ValueError(f"Missing {len(missing)} features in table: {missing}")
+print_progress(f"All 49 features present")
+
+# Validate required columns
+for col in ["PAT_ID", "END_DTTM", "FUTURE_CRC_EVENT", "SPLIT"]:
+    if col not in df_pandas.columns:
+        raise ValueError(f"Required column '{col}' not found in table")
+
+# Split data
+train_mask = df_pandas["SPLIT"] == "train"
+val_mask = df_pandas["SPLIT"] == "val"
+test_mask = df_pandas["SPLIT"] == "test"
+
+X_train = df_pandas.loc[train_mask]
+y_train = df_pandas.loc[train_mask, "FUTURE_CRC_EVENT"]
+X_val = df_pandas.loc[val_mask]
+y_val = df_pandas.loc[val_mask, "FUTURE_CRC_EVENT"]
+X_test = df_pandas.loc[test_mask]
+y_test = df_pandas.loc[test_mask, "FUTURE_CRC_EVENT"]
+
+# Compute scale_pos_weight from training data
+n_pos = int(y_train.sum())
+n_neg = int((y_train == 0).sum())
+if n_pos == 0:
+    raise ValueError("No positive cases in training data")
+scale_pos_weight = n_neg / n_pos
+
+print(f"\n  Split summary:")
+print(f"    Train: {len(y_train):>9,} obs, {int(y_train.sum()):>5,} events ({y_train.mean():.4%})")
+print(f"    Val:   {len(y_val):>9,} obs, {int(y_val.sum()):>5,} events ({y_val.mean():.4%})")
+print(f"    Test:  {len(y_test):>9,} obs, {int(y_test.sum()):>5,} events ({y_test.mean():.4%})")
+print(f"    scale_pos_weight: {scale_pos_weight:.1f}")
+
+
+# ===========================================================================
+# STEP 2: Optuna Hyperparameter Search (50 Trials)
+# ===========================================================================
+
+print_stage(f"STEP 2: OPTUNA SEARCH ({N_TRIALS} TRIALS)")
+
+# Pre-extract numpy arrays for speed during trial loop
+X_train_np = X_train[FINAL_FEATURES].values
+y_train_np = y_train.values
+X_val_np = X_val[FINAL_FEATURES].values
+y_val_np = y_val.values
+
+
+def objective(trial):
+    """Optuna objective: maximize validation AUPRC."""
+
+    params = {
+        "max_depth": trial.suggest_int("max_depth", 2, 8),
+        "min_child_weight": trial.suggest_int("min_child_weight", 10, 100),
+        "gamma": trial.suggest_float("gamma", 0.0, 5.0),
+        "subsample": trial.suggest_float("subsample", 0.3, 0.8),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.3, 0.8),
+        "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.3, 0.8),
+        "reg_alpha": trial.suggest_float("reg_alpha", 0.1, 10.0, log=True),
+        "reg_lambda": trial.suggest_float("reg_lambda", 1.0, 100.0, log=True),
+        "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.05, log=True),
+        "n_estimators": 3000,
+        "scale_pos_weight": scale_pos_weight,
+        "objective": "binary:logistic",
+        "eval_metric": "aucpr",
+        "random_state": RANDOM_SEED,
+        "early_stopping_rounds": 150,
+    }
+
+    model = XGBClassifier(**params)
     model.fit(
-        X_train,
-        y_train,
-        eval_set=[(X_val, y_val)],
+        X_train_np, y_train_np,
+        eval_set=[(X_val_np, y_val_np)],
         verbose=False,
     )
 
-    # Validation AUPRC
-    y_val_pred = model.predict_proba(X_val)[:, 1]
-    val_auprc = average_precision_score(y_val, y_val_pred)
+    y_pred_val = model.predict_proba(X_val_np)[:, 1]
+    val_auprc = average_precision_score(y_val_np, y_pred_val)
 
-    print(f"  Trial {trial.number:3d}: val_auprc={val_auprc:.6f}  "
-          f"trees={model.best_iteration + 1}  "
-          f"depth={params['max_depth']}  lr={params['learning_rate']:.4f}")
+    # Also track train AUPRC for overfitting detection
+    y_pred_train = model.predict_proba(X_train_np)[:, 1]
+    train_auprc = average_precision_score(y_train_np, y_pred_train)
+
+    trial.set_user_attr("train_auprc", train_auprc)
+    trial.set_user_attr("train_val_gap", train_auprc - val_auprc)
+    trial.set_user_attr("best_iteration", model.best_iteration)
 
     return val_auprc
 
 
-# ===========================================================================
-# 6. RUN OPTUNA STUDY
-#
-# 50 trials with TPE sampler (Bayesian optimization). MedianPruner kills
-# unpromising trials early. Seed=217 for reproducibility.
-# ===========================================================================
-
-print("\n" + "=" * 60)
-print(f"STARTING OPTUNA STUDY ({N_OPTUNA_TRIALS} trials)")
-print("=" * 60)
+# Suppress Optuna info logs (just show our progress updates)
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 study = optuna.create_study(
     direction="maximize",
-    sampler=TPESampler(seed=RANDOM_SEED),
-    pruner=MedianPruner(n_startup_trials=10, n_warmup_steps=0),
-    study_name="crc_xgboost_tuning",
+    sampler=optuna.samplers.TPESampler(seed=RANDOM_SEED),
+    study_name=MODEL_NAME,
 )
 
-study.optimize(objective, n_trials=N_OPTUNA_TRIALS)
+print_progress(f"Starting {N_TRIALS} trials...")
+print_progress(f"Objective: maximize validation AUPRC")
+print()
 
-# Results
-best_trial = study.best_trial
+search_start = time.time()
 
-print("\n" + "=" * 60)
-print("OPTUNA STUDY COMPLETE")
-print("=" * 60)
-print(f"Best trial:      {best_trial.number}")
-print(f"Best val AUPRC:  {best_trial.value:.6f}")
-print(f"\nBest hyperparameters:")
-for k, v in best_trial.params.items():
-    print(f"  {k}: {v}")
+for i in range(N_TRIALS):
+    study.optimize(objective, n_trials=1)
+    trial = study.trials[-1]
+    best_so_far = study.best_value
+
+    print_progress(
+        f"Trial {i+1:>3}/{N_TRIALS}  "
+        f"val_auprc={trial.value:.4f}  "
+        f"train_val_gap={trial.user_attrs['train_val_gap']:+.4f}  "
+        f"best_iter={trial.user_attrs['best_iteration']:>4}  "
+        f"best_so_far={best_so_far:.4f}"
+    )
+
+search_elapsed = time.time() - search_start
+print(f"\n  Search complete in {search_elapsed:.1f}s")
+print(f"  Best trial: #{study.best_trial.number + 1}")
+print(f"  Best val AUPRC: {study.best_value:.4f}")
+
+# Print best hyperparameters
+best_params = study.best_trial.params
+print(f"\n  Best hyperparameters:")
+for k, v in sorted(best_params.items()):
+    print(f"    {k}: {v}")
 
 
 # ===========================================================================
-# 7. TRAIN FINAL MODEL WITH BEST PARAMS
-#
-# Retrain XGBoost using the best trial's hyperparameters with verbose
-# output. Evaluates on both train and val sets for monitoring.
+# STEP 3: Retrain Best Model
 # ===========================================================================
 
-print("\n" + "=" * 60)
-print("TRAINING FINAL MODEL WITH BEST PARAMS")
-print("=" * 60)
+print_stage("STEP 3: RETRAIN WITH BEST PARAMS")
 
-best_params = {
+final_params = {
+    **best_params,
+    "n_estimators": 3000,
+    "scale_pos_weight": scale_pos_weight,
     "objective": "binary:logistic",
     "eval_metric": "aucpr",
-    "tree_method": "hist",
-    "scale_pos_weight": scale_pos_weight,
     "random_state": RANDOM_SEED,
-    "verbosity": 1,
+    "early_stopping_rounds": 150,
 }
-best_params.update(best_trial.params)
 
-print("Final model parameters:")
-for k, v in best_params.items():
-    print(f"  {k}: {v}")
-print(f"  n_estimators: {N_ESTIMATORS}")
-print(f"  early_stopping_rounds: {EARLY_STOPPING_ROUNDS}")
-print()
+print_progress(f"Training final model with best params...")
+start = time.time()
 
-model = xgb.XGBClassifier(
-    n_estimators=N_ESTIMATORS,
-    early_stopping_rounds=EARLY_STOPPING_ROUNDS,
-    **best_params,
-)
-
+model = XGBClassifier(**final_params)
 model.fit(
-    X_train,
-    y_train,
-    eval_set=[(X_train, y_train), (X_val, y_val)],
-    verbose=100,
+    X_train[FINAL_FEATURES], y_train,
+    eval_set=[(X_val[FINAL_FEATURES], y_val)],
+    verbose=False,
 )
 
-best_iteration = model.best_iteration
-best_score = model.best_score
-print(f"\nBest iteration: {best_iteration}")
-print(f"Best validation AUPRC: {best_score:.6f}")
+elapsed = time.time() - start
+print_progress(f"Training complete in {elapsed:.1f}s")
+print_progress(f"Best iteration: {model.best_iteration} / {model.n_estimators}")
+print_progress(f"Best validation AUCPR: {model.best_score:.4f}")
 
 
 # ===========================================================================
-# 8. EVALUATE METRICS
-#
-# Compute AUPRC and AUROC on train, validation, and test sets.
-# Check the train-val gap for signs of overfitting (threshold: 0.05).
-# Generate PR and ROC curves for the test set.
+# STEP 4: Evaluate on Train / Val / Test
 # ===========================================================================
 
-# Predicted probabilities
-y_train_pred = model.predict_proba(X_train)[:, 1]
-y_val_pred = model.predict_proba(X_val)[:, 1]
-y_test_pred = model.predict_proba(X_test)[:, 1]
+print_stage("STEP 4: EVALUATE MODEL")
 
-# AUPRC
-train_auprc = average_precision_score(y_train, y_train_pred)
-val_auprc = average_precision_score(y_val, y_val_pred)
-test_auprc = average_precision_score(y_test, y_test_pred)
+metrics = {}
+metrics["train"] = evaluate_split(model, X_train, y_train, FINAL_FEATURES, "Train")
+metrics["val"] = evaluate_split(model, X_val, y_val, FINAL_FEATURES, "Val")
+metrics["test"] = evaluate_split(model, X_test, y_test, FINAL_FEATURES, "Test")
 
-# AUROC
-train_auroc = roc_auc_score(y_train, y_train_pred)
-val_auroc = roc_auc_score(y_val, y_val_pred)
-test_auroc = roc_auc_score(y_test, y_test_pred)
-
-# Overfitting check
-train_val_gap_auprc = train_auprc - val_auprc
-train_val_gap_auroc = train_auroc - val_auroc
-
-print("=" * 60)
-print("MODEL PERFORMANCE (TUNED)")
-print("=" * 60)
-print(f"{'Metric':<12} {'Train':>10} {'Val':>10} {'Test':>10} {'Gap(T-V)':>10}")
-print("-" * 60)
-print(f"{'AUPRC':<12} {train_auprc:>10.6f} {val_auprc:>10.6f} {test_auprc:>10.6f} {train_val_gap_auprc:>10.6f}")
-print(f"{'AUROC':<12} {train_auroc:>10.6f} {val_auroc:>10.6f} {test_auroc:>10.6f} {train_val_gap_auroc:>10.6f}")
-print("=" * 60)
-
-if train_val_gap_auprc > 0.05:
-    print("WARNING: Train-Val AUPRC gap > 0.05 - possible overfitting")
-else:
-    print("Train-Val gap is acceptable (< 0.05)")
-
-# Precision-Recall and ROC curves for the test set
-precision, recall, pr_thresholds = precision_recall_curve(y_test, y_test_pred)
-fpr, tpr, roc_thresholds = roc_curve(y_test, y_test_pred)
-
-fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-# PR Curve
-axes[0].plot(recall, precision, 'b-', linewidth=2)
-axes[0].set_xlabel('Recall')
-axes[0].set_ylabel('Precision')
-axes[0].set_title(f'Precision-Recall Curve (Test AUPRC={test_auprc:.4f})')
-axes[0].set_xlim([0, 1])
-axes[0].set_ylim([0, 1])
-axes[0].grid(True, alpha=0.3)
-baseline_rate = y_test.mean()
-axes[0].axhline(y=baseline_rate, color='r', linestyle='--', label=f'Baseline ({baseline_rate:.4f})')
-axes[0].legend()
-
-# ROC Curve
-axes[1].plot(fpr, tpr, 'b-', linewidth=2)
-axes[1].plot([0, 1], [0, 1], 'r--', label='Random')
-axes[1].set_xlabel('False Positive Rate')
-axes[1].set_ylabel('True Positive Rate')
-axes[1].set_title(f'ROC Curve (Test AUROC={test_auroc:.4f})')
-axes[1].set_xlim([0, 1])
-axes[1].set_ylim([0, 1])
-axes[1].grid(True, alpha=0.3)
-axes[1].legend()
-
-plt.tight_layout()
-plt.savefig('/tmp/crc_tuned_model_curves.png', dpi=150, bbox_inches='tight')
-plt.show()
-print("Curves saved to /tmp/crc_tuned_model_curves.png")
+train_val_gap = metrics["train"]["auprc"] - metrics["val"]["auprc"]
+print(f"\n  Train-Val AUPRC gap: {train_val_gap:+.4f}")
 
 
 # ===========================================================================
-# 9. SHAP ANALYSIS
-#
-# Compute SHAP values on a sample of test data (up to 5000 rows) using
-# TreeExplainer. Generates a beeswarm summary plot and a bar importance
-# plot showing all 57 features.
+# STEP 5: Lift by Quarter (Test Set)
 # ===========================================================================
 
-print("Computing SHAP values...")
+print_stage("STEP 5: LIFT BY QUARTER (TEST SET)")
 
-# Sample for SHAP (up to 5000 rows from test set)
-shap_sample_size = min(5000, len(X_test))
-np.random.seed(RANDOM_SEED)
-shap_idx = np.random.choice(len(X_test), size=shap_sample_size, replace=False)
-X_shap = X_test[shap_idx]
+test_df = df_pandas.loc[test_mask].copy()
+test_df["END_DTTM"] = pd.to_datetime(test_df["END_DTTM"])
+test_df["quarter"] = test_df["END_DTTM"].dt.to_period("Q").astype(str)
+test_df["y_pred"] = model.predict_proba(test_df[FINAL_FEATURES])[:, 1]
 
-# TreeExplainer
-explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_shap)
+quarters = sorted(test_df["quarter"].unique())
 
-print(f"SHAP computed on {shap_sample_size:,} test samples")
+print(f"  {'Quarter':<10} {'N':>8} {'Events':>8} {'Base Rate':>10} {'AUPRC':>8} {'Lift':>8}")
+print(f"  {'-'*54}")
 
-# Mean absolute SHAP importance
-mean_abs_shap = np.abs(shap_values).mean(axis=0)
-shap_importance = pd.DataFrame({
-    'feature': FEATURE_COLS,
-    'mean_abs_shap': mean_abs_shap
-}).sort_values('mean_abs_shap', ascending=False).reset_index(drop=True)
-
-print("\nFeature Importance (Mean |SHAP|):")
-print("-" * 50)
-for i, row in shap_importance.iterrows():
-    bar = "#" * int(row['mean_abs_shap'] / shap_importance['mean_abs_shap'].max() * 30)
-    print(f"  {i+1:2d}. {row['feature']:<45s} {row['mean_abs_shap']:.6f}  {bar}")
-
-# SHAP beeswarm summary plot
-fig, ax = plt.subplots(figsize=(10, 10))
-shap.summary_plot(
-    shap_values,
-    X_shap,
-    feature_names=FEATURE_COLS,
-    show=False,
-    max_display=57,
-)
-plt.tight_layout()
-plt.savefig('/tmp/crc_tuned_shap_summary.png', dpi=150, bbox_inches='tight')
-plt.show()
-print("SHAP summary saved to /tmp/crc_tuned_shap_summary.png")
-
-# SHAP bar plot
-fig, ax = plt.subplots(figsize=(10, 8))
-shap.summary_plot(
-    shap_values,
-    X_shap,
-    feature_names=FEATURE_COLS,
-    plot_type="bar",
-    show=False,
-    max_display=57,
-)
-plt.tight_layout()
-plt.savefig('/tmp/crc_tuned_shap_bar.png', dpi=150, bbox_inches='tight')
-plt.show()
-print("SHAP bar plot saved to /tmp/crc_tuned_shap_bar.png")
-
-
-# ===========================================================================
-# 10. MLFLOW LOGGING
-#
-# Log all parameters, metrics, the trained model, feature importance CSV,
-# performance plots, and the Optuna study summary to the MLflow experiment.
-# ===========================================================================
-
-mlflow.set_experiment(EXPERIMENT_NAME)
-print(f"MLflow experiment: {EXPERIMENT_NAME}")
-
-with mlflow.start_run(run_name=f"xgboost_57features_optuna_seed{RANDOM_SEED}") as run:
-    run_id = run.info.run_id
-    print(f"Run ID: {run_id}")
-
-    # Parameters -- best hyperparameters from Optuna
-    mlflow.log_param("n_features", len(FEATURE_COLS))
-    mlflow.log_param("random_seed", RANDOM_SEED)
-    mlflow.log_param("input_table", INPUT_TABLE)
-    mlflow.log_param("n_train_rows", len(X_train))
-    mlflow.log_param("n_val_rows", len(X_val))
-    mlflow.log_param("n_test_rows", len(X_test))
-    mlflow.log_param("n_train_positives", int(n_pos))
-    mlflow.log_param("scale_pos_weight", round(scale_pos_weight, 1))
-    mlflow.log_param("best_iteration", best_iteration)
-    mlflow.log_param("tuning_method", "optuna_tpe")
-    mlflow.log_param("n_optuna_trials", N_OPTUNA_TRIALS)
-    mlflow.log_param("optuna_best_trial", best_trial.number)
-
-    for k, v in best_params.items():
-        mlflow.log_param(f"xgb_{k}", v)
-    mlflow.log_param("xgb_n_estimators", N_ESTIMATORS)
-    mlflow.log_param("xgb_early_stopping_rounds", EARLY_STOPPING_ROUNDS)
-
-    # Metrics
-    mlflow.log_metric("train_auprc", train_auprc)
-    mlflow.log_metric("val_auprc", val_auprc)
-    mlflow.log_metric("test_auprc", test_auprc)
-    mlflow.log_metric("train_auroc", train_auroc)
-    mlflow.log_metric("val_auroc", val_auroc)
-    mlflow.log_metric("test_auroc", test_auroc)
-    mlflow.log_metric("train_val_gap_auprc", train_val_gap_auprc)
-    mlflow.log_metric("train_val_gap_auroc", train_val_gap_auroc)
-
-    # Model artifact
-    mlflow.xgboost.log_model(
-        model,
-        artifact_path="model",
-        input_example=pd.DataFrame(X_train[:5], columns=FEATURE_COLS),
-    )
-    print("Model logged to MLflow")
-
-    # Feature list and importance CSV
-    feature_list_str = "\n".join(FEATURE_COLS)
-    mlflow.log_text(feature_list_str, "features.txt")
-
-    shap_importance.to_csv("/tmp/crc_tuned_shap_importance.csv", index=False)
-    mlflow.log_artifact("/tmp/crc_tuned_shap_importance.csv", "analysis")
-
-    # Optuna study summary -- all trials as CSV
-    trials_df = study.trials_dataframe()
-    trials_df.to_csv("/tmp/crc_optuna_trials.csv", index=False)
-    mlflow.log_artifact("/tmp/crc_optuna_trials.csv", "analysis")
-    print(f"Optuna study summary logged ({len(trials_df)} trials)")
-
-    # Plots
-    mlflow.log_artifact("/tmp/crc_tuned_model_curves.png", "plots")
-    mlflow.log_artifact("/tmp/crc_tuned_shap_summary.png", "plots")
-    mlflow.log_artifact("/tmp/crc_tuned_shap_bar.png", "plots")
-
-    print("All artifacts logged")
-    print(f"Run URL: {run.info.artifact_uri}")
-
-
-# ===========================================================================
-# 11. REGISTER MODEL
-#
-# Register the tuned model in the MLflow Model Registry under a separate
-# name from the conservative baseline model.
-# ===========================================================================
-
-model_uri = f"runs:/{run_id}/model"
-
-registered_model = mlflow.register_model(
-    model_uri=model_uri,
-    name=MODEL_NAME,
-)
-
-print(f"Model registered: {MODEL_NAME}")
-print(f"Version: {registered_model.version}")
-print(f"Source: {model_uri}")
-
-
-# ===========================================================================
-# 12. SUMMARY
-# ===========================================================================
-
-print("\n" + "=" * 60)
-print("TRAINING COMPLETE (OPTUNA-TUNED)")
-print("=" * 60)
-print(f"Model:           {MODEL_NAME}")
-print(f"Version:         {registered_model.version}")
-print(f"Features:        {len(FEATURE_COLS)}")
-print(f"Best iteration:  {best_iteration}")
-print(f"Trees:           {best_iteration + 1}")
-print(f"Optuna trials:   {N_OPTUNA_TRIALS}")
-print(f"Best trial:      {best_trial.number}")
-print()
-print(f"{'Metric':<12} {'Train':>10} {'Val':>10} {'Test':>10}")
-print("-" * 50)
-print(f"{'AUPRC':<12} {train_auprc:>10.4f} {val_auprc:>10.4f} {test_auprc:>10.4f}")
-print(f"{'AUROC':<12} {train_auroc:>10.4f} {val_auroc:>10.4f} {test_auroc:>10.4f}")
-print()
-print("Best hyperparameters:")
-for k, v in best_trial.params.items():
-    if isinstance(v, float):
-        print(f"  {k:<22s} {v:.6f}")
+quarter_metrics = {}
+for q in quarters:
+    q_mask = test_df["quarter"] == q
+    q_y = test_df.loc[q_mask, "FUTURE_CRC_EVENT"]
+    q_pred = test_df.loc[q_mask, "y_pred"]
+    q_base = q_y.mean()
+    if q_y.sum() > 0:
+        q_auprc = average_precision_score(q_y, q_pred)
+        q_lift = q_auprc / q_base if q_base > 0 else 0
     else:
-        print(f"  {k:<22s} {v}")
-print()
-print(f"Note: Compare with conservative baseline model '{MODEL_NAME.replace('_tuned', '')}'")
-print(f"      to assess whether tuning improved over hand-tuned params.")
-print()
-print(f"Input table:     {INPUT_TABLE}")
-print(f"Experiment:      {EXPERIMENT_NAME}")
-print(f"Run ID:          {run_id}")
-print("=" * 60)
+        q_auprc = float("nan")
+        q_lift = float("nan")
+
+    print(f"  {q:<10} {len(q_y):>8,} {int(q_y.sum()):>8} {q_base:>10.4%} {q_auprc:>8.4f} {q_lift:>8.1f}x")
+
+    quarter_metrics[q] = {
+        "n_samples": int(len(q_y)),
+        "n_events": int(q_y.sum()),
+        "base_rate": float(q_base),
+        "auprc": float(q_auprc) if not np.isnan(q_auprc) else None,
+        "lift": float(q_lift) if not np.isnan(q_lift) else None,
+    }
+
+
+# ===========================================================================
+# STEP 6: SHAP Feature Importances
+# ===========================================================================
+
+print_stage("STEP 6: SHAP FEATURE IMPORTANCES")
+
+print_progress("Computing SHAP values on validation set...")
+start = time.time()
+
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_val[FINAL_FEATURES])
+
+# Mean absolute SHAP per feature
+shap_importance = np.abs(shap_values).mean(axis=0)
+shap_df = pd.DataFrame({
+    "feature": FINAL_FEATURES,
+    "mean_abs_shap": shap_importance,
+}).sort_values("mean_abs_shap", ascending=False).reset_index(drop=True)
+shap_df["rank"] = range(1, len(shap_df) + 1)
+shap_df["pct_of_total"] = shap_df["mean_abs_shap"] / shap_df["mean_abs_shap"].sum() * 100
+
+elapsed = time.time() - start
+print_progress(f"SHAP computation complete in {elapsed:.1f}s")
+
+print(f"\n  Top 15 features by mean |SHAP|:")
+print(f"  {'Rank':<6} {'Feature':<45} {'Mean |SHAP|':>12} {'% Total':>8}")
+print(f"  {'-'*73}")
+for _, row in shap_df.head(15).iterrows():
+    print(f"  {int(row['rank']):<6} {row['feature']:<45} {row['mean_abs_shap']:>12.6f} {row['pct_of_total']:>7.1f}%")
+
+
+# ===========================================================================
+# STEP 7: Save Outputs
+# ===========================================================================
+
+print_stage("STEP 7: SAVE OUTPUTS")
+
+# Save model
+model_path = os.path.join(SCRIPT_DIR, f"{MODEL_NAME}.pkl")
+with open(model_path, "wb") as f:
+    pickle.dump(model, f)
+file_size_mb = os.path.getsize(model_path) / 1024 / 1024
+print_progress(f"Model saved: {model_path} ({file_size_mb:.2f} MB)")
+
+# Save SHAP importances
+shap_path = os.path.join(SCRIPT_DIR, f"{MODEL_NAME}_shap.csv")
+shap_df.to_csv(shap_path, index=False)
+print_progress(f"SHAP saved: {shap_path}")
+
+# Save trial results
+trials_data = []
+for trial in study.trials:
+    row = {
+        "trial": trial.number + 1,
+        "val_auprc": trial.value,
+        "train_auprc": trial.user_attrs.get("train_auprc"),
+        "train_val_gap": trial.user_attrs.get("train_val_gap"),
+        "best_iteration": trial.user_attrs.get("best_iteration"),
+    }
+    row.update(trial.params)
+    trials_data.append(row)
+
+trials_df = pd.DataFrame(trials_data).sort_values("val_auprc", ascending=False)
+trials_path = os.path.join(SCRIPT_DIR, f"{MODEL_NAME}_trials.csv")
+trials_df.to_csv(trials_path, index=False)
+print_progress(f"Trials saved: {trials_path}")
+
+# Save metrics JSON
+metrics_output = {
+    "model_name": MODEL_NAME,
+    "timestamp": datetime.now().isoformat(),
+    "random_seed": RANDOM_SEED,
+    "n_features": len(FINAL_FEATURES),
+    "feature_list": FINAL_FEATURES,
+    "optuna": {
+        "n_trials": N_TRIALS,
+        "best_trial": study.best_trial.number + 1,
+        "best_val_auprc": float(study.best_value),
+        "search_space": {
+            "max_depth": [2, 8],
+            "min_child_weight": [10, 100],
+            "gamma": [0.0, 5.0],
+            "subsample": [0.3, 0.8],
+            "colsample_bytree": [0.3, 0.8],
+            "colsample_bylevel": [0.3, 0.8],
+            "reg_alpha": [0.1, 10.0],
+            "reg_lambda": [1.0, 100.0],
+            "learning_rate": [0.001, 0.05],
+        },
+    },
+    "best_hyperparameters": {k: float(v) if isinstance(v, (int, float)) else v for k, v in best_params.items()},
+    "scale_pos_weight": float(scale_pos_weight),
+    "best_iteration": int(model.best_iteration),
+    "best_score": float(model.best_score),
+    "metrics": metrics,
+    "train_val_gap": float(train_val_gap),
+    "quarter_metrics": quarter_metrics,
+    "shap_top_15": {row["feature"]: float(row["mean_abs_shap"]) for _, row in shap_df.head(15).iterrows()},
+    "data": {
+        "table": table_name,
+        "total_rows": int(len(df_pandas)),
+        "train_rows": int(len(y_train)),
+        "val_rows": int(len(y_val)),
+        "test_rows": int(len(y_test)),
+    },
+}
+
+metrics_path = os.path.join(SCRIPT_DIR, f"{MODEL_NAME}_metrics.json")
+with open(metrics_path, "w") as f:
+    json.dump(metrics_output, f, indent=2)
+print_progress(f"Metrics saved: {metrics_path}")
+
+
+# ===========================================================================
+# Done
+# ===========================================================================
+
+print_stage("OPTUNA TRAINING COMPLETE")
+print(f"""
+  Model:      {MODEL_NAME}
+  Features:   {len(FINAL_FEATURES)}
+  Trials:     {N_TRIALS}
+  Best trial: #{study.best_trial.number + 1}
+  Best iter:  {model.best_iteration}
+
+  Best hyperparameters:
+    max_depth:        {best_params['max_depth']}
+    min_child_weight: {best_params['min_child_weight']}
+    gamma:            {best_params['gamma']:.3f}
+    subsample:        {best_params['subsample']:.3f}
+    colsample_bytree: {best_params['colsample_bytree']:.3f}
+    colsample_bylevel:{best_params['colsample_bylevel']:.3f}
+    reg_alpha:        {best_params['reg_alpha']:.4f}
+    reg_lambda:       {best_params['reg_lambda']:.4f}
+    learning_rate:    {best_params['learning_rate']:.5f}
+
+  Performance:
+    Train AUPRC: {metrics['train']['auprc']:.4f} ({metrics['train']['lift']:.1f}x lift)
+    Val AUPRC:   {metrics['val']['auprc']:.4f} ({metrics['val']['lift']:.1f}x lift)
+    Test AUPRC:  {metrics['test']['auprc']:.4f} ({metrics['test']['lift']:.1f}x lift)
+    Train-Val gap: {train_val_gap:+.4f}
+
+  Outputs:
+    {model_path}
+    {metrics_path}
+    {shap_path}
+    {trials_path}
+""")

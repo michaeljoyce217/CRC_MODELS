@@ -120,7 +120,7 @@ print("=" * 70)
 # --- 2a. Base patient identification ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW base_patients AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_base_patients AS
 
 SELECT DISTINCT pe.PAT_ID
 FROM clarity_cur.PAT_ENC_ENH pe
@@ -147,14 +147,14 @@ WHERE DATE(pe.HOSP_ADMSN_TIME) >= '{index_start}'
   AND pe.combine_acct_id IS NULL
 """)
 
-patient_count = spark.sql("SELECT COUNT(*) AS n FROM base_patients").collect()[0]['n']
+patient_count = spark.sql(f"SELECT COUNT(*) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_base_patients").collect()[0]['n']
 print(f"Base patients: {patient_count:,}")
 
 
 # --- 2b. Monthly observation grid ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW observation_grid AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_observation_grid AS
 
 WITH months AS (
   SELECT explode(
@@ -175,7 +175,7 @@ pat_month AS (
       abs(hash(concat(CAST(bp.PAT_ID AS STRING), '|', CAST(m.month_start AS STRING)))),
       day(last_day(m.month_start))
     ) + 1 AS rnd_day
-  FROM base_patients bp
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_base_patients bp
   CROSS JOIN months m
 )
 
@@ -187,14 +187,14 @@ WHERE date_add(month_start, rnd_day - 1) >= DATE('{index_start}')
   AND date_add(month_start, rnd_day - 1) <= DATE('{index_end}')
 """)
 
-grid_count = spark.sql("SELECT COUNT(*) AS n FROM observation_grid").collect()[0]['n']
+grid_count = spark.sql(f"SELECT COUNT(*) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_observation_grid").collect()[0]['n']
 print(f"Observation grid rows: {grid_count:,}")
 
 
 # --- 2c. Demographics ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW cohort_demographics AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_cohort_demographics AS
 
 WITH first_seen AS (
   SELECT PAT_ID, MIN(first_dt) AS first_seen_dt
@@ -226,7 +226,7 @@ SELECT
     WHEN fs.first_seen_dt > idx.END_DTTM THEN 0
     ELSE 1
   END AS data_quality_flag
-FROM observation_grid idx
+FROM {trgt_cat}.clncl_ds.herald_train_stg_observation_grid idx
 LEFT JOIN clarity_cur.PATIENT_ENH p ON idx.PAT_ID = p.PAT_ID
 LEFT JOIN first_seen fs ON idx.PAT_ID = fs.PAT_ID
 WHERE FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) >= 45
@@ -242,22 +242,22 @@ WHERE FLOOR(datediff(idx.END_DTTM, p.BIRTH_DATE) / 365.25) >= 45
       END = 1
 """)
 
-demo_count = spark.sql("SELECT COUNT(*) AS n FROM cohort_demographics").collect()[0]['n']
+demo_count = spark.sql(f"SELECT COUNT(*) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_demographics").collect()[0]['n']
 print(f"After demographics filters: {demo_count:,}")
 
 
 # --- 2d. PCP status ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW cohort_with_pcp AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_cohort_with_pcp AS
 
 SELECT
   c.*,
   CASE WHEN pcp.PAT_ID IS NOT NULL THEN 1 ELSE 0 END AS HAS_PCP_AT_END
-FROM cohort_demographics c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_demographics c
 LEFT JOIN (
   SELECT DISTINCT p.PAT_ID, c2.END_DTTM
-  FROM cohort_demographics c2
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_demographics c2
   JOIN clarity.pat_pcp p
     ON p.PAT_ID = c2.PAT_ID
     AND c2.END_DTTM BETWEEN p.EFF_DATE AND COALESCE(p.TERM_DATE, '9999-12-31')
@@ -273,10 +273,10 @@ print("PCP status computed")
 # --- 2e. Medical exclusions ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW medical_exclusions AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_medical_exclusions AS
 
 SELECT DISTINCT c.PAT_ID, c.END_DTTM
-FROM cohort_with_pcp c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_with_pcp c
 JOIN clarity_cur.pat_enc_enh pe
   ON pe.PAT_ID = c.PAT_ID
   AND DATE(pe.CONTACT_DATE) <= c.END_DTTM
@@ -287,27 +287,27 @@ WHERE dd.ICD10_CODE RLIKE '{crc_icd_regex}'
    OR dd.ICD10_CODE LIKE 'Z51.5%'
 """)
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW cohort_no_exclusions AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_cohort_no_exclusions AS
 SELECT c.*
-FROM cohort_with_pcp c
-LEFT ANTI JOIN medical_exclusions e
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_with_pcp c
+LEFT ANTI JOIN {trgt_cat}.clncl_ds.herald_train_stg_medical_exclusions e
   ON c.PAT_ID = e.PAT_ID AND c.END_DTTM = e.END_DTTM
 """)
 
-after_excl = spark.sql("SELECT COUNT(*) AS n FROM cohort_no_exclusions").collect()[0]['n']
+after_excl = spark.sql(f"SELECT COUNT(*) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_no_exclusions").collect()[0]['n']
 print(f"After medical exclusions: {after_excl:,}")
 
 
 # --- 2f. Screening exclusions ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW internal_screening AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_internal_screening AS
 
 SELECT
   c.PAT_ID,
   c.END_DTTM
-FROM cohort_no_exclusions c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_no_exclusions c
 JOIN clarity_cur.ORDER_PROC_ENH op
   ON op.PAT_ID = c.PAT_ID
   AND DATE(op.ORDERING_DATE) <= c.END_DTTM
@@ -356,11 +356,11 @@ HAVING MAX(
 ) = 1
 """)
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW cohort_unscreened AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_cohort_unscreened AS
 SELECT c.*
-FROM cohort_no_exclusions c
-LEFT ANTI JOIN internal_screening ise
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_no_exclusions c
+LEFT ANTI JOIN {trgt_cat}.clncl_ds.herald_train_stg_internal_screening ise
   ON c.PAT_ID = ise.PAT_ID AND c.END_DTTM = ise.END_DTTM
 WHERE c.PAT_ID NOT IN (
   SELECT PAT_ID
@@ -370,14 +370,14 @@ WHERE c.PAT_ID NOT IN (
 )
 """)
 
-unscreened_count = spark.sql("SELECT COUNT(*) AS n FROM cohort_unscreened").collect()[0]['n']
+unscreened_count = spark.sql(f"SELECT COUNT(*) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_unscreened").collect()[0]['n']
 print(f"After screening exclusions: {unscreened_count:,}")
 
 
 # --- 2g. Label construction ---
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW cohort_labeled AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_cohort_labeled AS
 
 WITH future_crc AS (
   SELECT DISTINCT
@@ -387,7 +387,7 @@ WITH future_crc AS (
       PARTITION BY c.PAT_ID, c.END_DTTM
       ORDER BY pe.CONTACT_DATE, dd.ICD10_CODE
     ) AS ICD10_CODE
-  FROM cohort_unscreened c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_unscreened c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) > c.END_DTTM
@@ -402,7 +402,7 @@ next_contact AS (
     c.PAT_ID,
     c.END_DTTM,
     MIN(pe.CONTACT_DATE) AS next_visit_date
-  FROM cohort_unscreened c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_unscreened c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) > c.END_DTTM
@@ -413,7 +413,7 @@ next_contact AS (
 
 patient_first_obs AS (
   SELECT PAT_ID, MIN(END_DTTM) AS first_obs_date
-  FROM cohort_unscreened
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_unscreened
   GROUP BY PAT_ID
 )
 
@@ -445,24 +445,24 @@ SELECT
     ELSE 0
   END AS LABEL_USABLE
 
-FROM cohort_unscreened c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_unscreened c
 LEFT JOIN future_crc fc ON c.PAT_ID = fc.PAT_ID AND c.END_DTTM = fc.END_DTTM
 LEFT JOIN next_contact nc ON c.PAT_ID = nc.PAT_ID AND c.END_DTTM = nc.END_DTTM
 LEFT JOIN patient_first_obs pfo ON c.PAT_ID = pfo.PAT_ID
 """)
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW cohort_base AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_cohort_base AS
 SELECT
   PAT_ID, END_DTTM, AGE, IS_FEMALE, IS_MARRIED_PARTNER,
   RACE_CAUCASIAN, RACE_HISPANIC, HAS_PCP_AT_END,
   months_since_cohort_entry, FUTURE_CRC_EVENT, ICD10_GROUP
-FROM cohort_labeled
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_labeled
 WHERE LABEL_USABLE = 1
 """)
 
-base_count = spark.sql("SELECT COUNT(*) AS n FROM cohort_base").collect()[0]['n']
-pos_count = spark.sql("SELECT SUM(FUTURE_CRC_EVENT) AS n FROM cohort_base").collect()[0]['n']
+base_count = spark.sql(f"SELECT COUNT(*) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base").collect()[0]['n']
+pos_count = spark.sql(f"SELECT SUM(FUTURE_CRC_EVENT) AS n FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base").collect()[0]['n']
 print(f"Cohort base: {base_count:,} rows, {pos_count:,} positives ({pos_count/base_count*100:.3f}%)")
 
 
@@ -470,7 +470,7 @@ print(f"Cohort base: {base_count:,} rows, {pos_count:,} positives ({pos_count/ba
 
 print("\nComputing stratified patient-level split (70/15/15)...")
 
-df_cohort = spark.sql("SELECT * FROM cohort_base")
+df_cohort = spark.sql(f"SELECT * FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base")
 
 patient_labels = df_cohort.groupBy("PAT_ID").agg(
     F.max("FUTURE_CRC_EVENT").alias("is_positive"),
@@ -565,7 +565,7 @@ print("SECTION 3: VITALS")
 print("=" * 70)
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW vitals_raw AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_vitals_raw AS
 
 SELECT
   c.PAT_ID,
@@ -582,7 +582,7 @@ SELECT
        THEN CAST(pe.WEIGHT AS DOUBLE) END AS WEIGHT_OZ,
   CASE WHEN CAST(pe.BMI AS DOUBLE) BETWEEN 10 AND 80
        THEN CAST(pe.BMI AS DOUBLE) END AS BMI
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 JOIN clarity_cur.pat_enc_enh pe
   ON pe.PAT_ID = c.PAT_ID
   AND DATE(pe.CONTACT_DATE) < c.END_DTTM
@@ -591,8 +591,8 @@ JOIN clarity_cur.pat_enc_enh pe
   AND pe.APPT_STATUS_C IN (2, 6)
 """)
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW vitals_features AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_vitals_features AS
 
 WITH
 latest_vitals AS (
@@ -602,7 +602,7 @@ latest_vitals AS (
     SELECT PAT_ID, END_DTTM, BP_SYSTOLIC, BP_DIASTOLIC, PULSE, BMI,
            WEIGHT_OZ, MEAS_DATE, DAYS_BEFORE_END,
       ROW_NUMBER() OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE DESC) AS rn
-    FROM vitals_raw
+    FROM {trgt_cat}.clncl_ds.herald_train_stg_vitals_raw
     WHERE (BP_SYSTOLIC IS NOT NULL OR WEIGHT_OZ IS NOT NULL OR BMI IS NOT NULL)
   ) t WHERE rn = 1
 ),
@@ -615,7 +615,7 @@ weight_6m AS (
         PARTITION BY PAT_ID, END_DTTM
         ORDER BY ABS(DAYS_BEFORE_END - 180)
       ) AS rn
-    FROM vitals_raw
+    FROM {trgt_cat}.clncl_ds.herald_train_stg_vitals_raw
     WHERE WEIGHT_OZ IS NOT NULL
       AND DAYS_BEFORE_END BETWEEN 150 AND 210
   ) t WHERE rn = 1
@@ -625,7 +625,7 @@ weight_trajectory AS (
   SELECT
     PAT_ID, END_DTTM,
     REGR_SLOPE(WEIGHT_OZ, DAYS_BEFORE_END) AS WEIGHT_TRAJECTORY_SLOPE
-  FROM vitals_raw
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_vitals_raw
   WHERE WEIGHT_OZ IS NOT NULL
   GROUP BY PAT_ID, END_DTTM
   HAVING COUNT(*) >= 2
@@ -635,7 +635,7 @@ weight_changes AS (
   SELECT PAT_ID, END_DTTM, WEIGHT_OZ, MEAS_DATE,
     LAG(WEIGHT_OZ) OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE) AS PREV_WEIGHT_OZ,
     LAG(MEAS_DATE) OVER (PARTITION BY PAT_ID, END_DTTM ORDER BY MEAS_DATE) AS PREV_MEAS_DATE
-  FROM vitals_raw
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_vitals_raw
   WHERE WEIGHT_OZ IS NOT NULL
 ),
 
@@ -652,7 +652,7 @@ max_weight_loss AS (
 
 bp_variability AS (
   SELECT PAT_ID, END_DTTM, STDDEV(BP_SYSTOLIC) AS SBP_VARIABILITY_6M
-  FROM vitals_raw
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_vitals_raw
   WHERE BP_SYSTOLIC IS NOT NULL AND DAYS_BEFORE_END <= 180
   GROUP BY PAT_ID, END_DTTM
   HAVING COUNT(*) >= 2
@@ -692,7 +692,7 @@ SELECT
     ELSE 0
   END AS vit_vital_recency_score
 
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 LEFT JOIN latest_vitals lv ON c.PAT_ID = lv.PAT_ID AND c.END_DTTM = lv.END_DTTM
 LEFT JOIN weight_6m w6 ON c.PAT_ID = w6.PAT_ID AND c.END_DTTM = w6.END_DTTM
 LEFT JOIN weight_trajectory wt ON c.PAT_ID = wt.PAT_ID AND c.END_DTTM = wt.END_DTTM
@@ -702,7 +702,7 @@ LEFT JOIN bp_variability bv ON c.PAT_ID = bv.PAT_ID AND c.END_DTTM = bv.END_DTTM
 
 spark.sql(f"""
 CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_vitals AS
-SELECT * FROM vitals_features
+SELECT * FROM {trgt_cat}.clncl_ds.herald_train_stg_vitals_features
 """)
 
 vit_count = spark.table(f"{trgt_cat}.clncl_ds.herald_train_vitals").count()
@@ -722,12 +722,12 @@ print("SECTION 4: ICD-10 DIAGNOSES")
 print("=" * 70)
 
 spark.sql(f"""
-CREATE OR REPLACE TEMP VIEW icd_features AS
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_icd_features AS
 
 WITH all_dx AS (
   -- Outpatient diagnoses
   SELECT c.PAT_ID, c.END_DTTM, dd.ICD10_CODE AS CODE, DATE(pe.CONTACT_DATE) AS DX_DATE
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) < c.END_DTTM
@@ -741,7 +741,7 @@ WITH all_dx AS (
 
   -- Inpatient diagnoses (join via HSP_ACCOUNT_ID, date = DISCH_DATE_TIME)
   SELECT c.PAT_ID, c.END_DTTM, dd.CODE, DATE(hsp.DISCH_DATE_TIME) AS DX_DATE
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
     ON hsp.PAT_ID = c.PAT_ID
     AND DATE(hsp.DISCH_DATE_TIME) < c.END_DTTM
@@ -760,7 +760,7 @@ family_hx AS (
     c.END_DTTM,
     MAX(CASE WHEN fh.MEDICAL_HX_C IN (10404, 20172) THEN 1 ELSE 0 END) AS FHX_CRC_CODED,
     MAX(CASE WHEN dx.CODE RLIKE '^Z80\\.0' THEN 1 ELSE 0 END) AS FHX_DIGESTIVE_CANCER_ICD
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   LEFT JOIN clarity.family_hx fh
     ON c.PAT_ID = fh.PAT_ID
     AND DATE(fh.CONTACT_DATE) <= c.END_DTTM
@@ -820,7 +820,7 @@ SELECT
     ) >= 2
   ) THEN 1 ELSE 0 END AS icd_chronic_gi_pattern
 
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 LEFT JOIN all_dx dx ON c.PAT_ID = dx.PAT_ID AND c.END_DTTM = dx.END_DTTM
 LEFT JOIN family_hx fhx ON c.PAT_ID = fhx.PAT_ID AND c.END_DTTM = fhx.END_DTTM
 GROUP BY c.PAT_ID, c.END_DTTM, fhx.FHX_CRC_CODED, fhx.FHX_DIGESTIVE_CANCER_ICD
@@ -828,7 +828,7 @@ GROUP BY c.PAT_ID, c.END_DTTM, fhx.FHX_CRC_CODED, fhx.FHX_DIGESTIVE_CANCER_ICD
 
 spark.sql(f"""
 CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_icd10 AS
-SELECT * FROM icd_features
+SELECT * FROM {trgt_cat}.clncl_ds.herald_train_stg_icd_features
 """)
 
 icd_count = spark.table(f"{trgt_cat}.clncl_ds.herald_train_icd10").count()
@@ -854,8 +854,8 @@ print("=" * 70)
 
 # --- 5a. Unified lab results (UNION ALL of outpatient + inpatient) ---
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW all_lab_results AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_all_lab_results AS
 
 -- Outpatient lab path: order_proc_enh -> order_results -> clarity_component
 SELECT
@@ -865,7 +865,7 @@ SELECT
   TRY_CAST(REGEXP_REPLACE(ores.ORD_VALUE, '[><]', '') AS FLOAT) AS VALUE,
   DATE(ores.RESULT_TIME) AS RESULT_DATE,
   DATEDIFF(c.END_DTTM, DATE(ores.RESULT_TIME)) AS DAYS_BEFORE
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 JOIN clarity_cur.order_proc_enh op
   ON op.PAT_ID = c.PAT_ID
   AND DATE(op.ORDERING_DATE) < c.END_DTTM
@@ -929,7 +929,7 @@ FROM (
     ON cc.COMPONENT_ID = res_comp.COMPONENT_ID
   JOIN clarity.pat_enc_hsp peh_inner
     ON peh_inner.PAT_ENC_CSN_ID = op.PAT_ENC_CSN_ID
-  JOIN cohort_base c_inner
+  JOIN {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c_inner
     ON c_inner.PAT_ID = peh_inner.PAT_ID
   WHERE op.ORDER_STATUS_C IN (3, 5, 10)
     AND op.LAB_STATUS_C IN (3, 5)
@@ -945,7 +945,7 @@ FROM (
     )
 ) normalized
 JOIN clarity.pat_enc_hsp peh ON peh.PAT_ENC_CSN_ID = normalized.PAT_ENC_CSN_ID
-JOIN cohort_base c ON c.PAT_ID = peh.PAT_ID AND c.END_DTTM = normalized.END_DTTM
+JOIN {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c ON c.PAT_ID = peh.PAT_ID AND c.END_DTTM = normalized.END_DTTM
 WHERE normalized.COMPONENT_NAME IS NOT NULL
   AND normalized.VALUE IS NOT NULL
 """)
@@ -955,14 +955,14 @@ print("Unified lab results created (outpatient + inpatient)")
 
 # --- 5b. Latest lab values (pivot) ---
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW lab_latest AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_lab_latest AS
 
 WITH ranked AS (
   SELECT PAT_ID, END_DTTM, COMPONENT_NAME, VALUE,
     ROW_NUMBER() OVER (PARTITION BY PAT_ID, END_DTTM, COMPONENT_NAME
                        ORDER BY RESULT_DATE DESC) AS rn
-  FROM all_lab_results
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_all_lab_results
   WHERE VALUE IS NOT NULL
     AND (
       (COMPONENT_NAME = 'HEMOGLOBIN' AND VALUE BETWEEN 3 AND 20)
@@ -997,8 +997,8 @@ print("Latest lab values pivoted")
 
 # --- 5c. Albumin 6 months prior ---
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW lab_albumin_prior AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_lab_albumin_prior AS
 
 WITH albumin_6m AS (
   SELECT
@@ -1007,7 +1007,7 @@ WITH albumin_6m AS (
       PARTITION BY PAT_ID, END_DTTM
       ORDER BY ABS(DAYS_BEFORE - 180)
     ) AS rn
-  FROM all_lab_results
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_all_lab_results
   WHERE COMPONENT_NAME = 'ALBUMIN'
     AND VALUE BETWEEN 1 AND 6
     AND DAYS_BEFORE BETWEEN 150 AND 210
@@ -1020,8 +1020,8 @@ FROM albumin_6m WHERE rn = 1
 
 # --- 5d. CRP 6 months prior ---
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW lab_crp_prior AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_lab_crp_prior AS
 
 WITH crp_6m AS (
   SELECT
@@ -1030,7 +1030,7 @@ WITH crp_6m AS (
       PARTITION BY PAT_ID, END_DTTM
       ORDER BY ABS(DAYS_BEFORE - 180)
     ) AS rn
-  FROM all_lab_results
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_all_lab_results
   WHERE COMPONENT_NAME = 'CRP'
     AND VALUE BETWEEN 0 AND 500
     AND DAYS_BEFORE BETWEEN 150 AND 210
@@ -1043,8 +1043,8 @@ FROM crp_6m WHERE rn = 1
 
 # --- 5e. Acceleration features (hemoglobin + platelets) ---
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW lab_acceleration AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_lab_acceleration AS
 
 WITH hgb_time_points AS (
   SELECT PAT_ID, END_DTTM,
@@ -1052,7 +1052,7 @@ WITH hgb_time_points AS (
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 15 AND 45 THEN VALUE END) AS value_1mo_prior,
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 60 AND 120 THEN VALUE END) AS value_3mo_prior,
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 150 AND 210 THEN VALUE END) AS value_6mo_prior
-  FROM all_lab_results
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_all_lab_results
   WHERE COMPONENT_NAME = 'HEMOGLOBIN'
     AND VALUE BETWEEN 3 AND 20
   GROUP BY PAT_ID, END_DTTM
@@ -1063,7 +1063,7 @@ plt_time_points AS (
     MAX(CASE WHEN DAYS_BEFORE <= 30 THEN VALUE END) AS current_value,
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 60 AND 120 THEN VALUE END) AS value_3mo_prior,
     AVG(CASE WHEN DAYS_BEFORE BETWEEN 150 AND 210 THEN VALUE END) AS value_6mo_prior
-  FROM all_lab_results
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_all_lab_results
   WHERE COMPONENT_NAME = 'PLATELETS'
     AND VALUE BETWEEN 10 AND 2000
   GROUP BY PAT_ID, END_DTTM
@@ -1091,7 +1091,7 @@ SELECT
      AND ((p.current_value - p.value_3mo_prior) / 3.0) > ((p.value_3mo_prior - p.value_6mo_prior) / 3.0)
     THEN 1 ELSE 0
   END AS lab_PLATELETS_ACCELERATING_RISE
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 LEFT JOIN hgb_time_points h ON c.PAT_ID = h.PAT_ID AND c.END_DTTM = h.END_DTTM
 LEFT JOIN plt_time_points p ON c.PAT_ID = p.PAT_ID AND c.END_DTTM = p.END_DTTM
 """)
@@ -1163,11 +1163,11 @@ SELECT
     ELSE 0
   END AS lab_iron_deficiency_labs_only
 
-FROM cohort_base c
-LEFT JOIN lab_latest ll ON c.PAT_ID = ll.PAT_ID AND c.END_DTTM = ll.END_DTTM
-LEFT JOIN lab_albumin_prior ap ON c.PAT_ID = ap.PAT_ID AND c.END_DTTM = ap.END_DTTM
-LEFT JOIN lab_crp_prior cp ON c.PAT_ID = cp.PAT_ID AND c.END_DTTM = cp.END_DTTM
-LEFT JOIN lab_acceleration la ON c.PAT_ID = la.PAT_ID AND c.END_DTTM = la.END_DTTM
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
+LEFT JOIN {trgt_cat}.clncl_ds.herald_train_stg_lab_latest ll ON c.PAT_ID = ll.PAT_ID AND c.END_DTTM = ll.END_DTTM
+LEFT JOIN {trgt_cat}.clncl_ds.herald_train_stg_lab_albumin_prior ap ON c.PAT_ID = ap.PAT_ID AND c.END_DTTM = ap.END_DTTM
+LEFT JOIN {trgt_cat}.clncl_ds.herald_train_stg_lab_crp_prior cp ON c.PAT_ID = cp.PAT_ID AND c.END_DTTM = cp.END_DTTM
+LEFT JOIN {trgt_cat}.clncl_ds.herald_train_stg_lab_acceleration la ON c.PAT_ID = la.PAT_ID AND c.END_DTTM = la.END_DTTM
 """)
 
 lab_count = spark.table(f"{trgt_cat}.clncl_ds.herald_train_labs").count()
@@ -1197,7 +1197,7 @@ WITH inpatient_meds AS (
     LOWER(med.GENERIC_NAME) AS generic_name,
     DATEDIFF(c.END_DTTM, DATE(mar.TAKEN_TIME)) AS days_since,
     hsp.PAT_ENC_CSN_ID AS admission_csn
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
     ON hsp.PAT_ID = c.PAT_ID
     AND DATE(hsp.HOSP_ADMSN_TIME) < c.END_DTTM
@@ -1270,7 +1270,7 @@ SELECT
   END AS inp_med_inp_gi_bleed_meds_recency,
   COALESCE(MAX(af.has_any_key_med), 0) AS inp_med_inp_any_hospitalization
 
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 LEFT JOIN admission_flags af ON c.PAT_ID = af.PAT_ID AND c.END_DTTM = af.END_DTTM
 GROUP BY c.PAT_ID, c.END_DTTM
 """)
@@ -1291,8 +1291,8 @@ print("\n" + "=" * 70)
 print("SECTION 7: VISIT HISTORY")
 print("=" * 70)
 
-spark.sql("""
-CREATE OR REPLACE TEMP VIEW visit_features AS
+spark.sql(f"""
+CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_stg_visit_features AS
 
 WITH
 outpatient AS (
@@ -1303,7 +1303,7 @@ outpatient AS (
     DATE(pe.CONTACT_DATE) AS VISIT_DATE,
     pe.APPT_STATUS_C,
     CASE WHEN pe.VISIT_PROV_ID = pe.PCP_PROV_ID THEN 1 ELSE 0 END AS IS_PCP_VISIT
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) < c.END_DTTM
@@ -1325,7 +1325,7 @@ gi_symptom_op AS (
 
 gi_symptom_acute AS (
   SELECT DISTINCT c.PAT_ID, c.END_DTTM, hsp.PAT_ENC_CSN_ID
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.PAT_ENC_HSP_HAR_ENH hsp
     ON hsp.PAT_ID = c.PAT_ID
     AND DATE(hsp.HOSP_ADMSN_TIME) < c.END_DTTM
@@ -1344,7 +1344,7 @@ gi_recency AS (
     c.PAT_ID,
     c.END_DTTM,
     MIN(DATEDIFF(c.END_DTTM, DATE(pe.CONTACT_DATE))) AS days_since_last_gi
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) < c.END_DTTM
@@ -1362,7 +1362,7 @@ gi_visits_12mo AS (
     c.PAT_ID,
     c.END_DTTM,
     COUNT(DISTINCT pe.PAT_ENC_CSN_ID) AS gi_visits_12mo
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) < c.END_DTTM
@@ -1380,7 +1380,7 @@ no_shows AS (
     c.PAT_ID,
     c.END_DTTM,
     COUNT(*) AS no_shows_12mo
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.pat_enc_enh pe
     ON pe.PAT_ID = c.PAT_ID
     AND DATE(pe.CONTACT_DATE) < c.END_DTTM
@@ -1447,7 +1447,7 @@ SELECT
     THEN 1 ELSE 0
   END AS visit_gi_symptoms_no_specialist
 
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 LEFT JOIN op_metrics om ON c.PAT_ID = om.PAT_ID AND c.END_DTTM = om.END_DTTM
 LEFT JOIN gi_symptom_op_counts gsop ON c.PAT_ID = gsop.PAT_ID AND c.END_DTTM = gsop.END_DTTM
 LEFT JOIN gi_symptom_acute_counts gsac ON c.PAT_ID = gsac.PAT_ID AND c.END_DTTM = gsac.END_DTTM
@@ -1458,7 +1458,7 @@ LEFT JOIN no_shows ns ON c.PAT_ID = ns.PAT_ID AND c.END_DTTM = ns.END_DTTM
 
 spark.sql(f"""
 CREATE OR REPLACE TABLE {trgt_cat}.clncl_ds.herald_train_visits AS
-SELECT * FROM visit_features
+SELECT * FROM {trgt_cat}.clncl_ds.herald_train_stg_visit_features
 """)
 
 visit_count = spark.table(f"{trgt_cat}.clncl_ds.herald_train_visits").count()
@@ -1497,7 +1497,7 @@ WITH proc_raw AS (
         OR LOWER(op.PROC_NAME) LIKE '%blood product%'
       THEN 1 ELSE 0
     END AS is_transfusion
-  FROM cohort_base c
+  FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
   JOIN clarity_cur.order_proc_enh op
     ON op.PAT_ID = c.PAT_ID
     AND DATE(op.RESULT_TIME) < c.END_DTTM
@@ -1513,7 +1513,7 @@ SELECT
   COALESCE(SUM(pr.is_abd_imaging), 0) AS proc_total_imaging_count_12mo,
   COALESCE(SUM(pr.is_transfusion), 0) AS proc_blood_transfusion_count_12mo
 
-FROM cohort_base c
+FROM {trgt_cat}.clncl_ds.herald_train_stg_cohort_base c
 LEFT JOIN proc_raw pr ON c.PAT_ID = pr.PAT_ID AND c.END_DTTM = pr.END_DTTM
 GROUP BY c.PAT_ID, c.END_DTTM
 """)
