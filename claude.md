@@ -426,18 +426,29 @@ After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
 Manual pick:    49 features (iter12 CV-stable subset + 1 clinical addition)
 ```
 
-### First Results (Mercy Standard)
+### Results: Mercy Standard and Med-Averse (Complete)
 
+**Mercy Standard** (28 features):
 ```
-Starting:      165 features (after Book 8 quality checks + temporal exclusions)
-After Phase 1: 139 features (cluster-based reduction)
-After Phase 2:  30 features (28 iterations, ~51 min on Databricks)
-Phase 4 (20%): Selected ~30 features (fewest within 20% of best val AUPRC)
-Phase 5:       Production model — val AUPRC 0.064, test AUPRC 0.057
-               AUROC 0.81/0.82, Lift@1% 23x, 1554 trees
+Phase 1: 167 → 139 features (cluster-based reduction)
+Phase 2: 139 → 28 features (29 iterations)
+Phase 4: SD=0.0135, threshold=0.0443 → selected iter 29 (28 features, val AUPRC 0.0503)
+         All 28 features 5/5 CV-stable, EPV=78
+Phase 5: Val AUPRC=0.0505, Test AUPRC=0.0534, Lift@1%=21.2x
 ```
 
-**Other 5 variants running on Databricks.** Each methodology variant may produce different final feature sets.
+**Mercy Med-Averse** (30 features):
+```
+Phase 1: 167 → 139 features (cluster-based reduction)
+Phase 2: 139 → 30 features (26 iterations)
+Phase 4: SD=0.0124, threshold=0.0447 → selected iter 26 (30 features, val AUPRC 0.0552)
+         All 30 features 5/5 CV-stable, EPV=73
+Phase 5: Val AUPRC=0.0523, Test AUPRC=0.0460, Lift@1%=21.9x
+```
+
+**Key differences:** Med-averse dropped AGE_GROUP, added more lab/ICD features (ALK_PHOS, PLATELETS, ELIXHAUSER, ANEMIA_FLAG, MALIGNANCY_FLAG). The medication tiebreaking during winnowing steered it toward different clinical signals. Both share a core of ~24 features.
+
+**Other 4 variants running on Databricks.** Each methodology variant may produce different final feature sets.
 
 **Med-Averse difference:** Phases 1-2 apply `MED_TIEBREAK_BAND = 0.05` — when a medication and non-medication feature are similarly ranked during SHAP winnowing, the medication feature is removed first. Phases 3-5 are identical to Standard.
 

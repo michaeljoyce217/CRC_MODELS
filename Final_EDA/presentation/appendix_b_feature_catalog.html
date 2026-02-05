@@ -1,0 +1,2974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix B: Feature Catalog | Mercy and Lucem Clinical Analytics</title>
+  <style>
+    /* ========================================================
+       RESET & BASE STYLES
+       ======================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #333333;
+      background-color: #ffffff;
+      line-height: 1.6;
+    }
+
+    /* ========================================================
+       MERCY BRAND COLOR VARIABLES (used via direct values)
+       Primary:    Bahama Blue  #006598
+       Accent:     Fiery Orange #bf5412
+       Background: White #ffffff / Light Gray #f5f7fa
+       Text:       Dark Gray #333333 / Headings #1a1a1a
+       ======================================================== */
+
+    /* ========================================================
+       NAV BAR
+       ======================================================== */
+    .nav-bar {
+      background-color: #006598;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-bar .nav-brand {
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .nav-bar .nav-links {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .nav-bar .nav-links a {
+      color: rgba(255, 255, 255, 0.85);
+      text-decoration: none;
+      font-size: 0.82rem;
+      padding: 6px 14px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-bar .nav-links a:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    .nav-bar .nav-links a.nav-active {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    /* ========================================================
+       HEADER
+       ======================================================== */
+    .header {
+      background: linear-gradient(135deg, #006598 0%, #004d73 100%);
+      color: #ffffff;
+      padding: 48px 24px 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .header .subtitle {
+      font-size: 1.1rem;
+      font-weight: 300;
+      opacity: 0.9;
+      margin-bottom: 4px;
+    }
+
+    .header .header-meta {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      margin-top: 12px;
+    }
+
+    /* ========================================================
+       MAIN CONTAINER
+       ======================================================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ========================================================
+       TAB NAVIGATION
+       ======================================================== */
+    .tab-nav {
+      display: flex;
+      gap: 0;
+      background-color: #ffffff;
+      border-bottom: 3px solid #006598;
+      padding: 0;
+      margin-top: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-btn {
+      padding: 14px 22px;
+      border: none;
+      background: transparent;
+      color: #555555;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      position: relative;
+      transition: color 0.2s ease, background-color 0.2s ease;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -3px;
+    }
+
+    .tab-btn:hover {
+      color: #006598;
+      background-color: #f0f6fa;
+    }
+
+    .tab-btn.active {
+      color: #006598;
+      font-weight: 600;
+      border-bottom-color: #bf5412;
+      background-color: #f5f7fa;
+    }
+
+    /* ========================================================
+       TAB CONTENT / PANES
+       ======================================================== */
+    .tab-content {
+      min-height: 500px;
+    }
+
+    .tab-pane {
+      display: none;
+      padding: 36px 0 48px;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ========================================================
+       SECTION HEADERS
+       ======================================================== */
+    .section-header {
+      color: #006598;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e0e7ed;
+    }
+
+    h2 {
+      color: #1a1a1a;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      color: #1a1a1a;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      color: #333333;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      line-height: 1.65;
+    }
+
+    /* ========================================================
+       PLACEHOLDER SPANS
+       ======================================================== */
+    .placeholder {
+      display: inline;
+      padding: 2px 10px;
+      border: 1.5px dashed #bf5412;
+      background-color: #fff3e8;
+      color: #bf5412;
+      border-radius: 3px;
+      font-size: 0.88em;
+      font-weight: 500;
+      font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+      white-space: nowrap;
+    }
+
+    /* ========================================================
+       CALLOUT BOXES
+       ======================================================== */
+    .callout {
+      padding: 16px 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #006598;
+      background-color: #f0f6fa;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .callout p:last-child {
+      margin-bottom: 0;
+    }
+
+    .callout-info {
+      border-left-color: #006598;
+      background-color: #f0f6fa;
+    }
+
+    .callout-success {
+      border-left-color: #2e7d32;
+      background-color: #f1f8e9;
+    }
+
+    .callout-warning {
+      border-left-color: #bf5412;
+      background-color: #fff3e8;
+    }
+
+    .callout-title {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ========================================================
+       METRIC CARDS
+       ======================================================== */
+    .metric-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .metric-card {
+      flex: 1 1 160px;
+      background: #ffffff;
+      border: 1px solid #e0e7ed;
+      border-radius: 8px;
+      padding: 20px 16px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+
+    .metric-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .metric-card .metric-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #006598;
+      margin-bottom: 6px;
+      line-height: 1.2;
+    }
+
+    .metric-card .metric-label {
+      font-size: 0.82rem;
+      color: #666666;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+
+    /* ========================================================
+       MODEL CARDS (side-by-side comparison)
+       ======================================================== */
+    .model-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin: 24px 0;
+    }
+
+    .model-card {
+      flex: 1 1 300px;
+      background: #ffffff;
+      border: 1px solid #e0e7ed;
+      border-radius: 10px;
+      padding: 24px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .model-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .model-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #006598, #bf5412);
+    }
+
+    .model-card h3 {
+      margin-top: 8px;
+      color: #006598;
+      font-size: 1.1rem;
+    }
+
+    .model-card p {
+      font-size: 0.92rem;
+      color: #555555;
+    }
+
+    .model-card .model-tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      margin-bottom: 10px;
+    }
+
+    .model-card .model-tag.tag-full {
+      background-color: #e8f4f8;
+      color: #006598;
+    }
+
+    .model-card .model-tag.tag-novisit {
+      background-color: #fff3e8;
+      color: #bf5412;
+    }
+
+    .model-card .model-tag.tag-nodemo {
+      background-color: #f1f8e9;
+      color: #2e7d32;
+    }
+
+    /* ========================================================
+       COMPARISON TABLE
+       ======================================================== */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 500px;
+    }
+
+    .comparison-table thead th {
+      background-color: #006598;
+      color: #ffffff;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .comparison-table thead th:first-child {
+      border-top-left-radius: 8px;
+    }
+
+    .comparison-table thead th:last-child {
+      border-top-right-radius: 8px;
+    }
+
+    .comparison-table tbody td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #eaeef2;
+      color: #333333;
+    }
+
+    .comparison-table tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    .comparison-table tbody tr:hover {
+      background-color: #f0f6fa;
+    }
+
+    .comparison-table tbody tr:last-child td:first-child {
+      border-bottom-left-radius: 8px;
+    }
+
+    .comparison-table tbody tr:last-child td:last-child {
+      border-bottom-right-radius: 8px;
+    }
+
+    .comparison-table .row-label {
+      font-weight: 600;
+      color: #1a1a1a;
+      white-space: nowrap;
+    }
+
+    /* ========================================================
+       LIFT TABLE (quarters x deciles grid)
+       ======================================================== */
+    .lift-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      min-width: 600px;
+    }
+
+    .lift-table thead th {
+      background-color: #006598;
+      color: #ffffff;
+      padding: 8px 12px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 0.78rem;
+      letter-spacing: 0.2px;
+    }
+
+    .lift-table thead th:first-child {
+      text-align: left;
+      border-top-left-radius: 6px;
+    }
+
+    .lift-table thead th:last-child {
+      border-top-right-radius: 6px;
+    }
+
+    .lift-table tbody td {
+      padding: 7px 12px;
+      border-bottom: 1px solid #eaeef2;
+      text-align: center;
+      color: #333333;
+    }
+
+    .lift-table tbody td:first-child {
+      text-align: left;
+      font-weight: 600;
+      color: #1a1a1a;
+      white-space: nowrap;
+    }
+
+    .lift-table tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    .lift-table tbody tr:hover {
+      background-color: #f0f6fa;
+    }
+
+    /* ========================================================
+       COLLAPSIBLE SECTIONS
+       ======================================================== */
+    .collapsible {
+      margin: 20px 0;
+      border: 1px solid #e0e7ed;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background-color: #f5f7fa;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+
+    .collapsible-header:hover {
+      background-color: #eaeef2;
+    }
+
+    .collapsible-header h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #006598;
+      font-weight: 600;
+    }
+
+    .collapsible-header .collapse-icon {
+      font-size: 0.8rem;
+      color: #006598;
+      transition: transform 0.25s ease;
+      font-weight: 700;
+    }
+
+    .collapsible-header .collapse-icon.open {
+      transform: rotate(180deg);
+    }
+
+    .collapsible-body {
+      display: none;
+      padding: 16px 20px;
+      background-color: #ffffff;
+    }
+
+    .collapsible-body.open {
+      display: block;
+    }
+
+    /* ========================================================
+       FLOW DIAGRAM (CSS-only pipeline visualization)
+       ======================================================== */
+    .flow-diagram {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0;
+      margin: 28px 0;
+      padding: 20px 0;
+      justify-content: center;
+    }
+
+    .flow-step {
+      background: #ffffff;
+      border: 2px solid #006598;
+      border-radius: 8px;
+      padding: 12px 18px;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #006598;
+      min-width: 100px;
+      max-width: 160px;
+      position: relative;
+      box-shadow: 0 2px 6px rgba(0, 101, 152, 0.1);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+
+    .flow-step:hover {
+      box-shadow: 0 4px 12px rgba(0, 101, 152, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .flow-step.flow-highlight {
+      background: #006598;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .flow-step .flow-count {
+      display: block;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .flow-arrow {
+      font-size: 1.3rem;
+      color: #bf5412;
+      padding: 0 6px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ========================================================
+       BAR CHART (CSS-only horizontal bars)
+       ======================================================== */
+    .bar-chart {
+      margin: 20px 0;
+    }
+
+    .bar-chart .bar-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .bar-chart .bar-label {
+      width: 200px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #333333;
+      text-align: right;
+      padding-right: 16px;
+      flex-shrink: 0;
+    }
+
+    .bar-chart .bar-track {
+      flex: 1;
+      height: 28px;
+      background-color: #eaeef2;
+      border-radius: 4px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .bar-chart .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+      display: flex;
+      align-items: center;
+      padding-left: 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #ffffff;
+    }
+
+    .bar-chart .bar-fill.fill-primary {
+      background: linear-gradient(90deg, #006598, #0080bf);
+    }
+
+    .bar-chart .bar-fill.fill-accent {
+      background: linear-gradient(90deg, #bf5412, #d96a2b);
+    }
+
+    .bar-chart .bar-fill.fill-success {
+      background: linear-gradient(90deg, #2e7d32, #43a047);
+    }
+
+    /* ========================================================
+       MERCY BADGE
+       ======================================================== */
+    .mercy-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      background-color: #e8f4f8;
+      color: #006598;
+    }
+
+    /* ========================================================
+       LISTS
+       ======================================================== */
+    ul, ol {
+      margin-bottom: 14px;
+      padding-left: 24px;
+    }
+
+    li {
+      margin-bottom: 6px;
+      line-height: 1.55;
+    }
+
+    /* ========================================================
+       SECTION BACKGROUNDS
+       ======================================================== */
+    .section-alt {
+      background-color: #f5f7fa;
+      padding: 28px 24px;
+      border-radius: 8px;
+      margin: 24px 0;
+    }
+
+    /* ========================================================
+       DIVIDER
+       ======================================================== */
+    .divider {
+      border: none;
+      border-top: 1px solid #e0e7ed;
+      margin: 32px 0;
+    }
+
+    /* ========================================================
+       STRONG / EMPHASIS UTILITIES
+       ======================================================== */
+    strong {
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    em {
+      color: #555555;
+    }
+
+    .text-accent {
+      color: #bf5412;
+      font-weight: 600;
+    }
+
+    .text-primary {
+      color: #006598;
+      font-weight: 600;
+    }
+
+    .text-muted {
+      color: #888888;
+      font-size: 0.88rem;
+    }
+
+    /* ========================================================
+       FEATURE CODE STYLE
+       ======================================================== */
+    .feature-code {
+      font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+      font-size: 0.82em;
+      background-color: #f0f3f6;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: #006598;
+    }
+
+    /* ========================================================
+       STANDARD CLINICAL CODE REFERENCES
+       ======================================================== */
+    .code-ref {
+      font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+      font-size: 0.80em;
+      background-color: #f0f3f6;
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: #555555;
+      white-space: nowrap;
+    }
+
+    .code-ref-block {
+      font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+      font-size: 0.82em;
+      color: #555555;
+      line-height: 1.8;
+    }
+
+    /* ========================================================
+       FOOTER
+       ======================================================== */
+    footer {
+      background-color: #f5f7fa;
+      border-top: 3px solid #006598;
+      padding: 28px 24px;
+      text-align: center;
+      margin-top: 48px;
+    }
+
+    footer p {
+      color: #666666;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
+    footer .tagline {
+      color: #006598;
+      font-style: italic;
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+
+    footer .footer-links {
+      margin-top: 12px;
+    }
+
+    footer .footer-links a {
+      color: #006598;
+      text-decoration: none;
+      font-size: 0.82rem;
+      margin: 0 12px;
+      transition: color 0.2s ease;
+    }
+
+    footer .footer-links a:hover {
+      color: #bf5412;
+      text-decoration: underline;
+    }
+
+    /* ========================================================
+       RESPONSIVE
+       ======================================================== */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.6rem;
+      }
+
+      .header .subtitle {
+        font-size: 0.95rem;
+      }
+
+      .tab-btn {
+        padding: 10px 14px;
+        font-size: 0.82rem;
+      }
+
+      .metric-card {
+        flex: 1 1 130px;
+      }
+
+      .metric-card .metric-value {
+        font-size: 1.4rem;
+      }
+
+      .model-card {
+        flex: 1 1 100%;
+      }
+
+      .flow-diagram {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .flow-arrow {
+        transform: rotate(90deg);
+        padding: 4px 0;
+      }
+
+      .bar-chart .bar-label {
+        width: 120px;
+        font-size: 0.78rem;
+      }
+
+      .nav-bar {
+        flex-direction: column;
+        height: auto;
+        padding: 8px 16px;
+        gap: 4px;
+      }
+
+      .nav-bar .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .container {
+        padding: 0 16px;
+      }
+    }
+
+    /* ========================================================
+       PRINT STYLES
+       ======================================================== */
+    @media print {
+      .nav-bar {
+        display: none;
+      }
+
+      .tab-nav {
+        display: none;
+      }
+
+      .tab-pane {
+        display: block !important;
+        page-break-before: always;
+        padding: 20px 0;
+      }
+
+      .tab-pane:first-child {
+        page-break-before: avoid;
+      }
+
+      .header {
+        background: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .collapsible-body {
+        display: block !important;
+      }
+
+      .metric-card {
+        box-shadow: none;
+        border: 1px solid #cccccc;
+      }
+
+      .model-card {
+        box-shadow: none;
+        border: 1px solid #cccccc;
+        page-break-inside: avoid;
+      }
+
+      .comparison-table thead th {
+        background-color: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .lift-table thead th {
+        background-color: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      footer {
+        page-break-before: always;
+      }
+
+      .placeholder {
+        border-color: #999999;
+        background-color: #f0f0f0;
+        color: #666666;
+      }
+
+      body {
+        font-size: 11pt;
+      }
+
+      .container {
+        max-width: 100%;
+      }
+    }
+
+    /* ========================================================
+       ACCESSIBILITY
+       ======================================================== */
+    /* Skip navigation link */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 8px;
+      background: #006598;
+      color: #ffffff;
+      padding: 8px 16px;
+      z-index: 10000;
+      font-size: 0.9rem;
+      border-radius: 0 0 4px 4px;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* Focus indicators */
+    .tab-btn:focus-visible,
+    .nav-links a:focus-visible,
+    .collapsible-header:focus-visible,
+    a:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #bf5412;
+      outline-offset: 2px;
+    }
+
+    /* Screen-reader-only class */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ============================================================
+       NAV BAR
+       ============================================================ -->
+  <nav class="nav-bar" aria-label="Site navigation">
+    <div class="nav-brand">Mercy and Lucem Clinical Analytics</div>
+    <div class="nav-links" role="navigation" aria-label="Page navigation">
+      <a href="crc_model_results.html">Main Results</a>
+      <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
+      <a href="appendix_b_feature_catalog.html" class="nav-active" aria-current="page">Appendix B: Feature Catalog</a>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header class="header" role="banner">
+    <h1>Appendix B: Feature Catalog</h1>
+    <p class="subtitle">Clinical Data Categories and Feature Engineering</p>
+    <p class="header-meta">CRC Risk Prediction Model &mdash; 167 Candidate Features from 8 Clinical Data Sources</p>
+  </header>
+
+  <!-- ============================================================
+       TAB NAVIGATION
+       ============================================================ -->
+  <main id="main-content" class="container">
+    <div class="tab-nav" role="tablist" aria-label="Feature categories">
+      <button class="tab-btn active" role="tab" id="btn-tab1" aria-controls="tab1" aria-selected="true" data-tab="tab1" tabindex="0">Demographics</button>
+      <button class="tab-btn" role="tab" id="btn-tab2" aria-controls="tab2" aria-selected="false" data-tab="tab2" tabindex="-1">Vitals</button>
+      <button class="tab-btn" role="tab" id="btn-tab3" aria-controls="tab3" aria-selected="false" data-tab="tab3" tabindex="-1">ICD-10 Diagnoses</button>
+      <button class="tab-btn" role="tab" id="btn-tab4" aria-controls="tab4" aria-selected="false" data-tab="tab4" tabindex="-1">Labs</button>
+      <button class="tab-btn" role="tab" id="btn-tab5" aria-controls="tab5" aria-selected="false" data-tab="tab5" tabindex="-1">Outpatient Meds</button>
+      <button class="tab-btn" role="tab" id="btn-tab6" aria-controls="tab6" aria-selected="false" data-tab="tab6" tabindex="-1">Inpatient Meds</button>
+      <button class="tab-btn" role="tab" id="btn-tab7" aria-controls="tab7" aria-selected="false" data-tab="tab7" tabindex="-1">Visit History</button>
+      <button class="tab-btn" role="tab" id="btn-tab8" aria-controls="tab8" aria-selected="false" data-tab="tab8" tabindex="-1">Procedures</button>
+      <button class="tab-btn" role="tab" id="btn-tab9" aria-controls="tab9" aria-selected="false" data-tab="tab9" tabindex="-1">All Features</button>
+    </div>
+
+    <div class="tab-content">
+
+      <!-- ===========================================================
+           TAB 1: Demographics (Book 0)
+           =========================================================== -->
+      <div id="tab1" class="tab-pane active" role="tabpanel" aria-labelledby="btn-tab1" tabindex="0">
+        <h2 class="section-header">Demographics (Book 0)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Patient demographic characteristics from the electronic health record. These features capture age, biological sex, race/ethnicity, marital status, primary care relationships, and observation history. Source: <strong>Book 0 (Cohort Creation)</strong>.</p>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Standard Codes</p>
+          <p>Demographics are derived from patient registration data (age at encounter, biological sex, race/ethnicity, marital status). No standard clinical terminology codes (ICD-10, LOINC, etc.) apply to these features. They are universally available in any EHR system.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">6</div>
+            <div class="metric-label">Raw Clinical Concepts</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">11</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">Book 0</div>
+            <div class="metric-label">Source Notebook</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Patient age</td>
+                <td><span class="feature-code">AGE</span> &rarr; <span class="feature-code">AGE_GROUP</span></td>
+                <td>5-level ordinal: 45&ndash;49, 50&ndash;54, 55&ndash;64, 65&ndash;74, 75+</td>
+              </tr>
+              <tr>
+                <td class="row-label">Biological sex</td>
+                <td><span class="feature-code">IS_FEMALE</span></td>
+                <td>Binary indicator</td>
+              </tr>
+              <tr>
+                <td class="row-label">Marital/partner status</td>
+                <td><span class="feature-code">IS_MARRIED_PARTNER</span></td>
+                <td>Binary indicator</td>
+              </tr>
+              <tr>
+                <td class="row-label">Race/ethnicity</td>
+                <td>
+                  <span class="feature-code">RACE_CAUCASIAN</span>,
+                  <span class="feature-code">RACE_BLACK_OR_AFRICAN_AMERICAN</span>,
+                  <span class="feature-code">RACE_HISPANIC</span>,
+                  <span class="feature-code">RACE_ASIAN</span>,
+                  <span class="feature-code">RACE_OTHER</span>
+                </td>
+                <td>One-hot encoding from text field</td>
+              </tr>
+              <tr>
+                <td class="row-label">PCP relationship</td>
+                <td><span class="feature-code">HAS_PCP_AT_END</span></td>
+                <td>Binary: active PCP at cohort end date</td>
+              </tr>
+              <tr>
+                <td class="row-label">Observation history</td>
+                <td>
+                  <span class="feature-code">HAS_FULL_24M_HISTORY</span>,
+                  <span class="feature-code">OBS_MONTHS_PRIOR</span>
+                </td>
+                <td>Binary flag + continuous months</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-warning">
+          <p class="callout-title">Model Variant Note</p>
+          <p>Demographics are excluded from the &ldquo;No Demographic or Visit Data&rdquo; model variants (Lucem Nodem Novis) to test prediction from clinical signals alone and to address equity concerns around demographic-based risk stratification.</p>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 2: Vitals (Book 1)
+           =========================================================== -->
+      <div id="tab2" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab2" tabindex="0" hidden>
+        <h2 class="section-header">Vitals (Book 1)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Clinical vital signs and body measurements recorded during patient encounters. Weight changes are particularly important for CRC detection &mdash; unexplained rapid weight loss carries a <strong>3.6x elevated risk</strong>. Source: <strong>Book 1 (Vitals Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">7</div>
+            <div class="metric-label">Raw Measurement Types</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~24</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">vit_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+                <th scope="col">Standard Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Body weight</td>
+                <td>
+                  <span class="feature-code">vit_HAS_RAPID_WEIGHT_LOSS</span>,
+                  <span class="feature-code">vit_MAX_WEIGHT_LOSS_PCT_60D</span>,
+                  <span class="feature-code">vit_WEIGHT_LOSS_FLAG_6M</span>,
+                  <span class="feature-code">vit_WEIGHT_LOSS_FLAG_12M</span>,
+                  <span class="feature-code">vit_WEIGHT_CACHEXIA_INDICATOR</span>,
+                  <span class="feature-code">vit_WEIGHT_TREND_6M</span>,
+                  <span class="feature-code">vit_WEIGHT_TREND_12M</span>
+                </td>
+                <td>Rapid loss (&gt;5% in 60d), percentage, binary flags, linear regression slopes, cachexia (BMI&lt;20 + loss)</td>
+                <td><span class="code-ref">LOINC 29463-7</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">BMI</td>
+                <td>
+                  <span class="feature-code">vit_BMI_CATEGORY</span>,
+                  <span class="feature-code">vit_WEIGHT_QUARTILE</span>
+                </td>
+                <td>4-level clinical categories (underweight/normal/overweight/obese), quartile binning</td>
+                <td><span class="code-ref">LOINC 39156-5</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Blood pressure</td>
+                <td>
+                  <span class="feature-code">vit_BP_SYSTOLIC_LATEST</span>,
+                  <span class="feature-code">vit_BP_DIASTOLIC_LATEST</span>,
+                  <span class="feature-code">vit_HAS_HYPERTENSION_FLAG</span>,
+                  <span class="feature-code">vit_SBP_VARIABILITY_6M</span>
+                </td>
+                <td>Latest values, binary flag (&ge;140/90), 6-month variability</td>
+                <td><span class="code-ref">LOINC 8480-6</span> (systolic), <span class="code-ref">LOINC 8462-4</span> (diastolic)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Heart rate</td>
+                <td>
+                  <span class="feature-code">vit_PULSE_LATEST</span>,
+                  <span class="feature-code">vit_HAS_TACHYCARDIA_FLAG</span>
+                </td>
+                <td>Latest value, binary (HR&gt;100)</td>
+                <td><span class="code-ref">LOINC 8867-4</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Temperature</td>
+                <td>
+                  <span class="feature-code">vit_TEMP_LATEST</span>,
+                  <span class="feature-code">vit_HAS_FEVER_FLAG</span>
+                </td>
+                <td>Latest value, binary (&gt;100.4&deg;F)</td>
+                <td><span class="code-ref">LOINC 8310-5</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Respiratory rate</td>
+                <td><span class="feature-code">vit_RESP_RATE_LATEST</span></td>
+                <td>Latest measurement</td>
+                <td><span class="code-ref">LOINC 9279-1</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Measurement recency</td>
+                <td><span class="feature-code">vit_VITALS_RECENCY</span></td>
+                <td>6-level ordinal bin (0&ndash;7d through &gt;365d)</td>
+                <td>Derived from encounter dates</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Code System: LOINC</p>
+          <p>Vital sign measurements use <strong>LOINC</strong> (Logical Observation Identifiers Names and Codes) as the standard terminology. These LOINC codes are mapped from the EHR flowsheet data. Derived features (trends, flags, recency) are computed from the raw measurements.</p>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 3: ICD-10 Diagnoses (Book 2)
+           =========================================================== -->
+      <div id="tab3" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab3" tabindex="0" hidden>
+        <h2 class="section-header">ICD-10 Diagnoses (Book 2)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Diagnosis codes from the International Classification of Diseases (ICD-10) system, grouped by clinical syndrome. GI bleeding carries a <strong>6.3x elevated CRC risk</strong>; the symptom triad (bleeding + anemia + bowel changes) carries <strong>4.6x risk</strong>. Source: <strong>Book 2 (ICD-10 Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">13</div>
+            <div class="metric-label">Raw Diagnostic Concepts</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~22</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">icd_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+                <th scope="col">Standard Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">GI bleeding</td>
+                <td>
+                  <span class="feature-code">icd_HAS_GI_BLEEDING</span>,
+                  <span class="feature-code">icd_HAS_RECTAL_BLEEDING</span>
+                </td>
+                <td>Binary presence of bleeding codes</td>
+                <td><span class="code-ref">K62.5</span> <span class="code-ref">K92.0</span> <span class="code-ref">K92.1</span> <span class="code-ref">K92.2</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Bowel habit changes</td>
+                <td><span class="feature-code">icd_HAS_BOWEL_HABIT_CHANGE</span></td>
+                <td>Binary presence</td>
+                <td><span class="code-ref">R19.4</span> <span class="code-ref">K59.0</span> <span class="code-ref">R19.7</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Abdominal symptoms</td>
+                <td><span class="feature-code">icd_HAS_ABDOMINAL_PAIN</span></td>
+                <td>Binary presence</td>
+                <td><span class="code-ref">R10.*</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Weight loss diagnosis</td>
+                <td><span class="feature-code">icd_HAS_UNEXPLAINED_WEIGHT_LOSS_DX</span></td>
+                <td>Binary (documented Dx, not vital trend)</td>
+                <td><span class="code-ref">R63.4</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">GI symptom recency</td>
+                <td><span class="feature-code">icd_DAYS_SINCE_LAST_GI_SYMPTOM</span></td>
+                <td>6-level ordinal bin</td>
+                <td>Derived from diagnosis dates</td>
+              </tr>
+              <tr>
+                <td class="row-label">Anemia diagnoses</td>
+                <td>
+                  <span class="feature-code">icd_HAS_IRON_DEFICIENCY_ANEMIA</span>,
+                  <span class="feature-code">icd_HAS_ANEMIA_ANY</span>
+                </td>
+                <td>Binary presence</td>
+                <td><span class="code-ref">D50.*</span> (IDA), <span class="code-ref">D51&ndash;D64.*</span> (other)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Polyp history</td>
+                <td><span class="feature-code">icd_HAS_POLYPS_HISTORY</span></td>
+                <td>Binary (prior polyp diagnosis)</td>
+                <td><span class="code-ref">D12.*</span> <span class="code-ref">K63.5</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Inflammatory bowel disease</td>
+                <td><span class="feature-code">icd_HAS_IBD</span></td>
+                <td>Binary (Crohn&rsquo;s or UC)</td>
+                <td><span class="code-ref">K50.*</span> (Crohn&rsquo;s), <span class="code-ref">K51.*</span> (UC)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Metabolic comorbidities</td>
+                <td>
+                  <span class="feature-code">icd_HAS_DIABETES</span>,
+                  <span class="feature-code">icd_HAS_OBESITY_DX</span>
+                </td>
+                <td>Binary presence</td>
+                <td><span class="code-ref">E10&ndash;E11.*</span> (diabetes), <span class="code-ref">E66.*</span> (obesity)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Family history</td>
+                <td><span class="feature-code">icd_ICD_FHX_CRC_COMBINED</span></td>
+                <td>Binary (family CRC codes)</td>
+                <td><span class="code-ref">Z80.0</span> <span class="code-ref">Z83.71</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Comorbidity burden</td>
+                <td>
+                  <span class="feature-code">icd_CHARLSON_INDEX</span>,
+                  <span class="feature-code">icd_ELIXHAUSER_SCORE</span>
+                </td>
+                <td>Validated scoring algorithms</td>
+                <td>See Charlson &amp; Elixhauser details below</td>
+              </tr>
+              <tr>
+                <td class="row-label">Symptom triad</td>
+                <td><span class="feature-code">icd_SYMPTOM_TRIAD_FLAG</span></td>
+                <td>Binary: bleeding + anemia + bowel changes</td>
+                <td>Composite of above codes</td>
+              </tr>
+              <tr>
+                <td class="row-label">Iron-deficiency + bleeding</td>
+                <td><span class="feature-code">icd_IDA_WITH_BLEEDING</span></td>
+                <td>Binary composite</td>
+                <td>Composite of above codes</td>
+              </tr>
+              <tr>
+                <td class="row-label">Symptom acceleration</td>
+                <td><span class="feature-code">icd_SYMPTOM_ACCELERATION_RATIO</span></td>
+                <td>New symptom codes per month</td>
+                <td>Derived from diagnosis dates</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Code System: ICD-10-CM</p>
+          <p>Diagnosis features use <strong>ICD-10-CM</strong> (International Classification of Diseases, 10th Revision, Clinical Modification). Codes shown with <span class="code-ref">*</span> wildcards include all sub-codes. Both outpatient and inpatient diagnoses are captured.</p>
+        </div>
+
+        <div class="collapsible">
+          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+            <h4>Charlson Comorbidity Index &mdash; ICD-10 Code Reference</h4>
+            <span class="collapse-icon">&#9660;</span>
+          </div>
+          <div class="collapsible-body">
+            <p>The Charlson Comorbidity Index uses weighted scoring across 17 disease categories. Higher weights indicate greater mortality risk.</p>
+            <div class="table-wrapper">
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Weight</th>
+                    <th scope="col">ICD-10 Codes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="row-label">Myocardial infarction</td><td>1</td><td class="code-ref-block">I21.*, I22.*, I25.2</td></tr>
+                  <tr><td class="row-label">Congestive heart failure</td><td>1</td><td class="code-ref-block">I09.9, I11.0, I13.0, I13.2, I25.5, I42.0, I42.5&ndash;I42.9, I43.*, I50.*, P29.0</td></tr>
+                  <tr><td class="row-label">Peripheral vascular disease</td><td>1</td><td class="code-ref-block">I70.*, I71.*, I73.1, I73.8, I73.9, I77.1, I79.0, I79.2, K55.1, K55.8, K55.9, Z95.8, Z95.9</td></tr>
+                  <tr><td class="row-label">Cerebrovascular disease</td><td>1</td><td class="code-ref-block">G45.*, G46.*, H34.0, I60&ndash;I69.*</td></tr>
+                  <tr><td class="row-label">Dementia</td><td>1</td><td class="code-ref-block">F00&ndash;F03.*, F05.1, G30.*, G31.1</td></tr>
+                  <tr><td class="row-label">Chronic pulmonary disease</td><td>1</td><td class="code-ref-block">I27.8, I27.9, J40&ndash;J47.*, J60&ndash;J67.*, J68.4, J70.1, J70.3</td></tr>
+                  <tr><td class="row-label">Rheumatic disease</td><td>1</td><td class="code-ref-block">M05.*, M06.*, M31.5, M32&ndash;M34.*, M35.1, M35.3, M36.0</td></tr>
+                  <tr><td class="row-label">Peptic ulcer disease</td><td>1</td><td class="code-ref-block">K25&ndash;K28.*</td></tr>
+                  <tr><td class="row-label">Mild liver disease</td><td>1</td><td class="code-ref-block">B18.*, K70.0&ndash;K70.3, K70.9, K71.3&ndash;K71.5, K71.7, K73.*, K74.*, K76.0, K76.2&ndash;K76.4, K76.8, K76.9, Z94.4</td></tr>
+                  <tr><td class="row-label">Diabetes without complications</td><td>1</td><td class="code-ref-block">E10.0&ndash;E10.1, E10.6, E10.8&ndash;E10.9, E11.0&ndash;E11.1, E11.6, E11.8&ndash;E11.9, E13.0&ndash;E13.1, E13.6, E13.8&ndash;E13.9</td></tr>
+                  <tr><td class="row-label">Diabetes with complications</td><td>2</td><td class="code-ref-block">E10.2&ndash;E10.5, E10.7, E11.2&ndash;E11.5, E11.7, E13.2&ndash;E13.5, E13.7</td></tr>
+                  <tr><td class="row-label">Hemiplegia or paraplegia</td><td>2</td><td class="code-ref-block">G04.1, G11.4, G80.1, G80.2, G81.*, G82.*, G83.0&ndash;G83.4, G83.9</td></tr>
+                  <tr><td class="row-label">Renal disease</td><td>2</td><td class="code-ref-block">I12.0, I13.1, N03.2&ndash;N03.7, N05.2&ndash;N05.7, N18.*, N19.*, N25.0, Z49.0&ndash;Z49.2, Z94.0, Z99.2</td></tr>
+                  <tr><td class="row-label">Any malignancy (non-metastatic)</td><td>2</td><td class="code-ref-block">C00&ndash;C26.*, C30&ndash;C34.*, C37&ndash;C41.*, C43.*, C45&ndash;C58.*, C60&ndash;C76.*, C81&ndash;C85.*, C88.*, C90&ndash;C97.*</td></tr>
+                  <tr><td class="row-label">Moderate/severe liver disease</td><td>3</td><td class="code-ref-block">I85.0, I85.9, I86.4, I98.2, K70.4, K71.1, K72.1, K72.9, K76.5, K76.6, K76.7</td></tr>
+                  <tr><td class="row-label">Metastatic solid tumor</td><td>6</td><td class="code-ref-block">C77&ndash;C80.*</td></tr>
+                  <tr><td class="row-label">AIDS/HIV</td><td>6</td><td class="code-ref-block">B20&ndash;B22.*, B24.*</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="collapsible">
+          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+            <h4>Elixhauser Comorbidity Score &mdash; ICD-10 Code Reference</h4>
+            <span class="collapse-icon">&#9660;</span>
+          </div>
+          <div class="collapsible-body">
+            <p>The Elixhauser score used in this model includes 10 comorbidity categories with van Walraven weights. Positive weights increase predicted mortality; negative weights are protective.</p>
+            <div class="table-wrapper">
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Weight</th>
+                    <th scope="col">ICD-10 Codes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td class="row-label">Congestive heart failure</td><td>+7</td><td class="code-ref-block">I09.9, I11.0, I13.0, I13.2, I25.5, I42.0, I42.5&ndash;I42.9, I43.*, I50.*</td></tr>
+                  <tr><td class="row-label">Cardiac arrhythmias</td><td>+5</td><td class="code-ref-block">I44.1&ndash;I44.3, I45.6, I45.9, I47&ndash;I49.*, R00.0, R00.1, R00.8, T82.1, Z45.0, Z95.0</td></tr>
+                  <tr><td class="row-label">Pulmonary circulation disorders</td><td>+4</td><td class="code-ref-block">I26.*, I27.*, I28.0, I28.8, I28.9</td></tr>
+                  <tr><td class="row-label">Diabetes (complicated)</td><td>+0</td><td class="code-ref-block">E10.2&ndash;E10.8, E11.2&ndash;E11.8, E13.2&ndash;E13.8</td></tr>
+                  <tr><td class="row-label">Renal failure</td><td>+5</td><td class="code-ref-block">I12.0, I13.1, N18.*, N19.*, N25.0, Z49.*, Z94.0, Z99.2</td></tr>
+                  <tr><td class="row-label">Liver disease</td><td>+11</td><td class="code-ref-block">B18.*, I85.*, I86.4, I98.2, K70.*, K71.1, K71.3&ndash;K71.5, K71.7, K72&ndash;K74.*, K76.0, K76.2&ndash;K76.9</td></tr>
+                  <tr><td class="row-label">Metastatic cancer</td><td>+12</td><td class="code-ref-block">C77&ndash;C80.*</td></tr>
+                  <tr><td class="row-label">Solid tumor without metastasis</td><td>+4</td><td class="code-ref-block">C00&ndash;C26.*, C30&ndash;C34.*, C37&ndash;C41.*, C43.*, C45&ndash;C58.*, C60&ndash;C76.*, C97.*</td></tr>
+                  <tr><td class="row-label">Weight loss</td><td>+6</td><td class="code-ref-block">E40&ndash;E46.*, R63.4, R64</td></tr>
+                  <tr><td class="row-label">Coagulopathy</td><td>+3</td><td class="code-ref-block">D65&ndash;D68.*, D69.1, D69.3&ndash;D69.6</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 4: Laboratory Results (Book 4)
+           =========================================================== -->
+      <div id="tab4" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab4" tabindex="0" hidden>
+        <h2 class="section-header">Laboratory Results (Book 4)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Routine laboratory test results from CBC panels, metabolic panels, iron studies, and inflammatory markers. Hemoglobin with accelerating decline is the single strongest lab predictor at <strong>10.9x risk</strong>. CEA, CA19-9, and FOBT/FIT are excluded to prevent circular reasoning. Source: <strong>Book 4 (Lab Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">15</div>
+            <div class="metric-label">Raw Lab Test Types</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~33</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">lab_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+                <th scope="col">Standard Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Hemoglobin</td>
+                <td>
+                  <span class="feature-code">lab_HEMOGLOBIN_VALUE</span>,
+                  <span class="feature-code">lab_HEMOGLOBIN_VELOCITY</span>,
+                  <span class="feature-code">lab_HEMOGLOBIN_ACCELERATING_DECLINE</span>,
+                  <span class="feature-code">lab_HEMOGLOBIN_TRAJECTORY</span>,
+                  <span class="feature-code">lab_HGB_DROP_10PCT_FLAG</span>
+                </td>
+                <td>Latest value, linear slope, second derivative, polynomial trajectory (4-level), binary &gt;10% drop</td>
+                <td><span class="code-ref">LOINC 718-7</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Hematocrit / RBC indices</td>
+                <td>
+                  <span class="feature-code">lab_HEMATOCRIT_VALUE</span>,
+                  <span class="feature-code">lab_MCV_VALUE</span>,
+                  <span class="feature-code">lab_RDW_VALUE</span>
+                </td>
+                <td>Latest values (microcytic anemia indicators)</td>
+                <td><span class="code-ref">LOINC 4544-3</span> (HCT), <span class="code-ref">LOINC 787-2</span> (MCV), <span class="code-ref">LOINC 788-0</span> (RDW)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Platelets</td>
+                <td>
+                  <span class="feature-code">lab_PLATELET_VALUE</span>,
+                  <span class="feature-code">lab_PLATELETS_ACCELERATING_RISE</span>,
+                  <span class="feature-code">lab_THROMBOCYTOSIS_FLAG</span>
+                </td>
+                <td>Latest, acceleration, binary &gt;450 K/uL</td>
+                <td><span class="code-ref">LOINC 777-3</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">White blood cells</td>
+                <td><span class="feature-code">lab_WBC_VALUE</span></td>
+                <td>Latest count</td>
+                <td><span class="code-ref">LOINC 6690-2</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Iron metabolism</td>
+                <td>
+                  <span class="feature-code">lab_IRON_VALUE</span>,
+                  <span class="feature-code">lab_FERRITIN_VALUE</span>,
+                  <span class="feature-code">lab_TIBC_VALUE</span>,
+                  <span class="feature-code">lab_IRON_DEFICIENCY_ANEMIA_FLAG</span>
+                </td>
+                <td>Serum iron, stores, binding capacity, gender-specific composite</td>
+                <td><span class="code-ref">LOINC 2498-4</span> (iron), <span class="code-ref">LOINC 2276-4</span> (ferritin), <span class="code-ref">LOINC 2500-7</span> (TIBC)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Albumin</td>
+                <td>
+                  <span class="feature-code">lab_ALBUMIN_VALUE</span>,
+                  <span class="feature-code">lab_ALBUMIN_DROP_15PCT_FLAG</span>
+                </td>
+                <td>Nutritional marker, &gt;15% drop flag</td>
+                <td><span class="code-ref">LOINC 1751-7</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Glucose</td>
+                <td><span class="feature-code">lab_GLUCOSE_VALUE</span></td>
+                <td>Latest value</td>
+                <td><span class="code-ref">LOINC 2345-7</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Kidney function</td>
+                <td>
+                  <span class="feature-code">lab_CREATININE_VALUE</span>,
+                  <span class="feature-code">lab_BUN_VALUE</span>
+                </td>
+                <td>Latest values</td>
+                <td><span class="code-ref">LOINC 2160-0</span> (creatinine), <span class="code-ref">LOINC 3094-0</span> (BUN)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Liver enzymes</td>
+                <td>
+                  <span class="feature-code">lab_ALT_VALUE</span>,
+                  <span class="feature-code">lab_AST_VALUE</span>,
+                  <span class="feature-code">lab_ALK_PHOS_VALUE</span>,
+                  <span class="feature-code">lab_BILIRUBIN_VALUE</span>,
+                  <span class="feature-code">lab_ALT_ABNORMAL</span>,
+                  <span class="feature-code">lab_AST_ABNORMAL</span>
+                </td>
+                <td>Latest values + above-ULN flags</td>
+                <td><span class="code-ref">LOINC 1742-6</span> (ALT), <span class="code-ref">LOINC 1920-8</span> (AST), <span class="code-ref">LOINC 6768-6</span> (ALP), <span class="code-ref">LOINC 1975-2</span> (bilirubin)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Inflammation</td>
+                <td>
+                  <span class="feature-code">lab_CRP_VALUE</span>,
+                  <span class="feature-code">lab_ESR_VALUE</span>
+                </td>
+                <td>C-reactive protein, sedimentation rate</td>
+                <td><span class="code-ref">LOINC 1988-5</span> (CRP), <span class="code-ref">LOINC 4537-7</span> (ESR)</td>
+              </tr>
+              <tr>
+                <td class="row-label">CA-125</td>
+                <td><span class="feature-code">lab_CA125_VALUE</span></td>
+                <td>Ovarian marker (not CRC-specific, kept)</td>
+                <td><span class="code-ref">LOINC 10334-1</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite: iron deficiency</td>
+                <td><span class="feature-code">lab_COMPREHENSIVE_IRON_DEFICIENCY</span></td>
+                <td>IDA OR (Hb&lt;12 + MCV&lt;80) OR (ferritin&lt;30 + Hb&lt;13)</td>
+                <td>Composite of above LOINC codes</td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite: metabolic</td>
+                <td><span class="feature-code">lab_METABOLIC_DYSFUNCTION</span></td>
+                <td>ALT/AST abnormal OR ALP&gt;150 OR albumin drop</td>
+                <td>Composite of above LOINC codes</td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite: inflammatory</td>
+                <td><span class="feature-code">lab_INFLAMMATORY_BURDEN</span></td>
+                <td>CRP&gt;10 OR thrombocytosis OR ESR&gt;30</td>
+                <td>Composite of above LOINC codes</td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite: progressive anemia</td>
+                <td><span class="feature-code">lab_PROGRESSIVE_ANEMIA</span></td>
+                <td>Rapid/moderate decline OR accelerating decline</td>
+                <td>Composite of above LOINC codes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-warning">
+          <p class="callout-title">Excluded Lab Tests</p>
+          <p><strong>CEA</strong> (Carcinoembryonic Antigen) &mdash; tumor marker ordered almost exclusively when a clinician already suspects malignancy. <strong>CA19-9</strong> &mdash; same rationale. <strong>FOBT/FIT</strong> &mdash; CRC screening test; a positive result <em>is</em> the detection mechanism, not a predictor. Including these features would mean the model detects the doctor&rsquo;s suspicion rather than independent clinical signal.</p>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Code System: LOINC</p>
+          <p>Laboratory results use <strong>LOINC</strong> codes as the standard terminology. Primary LOINC codes are listed; institutions may use alternate LOINC codes for the same analyte (e.g., point-of-care vs. venipuncture hemoglobin). Map all local variants to the reference codes shown.</p>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 5: Outpatient Medications (Book 5.1)
+           =========================================================== -->
+      <div id="tab5" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab5" tabindex="0" hidden>
+        <h2 class="section-header">Outpatient Medications (Book 5.1)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Outpatient pharmacy prescriptions mapped to clinical categories. Iron supplementation (<strong>4.9x risk</strong>) and hemorrhoid medications (<strong>6.0x risk</strong>, 16.8x if within 30 days) are strong signals &mdash; clinicians prescribing these are often treating symptoms of undiagnosed CRC. Source: <strong>Book 5.1 (Outpatient Med Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">8</div>
+            <div class="metric-label">Medication Categories</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~19</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">med_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+                <th scope="col">Standard Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Iron supplements</td>
+                <td>
+                  <span class="feature-code">med_HAS_IRON_SUPPLEMENT</span>,
+                  <span class="feature-code">med_IRON_RECENCY</span>,
+                  <span class="feature-code">med_IRON_COUNT_2Y</span>
+                </td>
+                <td>Binary, 6-level ordinal recency, 24-month count</td>
+                <td>Ferrous sulfate <span class="code-ref">RxCUI 24947</span>, ferrous gluconate <span class="code-ref">RxCUI 24942</span>, iron polysaccharide complex <span class="code-ref">RxCUI 105669</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Proton pump inhibitors</td>
+                <td>
+                  <span class="feature-code">med_HAS_PPI</span>,
+                  <span class="feature-code">med_PPI_RECENCY</span>
+                </td>
+                <td>Binary, recency</td>
+                <td>Omeprazole <span class="code-ref">RxCUI 7646</span>, lansoprazole <span class="code-ref">RxCUI 17128</span>, pantoprazole <span class="code-ref">RxCUI 40790</span>, esomeprazole <span class="code-ref">RxCUI 283742</span>, rabeprazole <span class="code-ref">RxCUI 114979</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Hemorrhoid medications</td>
+                <td>
+                  <span class="feature-code">med_HAS_HEMORRHOID_MED</span>,
+                  <span class="feature-code">med_HEMORRHOID_RECENCY</span>
+                </td>
+                <td>Binary, recency</td>
+                <td>Hydrocortisone <span class="code-ref">RxCUI 5492</span> (suppository/cream), pramoxine <span class="code-ref">RxCUI 34347</span>-HC, lidocaine-HC rectal</td>
+              </tr>
+              <tr>
+                <td class="row-label">Laxatives</td>
+                <td>
+                  <span class="feature-code">med_HAS_LAXATIVE</span>,
+                  <span class="feature-code">med_LAXATIVE_RECENCY</span>
+                </td>
+                <td>Binary, recency</td>
+                <td>PEG 3350 <span class="code-ref">RxCUI 221147</span>, lactulose <span class="code-ref">RxCUI 6218</span>, bisacodyl <span class="code-ref">RxCUI 1596</span>, docusate <span class="code-ref">RxCUI 82003</span>, senna <span class="code-ref">RxCUI 36387</span>, psyllium <span class="code-ref">RxCUI 8928</span>, lubiprostone <span class="code-ref">RxCUI 623033</span>, linaclotide <span class="code-ref">RxCUI 1307404</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Antidiarrheals</td>
+                <td>
+                  <span class="feature-code">med_HAS_ANTIDIARRHEAL</span>,
+                  <span class="feature-code">med_ANTIDIARRHEAL_RECENCY</span>
+                </td>
+                <td>Binary, recency</td>
+                <td>Loperamide <span class="code-ref">RxCUI 6468</span>, diphenoxylate <span class="code-ref">RxCUI 3500</span>-atropine, bismuth subsalicylate <span class="code-ref">RxCUI 19478</span>, cholestyramine <span class="code-ref">RxCUI 2447</span>, eluxadoline <span class="code-ref">RxCUI 1653781</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">NSAIDs</td>
+                <td><span class="feature-code">med_HAS_NSAID</span></td>
+                <td>Binary</td>
+                <td>Ibuprofen <span class="code-ref">RxCUI 5640</span>, naproxen <span class="code-ref">RxCUI 7258</span>, meloxicam <span class="code-ref">RxCUI 41493</span>, celecoxib <span class="code-ref">RxCUI 140587</span>, aspirin <span class="code-ref">RxCUI 1191</span>, ketorolac <span class="code-ref">RxCUI 35827</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Statins</td>
+                <td><span class="feature-code">med_HAS_STATIN</span></td>
+                <td>Binary</td>
+                <td>Atorvastatin <span class="code-ref">RxCUI 83367</span>, rosuvastatin <span class="code-ref">RxCUI 301542</span>, pravastatin <span class="code-ref">RxCUI 42463</span>, simvastatin <span class="code-ref">RxCUI 36567</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Oral corticosteroids</td>
+                <td><span class="feature-code">med_HAS_STEROID_ORAL</span></td>
+                <td>Binary</td>
+                <td>Prednisone <span class="code-ref">RxCUI 8640</span>, methylprednisolone <span class="code-ref">RxCUI 6902</span>, budesonide <span class="code-ref">RxCUI 19831</span>; also mesalamine <span class="code-ref">RxCUI 52582</span>, sulfasalazine <span class="code-ref">RxCUI 9524</span>, azathioprine <span class="code-ref">RxCUI 1256</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite: GI symptom pattern</td>
+                <td>
+                  <span class="feature-code">med_GI_SYMPTOM_MEDS</span>,
+                  <span class="feature-code">med_ALTERNATING_BOWEL</span>,
+                  <span class="feature-code">med_GI_BLEEDING_PATTERN</span>,
+                  <span class="feature-code">med_HEMORRHOID_RISK_SCORE</span>
+                </td>
+                <td>AND/OR composites, 4-level risk score</td>
+                <td>Composite of above categories</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Code System: RxNorm</p>
+          <p>Medication features use Mercy and Lucem-internal Grouper IDs and <code>medication_id</code> values that are not portable across institutions. <strong>Representative drug names with RxNorm CUI codes</strong> (RxCUI) are provided so other teams can build equivalent category mappings using their own formulary data. RxCUI codes identify the <strong>ingredient</strong> level &mdash; map to specific dose forms and strengths using RxNorm&rsquo;s <code>SCD</code> / <code>SBD</code> term types as needed.</p>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 6: Inpatient Medications (Book 5.2)
+           =========================================================== -->
+      <div id="tab6" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab6" tabindex="0" hidden>
+        <h2 class="section-header">Inpatient Medications (Book 5.2)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Medications administered during hospital stays, capturing acute clinical events. Post-hospitalization risk is dramatically elevated &mdash; patients within 7 days of discharge have <strong>11.6x baseline CRC risk</strong>. Source: <strong>Book 5.2 (Inpatient Med Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">6</div>
+            <div class="metric-label">Raw Concepts</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~14</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">inp_med_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+                <th scope="col">Standard Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Hospitalization status</td>
+                <td>
+                  <span class="feature-code">inp_med_ANY_HOSPITALIZATION</span>,
+                  <span class="feature-code">inp_med_DAYS_SINCE_DISCHARGE</span>
+                </td>
+                <td>Binary, 6-level ordinal recency</td>
+                <td>Derived from admission/discharge records</td>
+              </tr>
+              <tr>
+                <td class="row-label">Inpatient iron (IV)</td>
+                <td><span class="feature-code">inp_med_HAS_IRON</span></td>
+                <td>Binary</td>
+                <td>Iron sucrose <span class="code-ref">RxCUI 24909</span> (Venofer), ferric carboxymaltose <span class="code-ref">RxCUI 1433693</span> (Injectafer), ferumoxytol <span class="code-ref">RxCUI 473387</span> (Feraheme), iron dextran <span class="code-ref">RxCUI 5992</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Inpatient PPI</td>
+                <td><span class="feature-code">inp_med_HAS_PPI</span></td>
+                <td>Binary</td>
+                <td>Pantoprazole <span class="code-ref">RxCUI 40790</span> IV, esomeprazole <span class="code-ref">RxCUI 283742</span> IV, omeprazole <span class="code-ref">RxCUI 7646</span> IV</td>
+              </tr>
+              <tr>
+                <td class="row-label">Inpatient opioids</td>
+                <td><span class="feature-code">inp_med_HAS_OPIOID</span></td>
+                <td>Binary</td>
+                <td>Fentanyl <span class="code-ref">RxCUI 4337</span>, hydrocodone <span class="code-ref">RxCUI 5489</span>-APAP, oxycodone <span class="code-ref">RxCUI 7804</span>, morphine <span class="code-ref">RxCUI 7052</span>, tramadol <span class="code-ref">RxCUI 10689</span>, hydromorphone <span class="code-ref">RxCUI 3423</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Inpatient antibiotics</td>
+                <td><span class="feature-code">inp_med_HAS_ANTIBIOTIC</span></td>
+                <td>Binary</td>
+                <td>Cephalexin <span class="code-ref">RxCUI 2231</span>, cefazolin <span class="code-ref">RxCUI 2180</span>, ceftriaxone <span class="code-ref">RxCUI 2193</span>, ciprofloxacin <span class="code-ref">RxCUI 2551</span>, levofloxacin <span class="code-ref">RxCUI 82122</span>, piperacillin <span class="code-ref">RxCUI 8339</span>-tazobactam, meropenem <span class="code-ref">RxCUI 29561</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Clinical syndromes</td>
+                <td>
+                  <span class="feature-code">inp_med_ACUTE_GI_BLEEDING</span>,
+                  <span class="feature-code">inp_med_OBSTRUCTION_PATTERN</span>,
+                  <span class="feature-code">inp_med_SEVERE_INFECTION</span>,
+                  <span class="feature-code">inp_med_GI_HOSPITALIZATION</span>,
+                  <span class="feature-code">inp_med_POST_HOSPITALIZATION_RISK</span>
+                </td>
+                <td>Iron+PPI pattern, laxative+opioid, antibiotics+opioid, GI-related admission, temporal risk score</td>
+                <td>Composite of above categories</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Code System: RxNorm</p>
+          <p>Inpatient medication features capture <strong>MAR (Medication Administration Record)</strong> actions, not just orders. Representative drug names with <strong>RxNorm CUI codes</strong> (RxCUI) are provided for cross-institution replication. RxCUI codes identify the ingredient level; IV formulations share the same ingredient RxCUI as oral forms.</p>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 7: Visit History (Book 6)
+           =========================================================== -->
+      <div id="tab7" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab7" tabindex="0" hidden>
+        <h2 class="section-header">Visit History (Book 6)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Healthcare utilization patterns from appointment records. Visit frequency, specialty care gaps, and no-show patterns capture the patient&rsquo;s engagement with the healthcare system. PCP visit frequency carries <strong>2.55x risk elevation</strong>. Source: <strong>Book 6 (Visit History Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="callout callout-warning">
+          <p class="callout-title">Model Variant Note</p>
+          <p>Visit history features are excluded from the &ldquo;No Visit Data&rdquo; (Lucem Novis) and &ldquo;No Demo/Visit Data&rdquo; (Lucem Nodem Novis) model variants. These models test whether clinical signals alone (without utilization patterns) are sufficient for CRC prediction.</p>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Standard Codes</p>
+          <p>Visit history features are derived from appointment scheduling and encounter data (visit types, department classifications, appointment statuses). No standard clinical terminology codes apply. These features are <strong>EHR-specific</strong> and require mapping to each institution&rsquo;s encounter classification system (e.g., visit type codes, department specialties).</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">8</div>
+            <div class="metric-label">Utilization Concepts</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~23</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">visit_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">ED visits</td>
+                <td>
+                  <span class="feature-code">visit_ED_VISIT_COUNT_12M</span>,
+                  <span class="feature-code">visit_ED_VISIT_RECENCY</span>
+                </td>
+                <td>12-month count, 6-level ordinal recency</td>
+              </tr>
+              <tr>
+                <td class="row-label">Hospitalizations</td>
+                <td>
+                  <span class="feature-code">visit_HOSPITALIZATION_COUNT_12M</span>,
+                  <span class="feature-code">visit_HOSPITALIZATION_LOS_TOTAL</span>
+                </td>
+                <td>Count, total length of stay</td>
+              </tr>
+              <tr>
+                <td class="row-label">GI specialist care</td>
+                <td>
+                  <span class="feature-code">visit_GI_SPECIALIST_VISIT_COUNT</span>,
+                  <span class="feature-code">visit_GI_SPECIALIST_RECENCY</span>
+                </td>
+                <td>Count, recency</td>
+              </tr>
+              <tr>
+                <td class="row-label">Primary care</td>
+                <td>
+                  <span class="feature-code">visit_PCP_VISIT_COUNT_12M</span>,
+                  <span class="feature-code">visit_PCP_CONTINUITY_SCORE</span>
+                </td>
+                <td>Count, % visits with same PCP</td>
+              </tr>
+              <tr>
+                <td class="row-label">Visit content</td>
+                <td>
+                  <span class="feature-code">visit_ANY_GI_SYMPTOM_VISIT</span>,
+                  <span class="feature-code">visit_CARE_GAP_GI</span>,
+                  <span class="feature-code">visit_PREVENTIVE_CARE_ENGAGEMENT</span>
+                </td>
+                <td>GI symptoms documented, symptoms without specialist, preventive visit flag</td>
+              </tr>
+              <tr>
+                <td class="row-label">Missed appointments</td>
+                <td>
+                  <span class="feature-code">visit_NO_SHOW_COUNT</span>,
+                  <span class="feature-code">visit_OUTPATIENT_VISIT_COUNT</span>
+                </td>
+                <td>No-show count, total outpatient</td>
+              </tr>
+              <tr>
+                <td class="row-label">Utilization intensity</td>
+                <td><span class="feature-code">visit_UTILIZATION_INTENSITY_SCORE</span></td>
+                <td>Weighted: (ED + hosp + specialist) / total</td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite patterns</td>
+                <td>
+                  <span class="feature-code">visit_GI_SYMPTOMS_NO_SPECIALIST</span>,
+                  <span class="feature-code">visit_FREQUENT_ED_NO_PCP</span>,
+                  <span class="feature-code">visit_ACUTE_CARE_RELIANCE</span>,
+                  <span class="feature-code">visit_COMPLEXITY_CATEGORY</span>,
+                  <span class="feature-code">visit_ENGAGEMENT_GAP</span>
+                </td>
+                <td>Care gap flags, reliance ratios, complexity ordinal, engagement gaps</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+
+      <!-- ===========================================================
+           TAB 8: Procedures (Book 7)
+           =========================================================== -->
+      <div id="tab8" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab8" tabindex="0" hidden>
+        <h2 class="section-header">Procedures (Book 7)</h2>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Category Description</p>
+          <p>Clinical procedures capturing objective evidence of disease investigation and treatment. Blood transfusions and iron infusions provide objective evidence of significant blood loss. Colonoscopy is deliberately excluded &mdash; patients with successful screening are already excluded from the cohort. Source: <strong>Book 7 (Procedure Feature Engineering)</strong>.</p>
+        </div>
+
+        <div class="metric-cards">
+          <div class="metric-card">
+            <div class="metric-value">7</div>
+            <div class="metric-label">Procedure Types</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">~14</div>
+            <div class="metric-label">Derived Features</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">proc_</div>
+            <div class="metric-label">Feature Prefix</div>
+          </div>
+        </div>
+
+        <h3>Feature Mapping</h3>
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th scope="col">Raw Clinical Concept</th>
+                <th scope="col">Derived Features</th>
+                <th scope="col">Transformation</th>
+                <th scope="col">Standard Codes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Blood transfusions</td>
+                <td>
+                  <span class="feature-code">proc_HAS_RBC_TRANSFUSION</span>,
+                  <span class="feature-code">proc_RBC_TRANSFUSION_COUNT_24M</span>
+                </td>
+                <td>Binary, 24-month count</td>
+                <td><span class="code-ref">CPT 36430</span></td>
+              </tr>
+              <tr>
+                <td class="row-label">Iron infusions</td>
+                <td>
+                  <span class="feature-code">proc_HAS_IRON_INFUSION</span>,
+                  <span class="feature-code">proc_IRON_INFUSION_COUNT_24M</span>
+                </td>
+                <td>Binary, 24-month count</td>
+                <td><span class="code-ref">CPT 96365</span> + <span class="code-ref">J1439</span> (iron sucrose), <span class="code-ref">J1750</span> (iron dextran)</td>
+              </tr>
+              <tr>
+                <td class="row-label">CT imaging</td>
+                <td>
+                  <span class="feature-code">proc_HAS_CT_ABDOMEN</span>,
+                  <span class="feature-code">proc_CT_ABDOMEN_RECENCY</span>
+                </td>
+                <td>Binary, 6-level ordinal</td>
+                <td><span class="code-ref">CPT 74176</span> (w/o), <span class="code-ref">CPT 74177</span> (w/), <span class="code-ref">CPT 74178</span> (w/ &amp; w/o)</td>
+              </tr>
+              <tr>
+                <td class="row-label">MRI imaging</td>
+                <td><span class="feature-code">proc_HAS_MRI_ABDOMEN</span></td>
+                <td>Binary</td>
+                <td><span class="code-ref">CPT 74181</span> (w/o), <span class="code-ref">CPT 74182</span> (w/), <span class="code-ref">CPT 74183</span> (w/ &amp; w/o)</td>
+              </tr>
+              <tr>
+                <td class="row-label">PET / advanced imaging</td>
+                <td>
+                  <span class="feature-code">proc_HAS_PET_SCAN</span>,
+                  <span class="feature-code">proc_TOTAL_IMAGING_COUNT_12M</span>
+                </td>
+                <td>Binary, 12-month total</td>
+                <td><span class="code-ref">CPT 78816</span> (PET/CT)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Upper GI procedures</td>
+                <td>
+                  <span class="feature-code">proc_HAS_EGD</span>,
+                  <span class="feature-code">proc_HAS_HEMORRHOID_PROCEDURE</span>,
+                  <span class="feature-code">proc_HAS_UPPER_GI_PROCEDURE</span>
+                </td>
+                <td>Binary presence</td>
+                <td><span class="code-ref">CPT 43235</span> (EGD), <span class="code-ref">CPT 46600</span> (anoscopy), <span class="code-ref">CPT 46221</span> / <span class="code-ref">46945</span> / <span class="code-ref">46946</span> (hemorrhoid)</td>
+              </tr>
+              <tr>
+                <td class="row-label">Composite patterns</td>
+                <td>
+                  <span class="feature-code">proc_ANEMIA_TREATMENT_INTENSITY</span>,
+                  <span class="feature-code">proc_DIAGNOSTIC_CASCADE</span>,
+                  <span class="feature-code">proc_ACUTE_BLEEDING_PATTERN</span>
+                </td>
+                <td>Additive score, &ge;2 imaging + &ge;1 upper GI, temporal bleeding pattern</td>
+                <td>Composite of above CPT codes</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout callout-info">
+          <p class="callout-title">Code System: CPT / HCPCS</p>
+          <p>Procedure features use <strong>CPT</strong> (Current Procedural Terminology) and <strong>HCPCS</strong> (Healthcare Common Procedure Coding System) codes. Mercy and Lucem uses internal procedure codes (CT1000, MR1136, etc.) which are mapped to the standard CPT equivalents shown here for cross-institution replication.</p>
+        </div>
+
+        <hr class="divider">
+        <p class="text-muted">&larr; Back to <a href="crc_model_results.html" style="color: #006598; font-weight: 600;">Main Results</a> &nbsp;|&nbsp; View <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Model Features</a> &rarr;</p>
+      </div>
+
+      <div id="tab9" class="tab-pane" role="tabpanel" aria-labelledby="btn-tab9" tabindex="0" hidden>
+        <h2 class="section-header">All Features</h2>
+        <div class="callout callout-info">
+          <p>Complete list of all 99 engineered features across all 8 clinical categories. This is the full candidate pool that enters the feature selection pipeline. Use the category badges to identify each feature&rsquo;s data source.</p>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="comparison-table">
+            <thead><tr>
+              <th scope="col">Category</th>
+              <th scope="col">Feature</th>
+              <th scope="col">Derivation</th>
+              <th scope="col">Standard Codes</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6c757d; color:#fff; font-size:0.75rem; white-space:nowrap;">Demographics</span></td>
+                <td>Patient age</td>
+                <td><span class="feature-code">AGE</span> &rarr; <span class="feature-code">AGE_GROUP</span></td>
+                <td>5-level ordinal: 45&ndash;49, 50&ndash;54, 55&ndash;64, 65&ndash;74, 75+</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6c757d; color:#fff; font-size:0.75rem; white-space:nowrap;">Demographics</span></td>
+                <td>Biological sex</td>
+                <td><span class="feature-code">IS_FEMALE</span></td>
+                <td>Binary indicator</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6c757d; color:#fff; font-size:0.75rem; white-space:nowrap;">Demographics</span></td>
+                <td>Marital/partner status</td>
+                <td><span class="feature-code">IS_MARRIED_PARTNER</span></td>
+                <td>Binary indicator</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6c757d; color:#fff; font-size:0.75rem; white-space:nowrap;">Demographics</span></td>
+                <td>Race/ethnicity</td>
+                <td><span class="feature-code">RACE_CAUCASIAN</span>,
+                  <span class="feature-code">RACE_BLACK_OR_AFRICAN_AMERICAN</span>,
+                  <span class="feature-code">RACE_HISPANIC</span>,
+                  <span class="feature-code">RACE_ASIAN</span>,
+                  <span class="feature-code">RACE_OTHER</span></td>
+                <td>One-hot encoding from text field</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6c757d; color:#fff; font-size:0.75rem; white-space:nowrap;">Demographics</span></td>
+                <td>PCP relationship</td>
+                <td><span class="feature-code">HAS_PCP_AT_END</span></td>
+                <td>Binary: active PCP at cohort end date</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6c757d; color:#fff; font-size:0.75rem; white-space:nowrap;">Demographics</span></td>
+                <td>Observation history</td>
+                <td><span class="feature-code">HAS_FULL_24M_HISTORY</span>,
+                  <span class="feature-code">OBS_MONTHS_PRIOR</span></td>
+                <td>Binary flag + continuous months</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>Body weight</td>
+                <td><span class="feature-code">vit_HAS_RAPID_WEIGHT_LOSS</span>,
+                  <span class="feature-code">vit_MAX_WEIGHT_LOSS_PCT_60D</span>,
+                  <span class="feature-code">vit_WEIGHT_LOSS_FLAG_6M</span>,
+                  <span class="feature-code">vit_WEIGHT_LOSS_FLAG_12M</span>,
+                  <span class="feature-code">vit_WEIGHT_CACHEXIA_INDICATOR</span>,
+                  <span class="feature-code">vit_WEIGHT_TREND_6M</span>,
+                  <span class="feature-code">vit_WEIGHT_TREND_12M</span></td>
+                <td>Rapid loss (&gt;5% in 60d), percentage, binary flags, linear regression slopes, cachexia (BMI&lt;20 + loss)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>BMI</td>
+                <td><span class="feature-code">vit_BMI_CATEGORY</span>,
+                  <span class="feature-code">vit_WEIGHT_QUARTILE</span></td>
+                <td>4-level clinical categories (underweight/normal/overweight/obese), quartile binning</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>Blood pressure</td>
+                <td><span class="feature-code">vit_BP_SYSTOLIC_LATEST</span>,
+                  <span class="feature-code">vit_BP_DIASTOLIC_LATEST</span>,
+                  <span class="feature-code">vit_HAS_HYPERTENSION_FLAG</span>,
+                  <span class="feature-code">vit_SBP_VARIABILITY_6M</span></td>
+                <td>Latest values, binary flag (&ge;140/90), 6-month variability</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>Heart rate</td>
+                <td><span class="feature-code">vit_PULSE_LATEST</span>,
+                  <span class="feature-code">vit_HAS_TACHYCARDIA_FLAG</span></td>
+                <td>Latest value, binary (HR&gt;100)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>Temperature</td>
+                <td><span class="feature-code">vit_TEMP_LATEST</span>,
+                  <span class="feature-code">vit_HAS_FEVER_FLAG</span></td>
+                <td>Latest value, binary (&gt;100.4&deg;F)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>Respiratory rate</td>
+                <td><span class="feature-code">vit_RESP_RATE_LATEST</span></td>
+                <td>Latest measurement</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#0d6efd; color:#fff; font-size:0.75rem; white-space:nowrap;">Vitals</span></td>
+                <td>Measurement recency</td>
+                <td><span class="feature-code">vit_VITALS_RECENCY</span></td>
+                <td>6-level ordinal bin (0&ndash;7d through &gt;365d)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>GI bleeding</td>
+                <td><span class="feature-code">icd_HAS_GI_BLEEDING</span>,
+                  <span class="feature-code">icd_HAS_RECTAL_BLEEDING</span></td>
+                <td>Binary presence of bleeding codes</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Bowel habit changes</td>
+                <td><span class="feature-code">icd_HAS_BOWEL_HABIT_CHANGE</span></td>
+                <td>Binary presence</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Abdominal symptoms</td>
+                <td><span class="feature-code">icd_HAS_ABDOMINAL_PAIN</span></td>
+                <td>Binary presence</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Weight loss diagnosis</td>
+                <td><span class="feature-code">icd_HAS_UNEXPLAINED_WEIGHT_LOSS_DX</span></td>
+                <td>Binary (documented Dx, not vital trend)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>GI symptom recency</td>
+                <td><span class="feature-code">icd_DAYS_SINCE_LAST_GI_SYMPTOM</span></td>
+                <td>6-level ordinal bin</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Anemia diagnoses</td>
+                <td><span class="feature-code">icd_HAS_IRON_DEFICIENCY_ANEMIA</span>,
+                  <span class="feature-code">icd_HAS_ANEMIA_ANY</span></td>
+                <td>Binary presence</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Polyp history</td>
+                <td><span class="feature-code">icd_HAS_POLYPS_HISTORY</span></td>
+                <td>Binary (prior polyp diagnosis)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Inflammatory bowel disease</td>
+                <td><span class="feature-code">icd_HAS_IBD</span></td>
+                <td>Binary (Crohn&rsquo;s or UC)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Metabolic comorbidities</td>
+                <td><span class="feature-code">icd_HAS_DIABETES</span>,
+                  <span class="feature-code">icd_HAS_OBESITY_DX</span></td>
+                <td>Binary presence</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Family history</td>
+                <td><span class="feature-code">icd_ICD_FHX_CRC_COMBINED</span></td>
+                <td>Binary (family CRC codes)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Comorbidity burden</td>
+                <td><span class="feature-code">icd_CHARLSON_INDEX</span>,
+                  <span class="feature-code">icd_ELIXHAUSER_SCORE</span></td>
+                <td>Validated scoring algorithms</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Symptom triad</td>
+                <td><span class="feature-code">icd_SYMPTOM_TRIAD_FLAG</span></td>
+                <td>Binary: bleeding + anemia + bowel changes</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Iron-deficiency + bleeding</td>
+                <td><span class="feature-code">icd_IDA_WITH_BLEEDING</span></td>
+                <td>Binary composite</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Symptom acceleration</td>
+                <td><span class="feature-code">icd_SYMPTOM_ACCELERATION_RATIO</span></td>
+                <td>New symptom codes per month</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Myocardial infarction</td>
+                <td>1</td>
+                <td>I21.*, I22.*, I25.2</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Congestive heart failure</td>
+                <td>1</td>
+                <td>I09.9, I11.0, I13.0, I13.2, I25.5, I42.0, I42.5&ndash;I42.9, I43.*, I50.*, P29.0</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Peripheral vascular disease</td>
+                <td>1</td>
+                <td>I70.*, I71.*, I73.1, I73.8, I73.9, I77.1, I79.0, I79.2, K55.1, K55.8, K55.9, Z95.8, Z95.9</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Cerebrovascular disease</td>
+                <td>1</td>
+                <td>G45.*, G46.*, H34.0, I60&ndash;I69.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Dementia</td>
+                <td>1</td>
+                <td>F00&ndash;F03.*, F05.1, G30.*, G31.1</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Chronic pulmonary disease</td>
+                <td>1</td>
+                <td>I27.8, I27.9, J40&ndash;J47.*, J60&ndash;J67.*, J68.4, J70.1, J70.3</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Rheumatic disease</td>
+                <td>1</td>
+                <td>M05.*, M06.*, M31.5, M32&ndash;M34.*, M35.1, M35.3, M36.0</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Peptic ulcer disease</td>
+                <td>1</td>
+                <td>K25&ndash;K28.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Mild liver disease</td>
+                <td>1</td>
+                <td>B18.*, K70.0&ndash;K70.3, K70.9, K71.3&ndash;K71.5, K71.7, K73.*, K74.*, K76.0, K76.2&ndash;K76.4, K76.8, K76.9, Z94.4</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Diabetes without complications</td>
+                <td>1</td>
+                <td>E10.0&ndash;E10.1, E10.6, E10.8&ndash;E10.9, E11.0&ndash;E11.1, E11.6, E11.8&ndash;E11.9, E13.0&ndash;E13.1, E13.6, E13.8&ndash;E13.9</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Diabetes with complications</td>
+                <td>2</td>
+                <td>E10.2&ndash;E10.5, E10.7, E11.2&ndash;E11.5, E11.7, E13.2&ndash;E13.5, E13.7</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Hemiplegia or paraplegia</td>
+                <td>2</td>
+                <td>G04.1, G11.4, G80.1, G80.2, G81.*, G82.*, G83.0&ndash;G83.4, G83.9</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Renal disease</td>
+                <td>2</td>
+                <td>I12.0, I13.1, N03.2&ndash;N03.7, N05.2&ndash;N05.7, N18.*, N19.*, N25.0, Z49.0&ndash;Z49.2, Z94.0, Z99.2</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Any malignancy (non-metastatic)</td>
+                <td>2</td>
+                <td>C00&ndash;C26.*, C30&ndash;C34.*, C37&ndash;C41.*, C43.*, C45&ndash;C58.*, C60&ndash;C76.*, C81&ndash;C85.*, C88.*, C90&ndash;C97.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Moderate/severe liver disease</td>
+                <td>3</td>
+                <td>I85.0, I85.9, I86.4, I98.2, K70.4, K71.1, K72.1, K72.9, K76.5, K76.6, K76.7</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Metastatic solid tumor</td>
+                <td>6</td>
+                <td>C77&ndash;C80.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>AIDS/HIV</td>
+                <td>6</td>
+                <td>B20&ndash;B22.*, B24.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Congestive heart failure</td>
+                <td>+7</td>
+                <td>I09.9, I11.0, I13.0, I13.2, I25.5, I42.0, I42.5&ndash;I42.9, I43.*, I50.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Cardiac arrhythmias</td>
+                <td>+5</td>
+                <td>I44.1&ndash;I44.3, I45.6, I45.9, I47&ndash;I49.*, R00.0, R00.1, R00.8, T82.1, Z45.0, Z95.0</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Pulmonary circulation disorders</td>
+                <td>+4</td>
+                <td>I26.*, I27.*, I28.0, I28.8, I28.9</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Diabetes (complicated)</td>
+                <td>+0</td>
+                <td>E10.2&ndash;E10.8, E11.2&ndash;E11.8, E13.2&ndash;E13.8</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Renal failure</td>
+                <td>+5</td>
+                <td>I12.0, I13.1, N18.*, N19.*, N25.0, Z49.*, Z94.0, Z99.2</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Liver disease</td>
+                <td>+11</td>
+                <td>B18.*, I85.*, I86.4, I98.2, K70.*, K71.1, K71.3&ndash;K71.5, K71.7, K72&ndash;K74.*, K76.0, K76.2&ndash;K76.9</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Metastatic cancer</td>
+                <td>+12</td>
+                <td>C77&ndash;C80.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Solid tumor without metastasis</td>
+                <td>+4</td>
+                <td>C00&ndash;C26.*, C30&ndash;C34.*, C37&ndash;C41.*, C43.*, C45&ndash;C58.*, C60&ndash;C76.*, C97.*</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Weight loss</td>
+                <td>+6</td>
+                <td>E40&ndash;E46.*, R63.4, R64</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#198754; color:#fff; font-size:0.75rem; white-space:nowrap;">ICD-10 Diagnoses</span></td>
+                <td>Coagulopathy</td>
+                <td>+3</td>
+                <td>D65&ndash;D68.*, D69.1, D69.3&ndash;D69.6</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Hemoglobin</td>
+                <td><span class="feature-code">lab_HEMOGLOBIN_VALUE</span>,
+                  <span class="feature-code">lab_HEMOGLOBIN_VELOCITY</span>,
+                  <span class="feature-code">lab_HEMOGLOBIN_ACCELERATING_DECLINE</span>,
+                  <span class="feature-code">lab_HEMOGLOBIN_TRAJECTORY</span>,
+                  <span class="feature-code">lab_HGB_DROP_10PCT_FLAG</span></td>
+                <td>Latest value, linear slope, second derivative, polynomial trajectory (4-level), binary &gt;10% drop</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Hematocrit / RBC indices</td>
+                <td><span class="feature-code">lab_HEMATOCRIT_VALUE</span>,
+                  <span class="feature-code">lab_MCV_VALUE</span>,
+                  <span class="feature-code">lab_RDW_VALUE</span></td>
+                <td>Latest values (microcytic anemia indicators)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Platelets</td>
+                <td><span class="feature-code">lab_PLATELET_VALUE</span>,
+                  <span class="feature-code">lab_PLATELETS_ACCELERATING_RISE</span>,
+                  <span class="feature-code">lab_THROMBOCYTOSIS_FLAG</span></td>
+                <td>Latest, acceleration, binary &gt;450 K/uL</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>White blood cells</td>
+                <td><span class="feature-code">lab_WBC_VALUE</span></td>
+                <td>Latest count</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Iron metabolism</td>
+                <td><span class="feature-code">lab_IRON_VALUE</span>,
+                  <span class="feature-code">lab_FERRITIN_VALUE</span>,
+                  <span class="feature-code">lab_TIBC_VALUE</span>,
+                  <span class="feature-code">lab_IRON_DEFICIENCY_ANEMIA_FLAG</span></td>
+                <td>Serum iron, stores, binding capacity, gender-specific composite</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Albumin</td>
+                <td><span class="feature-code">lab_ALBUMIN_VALUE</span>,
+                  <span class="feature-code">lab_ALBUMIN_DROP_15PCT_FLAG</span></td>
+                <td>Nutritional marker, &gt;15% drop flag</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Glucose</td>
+                <td><span class="feature-code">lab_GLUCOSE_VALUE</span></td>
+                <td>Latest value</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Kidney function</td>
+                <td><span class="feature-code">lab_CREATININE_VALUE</span>,
+                  <span class="feature-code">lab_BUN_VALUE</span></td>
+                <td>Latest values</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Liver enzymes</td>
+                <td><span class="feature-code">lab_ALT_VALUE</span>,
+                  <span class="feature-code">lab_AST_VALUE</span>,
+                  <span class="feature-code">lab_ALK_PHOS_VALUE</span>,
+                  <span class="feature-code">lab_BILIRUBIN_VALUE</span>,
+                  <span class="feature-code">lab_ALT_ABNORMAL</span>,
+                  <span class="feature-code">lab_AST_ABNORMAL</span></td>
+                <td>Latest values + above-ULN flags</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Inflammation</td>
+                <td><span class="feature-code">lab_CRP_VALUE</span>,
+                  <span class="feature-code">lab_ESR_VALUE</span></td>
+                <td>C-reactive protein, sedimentation rate</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>CA-125</td>
+                <td><span class="feature-code">lab_CA125_VALUE</span></td>
+                <td>Ovarian marker (not CRC-specific, kept)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Composite: iron deficiency</td>
+                <td><span class="feature-code">lab_COMPREHENSIVE_IRON_DEFICIENCY</span></td>
+                <td>IDA OR (Hb&lt;12 + MCV&lt;80) OR (ferritin&lt;30 + Hb&lt;13)</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Composite: metabolic</td>
+                <td><span class="feature-code">lab_METABOLIC_DYSFUNCTION</span></td>
+                <td>ALT/AST abnormal OR ALP&gt;150 OR albumin drop</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Composite: inflammatory</td>
+                <td><span class="feature-code">lab_INFLAMMATORY_BURDEN</span></td>
+                <td>CRP&gt;10 OR thrombocytosis OR ESR&gt;30</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#dc3545; color:#fff; font-size:0.75rem; white-space:nowrap;">Labs</span></td>
+                <td>Composite: progressive anemia</td>
+                <td><span class="feature-code">lab_PROGRESSIVE_ANEMIA</span></td>
+                <td>Rapid/moderate decline OR accelerating decline</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Iron supplements</td>
+                <td><span class="feature-code">med_HAS_IRON_SUPPLEMENT</span>,
+                  <span class="feature-code">med_IRON_RECENCY</span>,
+                  <span class="feature-code">med_IRON_COUNT_2Y</span></td>
+                <td>Binary, 6-level ordinal recency, 24-month count</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Proton pump inhibitors</td>
+                <td><span class="feature-code">med_HAS_PPI</span>,
+                  <span class="feature-code">med_PPI_RECENCY</span></td>
+                <td>Binary, recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Hemorrhoid medications</td>
+                <td><span class="feature-code">med_HAS_HEMORRHOID_MED</span>,
+                  <span class="feature-code">med_HEMORRHOID_RECENCY</span></td>
+                <td>Binary, recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Laxatives</td>
+                <td><span class="feature-code">med_HAS_LAXATIVE</span>,
+                  <span class="feature-code">med_LAXATIVE_RECENCY</span></td>
+                <td>Binary, recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Antidiarrheals</td>
+                <td><span class="feature-code">med_HAS_ANTIDIARRHEAL</span>,
+                  <span class="feature-code">med_ANTIDIARRHEAL_RECENCY</span></td>
+                <td>Binary, recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>NSAIDs</td>
+                <td><span class="feature-code">med_HAS_NSAID</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Statins</td>
+                <td><span class="feature-code">med_HAS_STATIN</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Oral corticosteroids</td>
+                <td><span class="feature-code">med_HAS_STEROID_ORAL</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#fd7e14; color:#fff; font-size:0.75rem; white-space:nowrap;">Outpatient Meds</span></td>
+                <td>Composite: GI symptom pattern</td>
+                <td><span class="feature-code">med_GI_SYMPTOM_MEDS</span>,
+                  <span class="feature-code">med_ALTERNATING_BOWEL</span>,
+                  <span class="feature-code">med_GI_BLEEDING_PATTERN</span>,
+                  <span class="feature-code">med_HEMORRHOID_RISK_SCORE</span></td>
+                <td>AND/OR composites, 4-level risk score</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#e35d6a; color:#fff; font-size:0.75rem; white-space:nowrap;">Inpatient Meds</span></td>
+                <td>Hospitalization status</td>
+                <td><span class="feature-code">inp_med_ANY_HOSPITALIZATION</span>,
+                  <span class="feature-code">inp_med_DAYS_SINCE_DISCHARGE</span></td>
+                <td>Binary, 6-level ordinal recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#e35d6a; color:#fff; font-size:0.75rem; white-space:nowrap;">Inpatient Meds</span></td>
+                <td>Inpatient iron (IV)</td>
+                <td><span class="feature-code">inp_med_HAS_IRON</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#e35d6a; color:#fff; font-size:0.75rem; white-space:nowrap;">Inpatient Meds</span></td>
+                <td>Inpatient PPI</td>
+                <td><span class="feature-code">inp_med_HAS_PPI</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#e35d6a; color:#fff; font-size:0.75rem; white-space:nowrap;">Inpatient Meds</span></td>
+                <td>Inpatient opioids</td>
+                <td><span class="feature-code">inp_med_HAS_OPIOID</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#e35d6a; color:#fff; font-size:0.75rem; white-space:nowrap;">Inpatient Meds</span></td>
+                <td>Inpatient antibiotics</td>
+                <td><span class="feature-code">inp_med_HAS_ANTIBIOTIC</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#e35d6a; color:#fff; font-size:0.75rem; white-space:nowrap;">Inpatient Meds</span></td>
+                <td>Clinical syndromes</td>
+                <td><span class="feature-code">inp_med_ACUTE_GI_BLEEDING</span>,
+                  <span class="feature-code">inp_med_OBSTRUCTION_PATTERN</span>,
+                  <span class="feature-code">inp_med_SEVERE_INFECTION</span>,
+                  <span class="feature-code">inp_med_GI_HOSPITALIZATION</span>,
+                  <span class="feature-code">inp_med_POST_HOSPITALIZATION_RISK</span></td>
+                <td>Iron+PPI pattern, laxative+opioid, antibiotics+opioid, GI-related admission, temporal risk score</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>ED visits</td>
+                <td><span class="feature-code">visit_ED_VISIT_COUNT_12M</span>,
+                  <span class="feature-code">visit_ED_VISIT_RECENCY</span></td>
+                <td>12-month count, 6-level ordinal recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>Hospitalizations</td>
+                <td><span class="feature-code">visit_HOSPITALIZATION_COUNT_12M</span>,
+                  <span class="feature-code">visit_HOSPITALIZATION_LOS_TOTAL</span></td>
+                <td>Count, total length of stay</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>GI specialist care</td>
+                <td><span class="feature-code">visit_GI_SPECIALIST_VISIT_COUNT</span>,
+                  <span class="feature-code">visit_GI_SPECIALIST_RECENCY</span></td>
+                <td>Count, recency</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>Primary care</td>
+                <td><span class="feature-code">visit_PCP_VISIT_COUNT_12M</span>,
+                  <span class="feature-code">visit_PCP_CONTINUITY_SCORE</span></td>
+                <td>Count, % visits with same PCP</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>Visit content</td>
+                <td><span class="feature-code">visit_ANY_GI_SYMPTOM_VISIT</span>,
+                  <span class="feature-code">visit_CARE_GAP_GI</span>,
+                  <span class="feature-code">visit_PREVENTIVE_CARE_ENGAGEMENT</span></td>
+                <td>GI symptoms documented, symptoms without specialist, preventive visit flag</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>Missed appointments</td>
+                <td><span class="feature-code">visit_NO_SHOW_COUNT</span>,
+                  <span class="feature-code">visit_OUTPATIENT_VISIT_COUNT</span></td>
+                <td>No-show count, total outpatient</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>Utilization intensity</td>
+                <td><span class="feature-code">visit_UTILIZATION_INTENSITY_SCORE</span></td>
+                <td>Weighted: (ED + hosp + specialist) / total</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#6f42c1; color:#fff; font-size:0.75rem; white-space:nowrap;">Visit History</span></td>
+                <td>Composite patterns</td>
+                <td><span class="feature-code">visit_GI_SYMPTOMS_NO_SPECIALIST</span>,
+                  <span class="feature-code">visit_FREQUENT_ED_NO_PCP</span>,
+                  <span class="feature-code">visit_ACUTE_CARE_RELIANCE</span>,
+                  <span class="feature-code">visit_COMPLEXITY_CATEGORY</span>,
+                  <span class="feature-code">visit_ENGAGEMENT_GAP</span></td>
+                <td>Care gap flags, reliance ratios, complexity ordinal, engagement gaps</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>Blood transfusions</td>
+                <td><span class="feature-code">proc_HAS_RBC_TRANSFUSION</span>,
+                  <span class="feature-code">proc_RBC_TRANSFUSION_COUNT_24M</span></td>
+                <td>Binary, 24-month count</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>Iron infusions</td>
+                <td><span class="feature-code">proc_HAS_IRON_INFUSION</span>,
+                  <span class="feature-code">proc_IRON_INFUSION_COUNT_24M</span></td>
+                <td>Binary, 24-month count</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>CT imaging</td>
+                <td><span class="feature-code">proc_HAS_CT_ABDOMEN</span>,
+                  <span class="feature-code">proc_CT_ABDOMEN_RECENCY</span></td>
+                <td>Binary, 6-level ordinal</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>MRI imaging</td>
+                <td><span class="feature-code">proc_HAS_MRI_ABDOMEN</span></td>
+                <td>Binary</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>PET / advanced imaging</td>
+                <td><span class="feature-code">proc_HAS_PET_SCAN</span>,
+                  <span class="feature-code">proc_TOTAL_IMAGING_COUNT_12M</span></td>
+                <td>Binary, 12-month total</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>Upper GI procedures</td>
+                <td><span class="feature-code">proc_HAS_EGD</span>,
+                  <span class="feature-code">proc_HAS_HEMORRHOID_PROCEDURE</span>,
+                  <span class="feature-code">proc_HAS_UPPER_GI_PROCEDURE</span></td>
+                <td>Binary presence</td>
+              </tr>
+              <tr>
+                <td><span style="display:inline-block; padding:2px 8px; border-radius:3px; background:#20c997; color:#fff; font-size:0.75rem; white-space:nowrap;">Procedures</span></td>
+                <td>Composite patterns</td>
+                <td><span class="feature-code">proc_ANEMIA_TREATMENT_INTENSITY</span>,
+                  <span class="feature-code">proc_DIAGNOSTIC_CASCADE</span>,
+                  <span class="feature-code">proc_ACUTE_BLEEDING_PATTERN</span></td>
+                <td>Additive score, &ge;2 imaging + &ge;1 upper GI, temporal bleeding pattern</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+    </div><!-- /tab-content -->
+  </main><!-- /main content -->
+
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
+  <footer role="contentinfo">
+    <p>Generated for Mercy and Lucem Clinical Analytics | February 2026</p>
+    <p class="tagline">&ldquo;Your life is our life&rsquo;s work&rdquo;</p>
+    <div class="footer-links">
+      <a href="crc_model_results.html">Main Results</a>
+      <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       JAVASCRIPT
+       ============================================================ -->
+  <script>
+    (function() {
+      'use strict';
+
+      /* ----------------------------------------------------------
+         TAB SWITCHING (with ARIA support)
+         ---------------------------------------------------------- */
+      var tabButtons = document.querySelectorAll('.tab-btn');
+      var tabPanes   = document.querySelectorAll('.tab-pane');
+
+      function switchTab(targetId, focusPanel) {
+        // Deactivate all buttons and hide all panes
+        tabButtons.forEach(function(btn) {
+          btn.classList.remove('active');
+          btn.setAttribute('aria-selected', 'false');
+          btn.setAttribute('tabindex', '-1');
+        });
+        tabPanes.forEach(function(pane) {
+          pane.classList.remove('active');
+          pane.setAttribute('hidden', '');
+        });
+        // Activate the target button and pane
+        var targetBtn = document.querySelector('.tab-btn[data-tab="' + targetId + '"]');
+        var targetPane = document.getElementById(targetId);
+        if (targetBtn) {
+          targetBtn.classList.add('active');
+          targetBtn.setAttribute('aria-selected', 'true');
+          targetBtn.setAttribute('tabindex', '0');
+        }
+        if (targetPane) {
+          targetPane.classList.add('active');
+          targetPane.removeAttribute('hidden');
+          if (focusPanel) targetPane.focus();
+        }
+      }
+
+      tabButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var tabId = this.getAttribute('data-tab');
+          switchTab(tabId);
+        });
+      });
+
+      /* Keyboard navigation for tabs (arrow keys, Home, End) */
+      document.querySelector('.tab-nav').addEventListener('keydown', function(e) {
+        var tabs = Array.from(tabButtons);
+        var current = tabs.indexOf(document.activeElement);
+        if (current < 0) return;
+
+        var next;
+        switch (e.key) {
+          case 'ArrowRight':
+          case 'ArrowDown':
+            next = (current + 1) % tabs.length;
+            break;
+          case 'ArrowLeft':
+          case 'ArrowUp':
+            next = (current - 1 + tabs.length) % tabs.length;
+            break;
+          case 'Home':
+            next = 0;
+            break;
+          case 'End':
+            next = tabs.length - 1;
+            break;
+          default:
+            return;
+        }
+        e.preventDefault();
+        tabs[next].focus();
+        switchTab(tabs[next].getAttribute('data-tab'));
+      });
+
+      /* ----------------------------------------------------------
+         COLLAPSIBLE SECTIONS (with ARIA and keyboard support)
+         ---------------------------------------------------------- */
+      function toggleCollapsible(header) {
+        var collapsible = header.closest('.collapsible');
+        if (!collapsible) return;
+
+        var body = collapsible.querySelector('.collapsible-body');
+        var icon = header.querySelector('.collapse-icon');
+        var isOpen = body && body.classList.contains('open');
+
+        if (body) body.classList.toggle('open');
+        if (icon) icon.classList.toggle('open');
+        header.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      }
+
+      document.addEventListener('click', function(e) {
+        var header = e.target.closest('.collapsible-header');
+        if (header) toggleCollapsible(header);
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          var header = e.target.closest('.collapsible-header');
+          if (header) {
+            e.preventDefault();
+            toggleCollapsible(header);
+          }
+        }
+      });
+
+      /* ----------------------------------------------------------
+         HANDLE TAB LINK FROM URL HASH (cross-file tab linking)
+         ---------------------------------------------------------- */
+      function handleHash() {
+        var hash = window.location.hash;
+        if (hash && hash.startsWith('#tab')) {
+          var tabId = hash.substring(1);
+          switchTab(tabId);
+        }
+      }
+
+      // Check on load
+      handleHash();
+
+      // Check on hash change
+      window.addEventListener('hashchange', handleHash);
+
+      /* ----------------------------------------------------------
+         INITIALIZE: Ensure first tab is active on page load
+         ---------------------------------------------------------- */
+      if (!document.querySelector('.tab-pane.active')) {
+        switchTab('tab1');
+      }
+
+    })();
+  </script>
+
+</body>
+</html>
