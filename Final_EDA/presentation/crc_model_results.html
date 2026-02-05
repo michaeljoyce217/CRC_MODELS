@@ -1043,8 +1043,10 @@
         <h2 class="section-header">Executive Summary</h2>
 
         <p style="font-size: 1.15rem; color: #006598; font-weight: 500; margin-bottom: 28px; line-height: 1.6;">
-          We built a model that identifies patients at elevated risk for colorectal cancer &mdash; before
-          symptoms appear &mdash; using data already captured in routine clinical care.
+          Using Mercy&rsquo;s complete clinical data, we built a <strong>gold standard model</strong> that identifies
+          patients at elevated risk for colorectal cancer &mdash; before symptoms appear &mdash; using data
+          already captured in routine clinical care. This model sets the performance target that portable
+          variants will aim to match.
         </p>
 
         <!-- ── The Stakes ── -->
@@ -1075,7 +1077,7 @@
             </div>
             <div style="font-size: 0.9rem; margin-top: 12px; opacity: 0.75; line-height: 1.5;">
               If we contact the top 1% of patients flagged by the model for screening,<br>
-              we find <strong>23 times more</strong> colorectal cancer cases than contacting patients at random.
+              we find <strong>21 times more</strong> colorectal cancer cases than contacting patients at random.
             </div>
           </div>
 
@@ -1098,11 +1100,7 @@
             <div style="font-size: 0.78rem; color: #888; margin-top: 4px;">2023&ndash;2024 cohort</div>
           </div>
 
-          <div style="flex: 1 1 200px; background: #f5f7fa; border: 1px solid #e0e7ed; border-radius: 10px; padding: 20px; text-align: center;">
-            <div style="font-size: 2rem; font-weight: 700; color: #006598;">100%</div>
-            <div style="font-size: 0.88rem; color: #555;">Explainable</div>
-            <div style="font-size: 0.78rem; color: #888; margin-top: 4px;">every prediction has a reason</div>
-          </div>
+
 
         </div>
 
@@ -1209,9 +1207,9 @@
         </ul>
 
         <p>
-          Each prediction comes with a breakdown of <em>which</em> factors contributed most to that
-          patient&rsquo;s score. This means the care team doesn&rsquo;t just see a number &mdash; they see
-          <em>why</em> the model flagged this patient, and can use clinical judgment to decide next steps.
+          The model produces a <strong>risk flag</strong> identifying patients in the highest-risk group
+          for targeted screening outreach. The care team can then apply clinical judgment to determine
+          appropriate next steps for each flagged patient.
         </p>
 
         <hr class="divider">
@@ -1240,11 +1238,6 @@
                 <td><strong>Mercy and Lucem patients</strong></td>
               </tr>
               <tr>
-                <td class="row-label">Explainability</td>
-                <td>Score only (black box)</td>
-                <td><strong>Full feature-level explanation</strong> per patient</td>
-              </tr>
-              <tr>
                 <td class="row-label">Ongoing Cost</td>
                 <td>Per-patient licensing fees</td>
                 <td><strong>Internal maintenance</strong></td>
@@ -1263,19 +1256,20 @@
         <!-- ── Next Steps ── -->
         <h3>What Happens Next</h3>
         <p>
-          These are preliminary results from the first of six model variants. The remaining tabs
-          in this document present detailed methodology, per-model results, and comparisons. The
-          final production model will incorporate:
+          The Mercy Full Data model is our <strong>gold standard</strong> &mdash; the best performance achievable
+          with complete Mercy data. The next step is building a portable model that Lucem can deploy
+          in their own environment.
         </p>
 
-        <ul style="margin: 12px 0 20px 20px;">
-          <li><strong>Hyperparameter tuning</strong> (Optuna) to optimize model configuration</li>
-          <li><strong>Isotonic calibration followed by quantile transformation</strong> to convert raw scores to a 0&ndash;100 risk scale</li>
-          <li><strong>Integration with clinical workflows</strong> for screening outreach</li>
-        </ul>
+        <ol style="margin: 12px 0 20px 20px;">
+          <li style="margin-bottom:8px;"><strong>Lucem reviews the feature catalog</strong> (<a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B</a>) and identifies which features are universally available in their EHR</li>
+          <li style="margin-bottom:8px;"><strong>We run feature selection</strong> on the identified feature subset using the same automated pipeline that produced these results</li>
+          <li style="margin-bottom:8px;"><strong>Hyperparameter tuning</strong> (Optuna) and <strong>isotonic calibration followed by quantile transformation</strong> to produce a 0&ndash;100 risk score</li>
+          <li style="margin-bottom:8px;"><strong>Model replication in Vertex AI</strong> on Google Cloud Platform for production deployment</li>
+        </ol>
 
         <p style="font-size:0.88rem; color:#888; margin-top:16px;">
-          <em>Results shown are from the Mercy and Lucem Full Data (Standard) model. The Med-Averse variant is also complete. Four additional variants (Lucem Novis and Lucem Nodem Novis, standard and med-averse) are running.</em>
+          <em>Results shown are from the Mercy Full Data (Standard) gold standard model. The Med-Averse variant is also complete. The remaining four variants are experiments testing specific data availability constraints informed by known differences between Mercy and Lucem&rsquo;s data.</em>
         </p>
 
       </div>
@@ -1303,10 +1297,11 @@
           no follow-up after a missed appointment, no flag in the system. These are the patients we built this model to find.
         </p>
         <p>
-          Using <strong>858,000+ patient observations</strong> from Mercy and Lucem's electronic health records, we developed a model
-          that identifies high-risk unscreened patients based on their existing clinical data &mdash; labs, vitals,
-          diagnoses, medications, procedures, and visit patterns. The goal: surface patients who may benefit most from
-          screening, before symptoms appear.
+          Using <strong>858,000+ patient observations</strong> from Mercy&rsquo;s electronic health records, we developed a
+          gold standard model that identifies high-risk unscreened patients based on their existing clinical data &mdash;
+          labs, vitals, diagnoses, medications, procedures, and visit patterns. This gold standard establishes the
+          performance target; we then test how close we can get using only the data available for portable deployment
+          across health systems.
         </p>
 
         <hr class="divider">
@@ -1700,11 +1695,13 @@
         <!-- Why Three Variants? -->
         <h3>Why Three Variants?</h3>
         <p>
-          We didn't build one model &mdash; we built three from scratch, each testing a different
-          data availability scenario. This scientific approach reveals which data truly drives
-          predictions and produces models suited for different deployment contexts. By systematically
-          removing categories of data and rebuilding from the ground up, we can answer real questions
-          about what information matters most for early CRC detection.
+          We first built a <strong>gold standard model</strong> using every clinical data category
+          available in Mercy&rsquo;s EHR. This establishes the ceiling &mdash; the best performance
+          achievable with complete data. We then built two additional variants as
+          <strong>experiments</strong>, each informed by known differences between Mercy and
+          Lucem&rsquo;s data and the practical realities of cross-system deployment. By systematically
+          removing categories of data and rebuilding from the ground up, we can measure exactly
+          how much performance each data category contributes.
         </p>
 
         <hr class="divider">
@@ -1714,9 +1711,9 @@
         <div class="model-cards">
 
           <!-- Card 1: Mercy and Lucem Full Data -->
-          <div class="model-card">
-            <span class="model-tag tag-full">Full Data</span>
-            <h3>Mercy and Lucem Full Data</h3>
+          <div class="model-card" style="border: 2px solid #006598;">
+            <span class="model-tag tag-full">Gold Standard</span>
+            <h3>Mercy Full Data</h3>
             <p style="font-weight:600; color:#333; margin-bottom:12px;">All 8 Clinical Categories</p>
             <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
               <li style="margin-bottom:8px;">
@@ -1725,22 +1722,21 @@
               </li>
               <li style="margin-bottom:8px;">
                 Our most comprehensive model &mdash; leverages every available clinical
-                signal from Mercy and Lucem's EHR
+                signal from Mercy&rsquo;s EHR
               </li>
               <li style="margin-bottom:8px;">
-                Best suited for deployment within Mercy and Lucem's own environment where all
-                data is available
+                <strong>Sets the performance target</strong> that portable variants will aim to match
               </li>
             </ul>
             <p style="font-size:0.82rem; color:#006598; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              The benchmark &mdash; what's possible with complete data
+              The gold standard &mdash; what&rsquo;s possible with complete data
             </p>
           </div>
 
-          <!-- Card 2: Mercy and Lucem - No Visit Data -->
+          <!-- Card 2: No Visit Data (Experiment) -->
           <div class="model-card">
-            <span class="model-tag tag-novisit">No Visit Data</span>
-            <h3>Mercy and Lucem &mdash; No Visit Data</h3>
+            <span class="model-tag tag-novisit">Experiment</span>
+            <h3>No Visit Data</h3>
             <p style="font-weight:600; color:#333; margin-bottom:12px;">Excludes Visit History Features</p>
             <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
               <li style="margin-bottom:8px;">
@@ -1748,23 +1744,23 @@
                 no-show patterns, specialty visit counts)
               </li>
               <li style="margin-bottom:8px;">
-                Tests whether visit utilization patterns add predictive value beyond
-                clinical signals
+                <strong>Motivated by Lucem data:</strong> visit history data may be structured
+                differently or less complete across systems
               </li>
               <li style="margin-bottom:8px;">
-                A turnkey option: any hospital with standard clinical data (labs, vitals,
-                diagnoses, meds) can use this model
+                Measures the performance cost of dropping visit data &mdash; informing
+                whether it&rsquo;s worth the mapping effort
               </li>
             </ul>
             <p style="font-size:0.82rem; color:#bf5412; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              Designed for portability &mdash; works without visit tracking data
+              Experiment &mdash; how much does visit data contribute?
             </p>
           </div>
 
-          <!-- Card 3: Mercy and Lucem - No Demographic or Visit Data -->
+          <!-- Card 3: No Demographic or Visit Data (Experiment) -->
           <div class="model-card">
-            <span class="model-tag tag-nodemo">No Demo/Visit Data</span>
-            <h3>Mercy and Lucem &mdash; No Demographic or Visit Data</h3>
+            <span class="model-tag tag-nodemo">Experiment</span>
+            <h3>No Demographic or Visit Data</h3>
             <p style="font-weight:600; color:#333; margin-bottom:12px;">Clinical Signals Only</p>
             <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
               <li style="margin-bottom:8px;">
@@ -1772,23 +1768,17 @@
                 race, marital status, etc.)
               </li>
               <li style="margin-bottom:8px;">
-                Tests whether the model can predict using only clinical signals:
-                labs, vitals, diagnoses, medications, procedures
+                <strong>Motivated by portability and equity:</strong> demographic data
+                definitions vary across systems, and demographic features raise fairness questions
               </li>
               <li style="margin-bottom:8px;">
-                Addresses fairness: demographic features, while predictive, raise
-                equity questions
+                The most portable option &mdash; uses only clinical signals (labs, vitals,
+                diagnoses, medications, procedures) available in any EHR
               </li>
             </ul>
             <p style="font-size:0.82rem; color:#2e7d32; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              Answers: how well can we predict from clinical signals alone?
+              Experiment &mdash; how well can clinical signals alone perform?
             </p>
-            <div class="callout callout-success" style="margin-top:14px; margin-bottom:0;">
-              <p style="margin:0; font-size:0.85rem;">
-                <strong>Mercy and Lucem's Value of Justice:</strong> Equitable predictions that don't depend on
-                demographic characteristics &mdash; consistent with Mercy and Lucem's commitment to Justice.
-              </p>
-            </div>
           </div>
 
         </div><!-- end .model-cards -->
@@ -1814,13 +1804,13 @@
           <div class="bar-row">
             <div class="bar-label">No Visit Data</div>
             <div class="bar-track">
-              <div class="bar-fill fill-accent" style="width:87%;">~145 features</div>
+              <div class="bar-fill fill-accent" style="width:87%;"><span class="placeholder">[TBD]</span></div>
             </div>
           </div>
           <div class="bar-row">
             <div class="bar-label">No Demo/Visit Data</div>
             <div class="bar-track">
-              <div class="bar-fill fill-success" style="width:80%;">~133 features</div>
+              <div class="bar-fill fill-success" style="width:80%;"><span class="placeholder">[TBD]</span></div>
             </div>
           </div>
         </div>
@@ -1853,10 +1843,10 @@
         <div class="callout callout-success">
           <p class="callout-title">Independent Optimization</p>
           <p>
-            Each variant is built from scratch through the complete 5-phase pipeline &mdash;
-            not pruned from the full model. This ensures each model is independently optimized
+            Each experimental variant is built from scratch through the complete 5-phase pipeline &mdash;
+            not pruned from the gold standard. This ensures each experiment is independently optimized
             for its available data. The feature selection process discovers the best signals
-            within each data scope, rather than simply removing features from a pre-built model.
+            within each data scope, giving us a true measure of what each data category contributes.
           </p>
         </div>
 
@@ -1869,8 +1859,10 @@
         <h2 class="section-header">Standard Model Results</h2>
 
         <p>
-          Results from the three standard models (without med-averse adjustments).
-          All metrics below are computed on the held-out test set &mdash; patients the model
+          Results from the standard models (without med-averse adjustments).
+          The Full Data column is the <strong>gold standard</strong>; the experimental variant columns
+          will be populated as those models complete.
+          All metrics are computed on the held-out test set &mdash; patients the model
           never saw during training or feature selection.
         </p>
 
@@ -1913,7 +1905,7 @@
             how many more CRC cases will we find compared to reaching out at random?&rdquo;</em>
           </p>
           <p>
-            A lift of 15&times; at the top 1% means the highest-risk 1% of patients contains 15 times more CRC cases
+            A lift of 21&times; at the top 1% means the highest-risk 1% of patients contains 21 times more CRC cases
             than a random 1% sample. This translates directly to <strong>screening program efficiency</strong> &mdash;
             the same outreach budget reaches far more patients who actually need colonoscopies. We report lift
             at multiple thresholds (top 1%, 5%, 10%) because the operational question is &ldquo;how many patients
@@ -1977,7 +1969,7 @@
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 1%</td>
                 <td><strong>21.2&times;</strong></td>
-                <td><strong>21.9&times;</strong></td>
+                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
               <tr style="background-color:#fff8f4;">
@@ -1995,19 +1987,19 @@
               <tr>
                 <td>Test AUPRC</td>
                 <td><strong>0.0534</strong></td>
-                <td>0.0460</td>
+                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
               <tr style="color:#999999;">
                 <td>Test AUROC</td>
                 <td>0.8268</td>
-                <td>0.8199</td>
+                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
               <tr>
                 <td>Final Feature Count</td>
                 <td><strong>28</strong></td>
-                <td>30</td>
+                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
             </tbody>
@@ -2016,418 +2008,6 @@
 
         <hr class="divider">
 
-        <!-- Lift-by-Quarter Tables -->
-        <h3>Lift by Cohort Quarter and Prediction Decile</h3>
-        <p>
-          These tables show how screening efficiency (lift) varies across time periods and risk thresholds.
-          Each cell represents the lift achieved when flagging patients in the given top-N% risk bracket
-          for observations entering the cohort in that quarter. The <strong>&ldquo;All Quarters&rdquo;</strong>
-          column shows the overall lift across the entire test set. Quarters marked &ldquo;&mdash;&rdquo;
-          indicate periods where no test-set observations were available (the held-out test set
-          covers Q1&ndash;Q3 2024).
-        </p>
-        <p>
-          <strong>Why this matters:</strong> Stable lift across quarters means the model generalizes across time &mdash;
-          it is not overfitting to a particular period&rsquo;s patient mix. If lift drops significantly
-          in later quarters, it could indicate temporal drift in the underlying data.
-        </p>
-
-        <!-- Mercy and Lucem Full Data lift table -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem Full Data &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Top 1%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><strong>21.2&times;</strong></td>
-                    <td style="color:#999;">&mdash;</td>
-                    <td style="color:#999;">&mdash;</td>
-                    <td style="color:#999;">&mdash;</td>
-                    <td style="color:#999;">&mdash;</td>
-                    <td><strong>19.9&times;</strong></td>
-                    <td><strong>11.0&times;</strong></td>
-                    <td><strong>18.6&times;</strong></td>
-                  </tr>
-                  <tr>
-                    <td>Top 2%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 3%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 4%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 5%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 6%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 7%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 8%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 9%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 10%</td>
-                    <td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- No Visit Data lift table -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem - No Visit Data &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Top 1%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 2%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 3%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 4%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 5%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 6%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 7%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 8%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 9%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 10%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- No Demographic or Visit Data lift table -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem - No Demographic or Visit Data &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Top 1%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 2%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 3%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 4%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 5%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 6%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 7%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 8%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 9%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                  <tr>
-                    <td>Top 10%</td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                    <td><span class="placeholder">[--]</span></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
 
       </div>
 
@@ -2571,7 +2151,7 @@
         <hr class="divider">
 
         <!-- ── Section 5: Why This Matters for Mercy and Lucem ── -->
-        <h3>Why This Matters for Mercy and Lucem and Lucem</h3>
+        <h3>Why This Matters</h3>
 
         <div class="model-cards">
 
@@ -2621,9 +2201,10 @@
         <h2 class="section-header">All Models Comparison</h2>
 
         <p>
-          Side-by-side comparison of all six models &mdash; three standard and three med-averse variants.
-          Use these tables to evaluate the tradeoffs between data scope, medication dependence, and
-          predictive performance.
+          Side-by-side comparison of the gold standard model and its experimental variants.
+          The Full Data column is the performance target; each additional column measures the cost
+          of removing a data category or deprioritizing medications. These experiments inform which
+          features Lucem needs to map for the portable production model.
         </p>
 
         <!-- ── Summary Comparison Table ── -->
@@ -2645,7 +2226,7 @@
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 1%</td>
                 <td><strong>21.2&times;</strong></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td>21.9&times;</td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
@@ -2672,7 +2253,7 @@
               <tr>
                 <td>Test AUPRC</td>
                 <td><strong>0.0534</strong></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td>0.0460</td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
@@ -2681,7 +2262,7 @@
               <tr style="color:#999999;">
                 <td>Test AUROC</td>
                 <td>0.8268</td>
-                <td><span class="placeholder">[--]</span></td>
+                <td>0.8199</td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
@@ -2690,7 +2271,7 @@
               <tr>
                 <td class="row-label">Final Features</td>
                 <td><strong>28</strong></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td>30</td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
@@ -2732,252 +2313,6 @@
 
         <hr class="divider">
 
-        <!-- ── Lift-by-Quarter: Standard Models ── -->
-        <h3>Standard Models &mdash; Lift by Cohort Quarter</h3>
-        <p>
-          Lift tables show screening efficiency across time periods and risk thresholds.
-          The <strong>&ldquo;All Quarters&rdquo;</strong> column shows the overall lift across the entire test set.
-          Stable lift across quarters confirms temporal generalization.
-        </p>
-
-        <!-- Mercy and Lucem Full Data -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem Full Data &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Top 1%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 2%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 3%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 4%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 5%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 6%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 7%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 8%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 9%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 10%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mercy and Lucem - No Visit Data -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem - No Visit Data &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Top 1%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 2%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 3%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 4%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 5%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 6%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 7%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 8%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 9%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 10%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mercy and Lucem - No Demographic or Visit Data -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem - No Demographic or Visit Data &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Top 1%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 2%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 3%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 4%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 5%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 6%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 7%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 8%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 9%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 10%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <hr class="divider">
-
-        <!-- ── Lift-by-Quarter: Med-Averse Models ── -->
-        <h3>Med-Averse Models &mdash; Lift by Cohort Quarter</h3>
-
-        <!-- Mercy and Lucem Full Data (Med-Averse) -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem Full Data (Med-Averse) &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Top 1%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 2%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 3%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 4%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 5%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 6%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 7%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 8%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 9%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 10%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mercy and Lucem - No Visit Data (Med-Averse) -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem - No Visit Data (Med-Averse) &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Top 1%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 2%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 3%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 4%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 5%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 6%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 7%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 8%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 9%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 10%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mercy and Lucem - No Demographic or Visit Data (Med-Averse) -->
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <span class="collapse-icon">&#9654;</span>
-            <h4>Mercy and Lucem - No Demographic or Visit Data (Med-Averse) &mdash; Lift by Cohort Quarter</h4>
-          </div>
-          <div class="collapsible-body">
-            <div class="table-wrapper">
-              <table class="lift-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Risk Bracket</th>
-                    <th scope="col" style="background-color:#004d73; font-weight:700;">All Quarters</th>
-                    <th scope="col">Q1 2023</th>
-                    <th scope="col">Q2 2023</th>
-                    <th scope="col">Q3 2023</th>
-                    <th scope="col">Q4 2023</th>
-                    <th scope="col">Q1 2024</th>
-                    <th scope="col">Q2 2024</th>
-                    <th scope="col">Q3 2024</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Top 1%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 2%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 3%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 4%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 5%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 6%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 7%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 8%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 9%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                  <tr><td>Top 10%</td><td style="font-weight:700; background-color:#f0f6fa;"><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td><td><span class="placeholder">[--]</span></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
 
       </div>
 
@@ -2992,13 +2327,15 @@
              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
         <h3 style="margin-top:28px; color:#1a1a1a;">Our Results in Context</h3>
 
-        <p>These results represent exceptional performance on one of the most challenging prediction problems in clinical analytics &mdash; identifying rare cancer events in a general population with noisy outcomes.</p>
+        <p>The results discussed in this section are from the <strong>Mercy Full Data (Standard)</strong> model &mdash; our gold standard trained on all available Mercy data. We will build a portable Lucem model and aim to match this gold standard using the features Lucem identifies as available in their EHR.</p>
+
+        <p>These results represent strong performance on one of the most challenging prediction problems in clinical analytics &mdash; identifying rare cancer events in a general population with noisy outcomes.</p>
 
         <p>Colorectal cancer prediction in a general, unscreened population is fundamentally different from predicting outcomes in a controlled study or curated registry. Our model must find signal in a population where only 1 in 277 patients will receive a CRC diagnosis within the prediction window, using routinely collected clinical data that was never designed for this purpose.</p>
 
         <div class="callout callout-success">
           <p class="callout-title">Putting AUPRC in Perspective</p>
-          <p>At a prevalence of 0.36%, a model that guesses randomly scores an AUPRC of <strong>0.004</strong>. Published machine learning models on rare clinical events typically achieve AUPRC in the range of 0.05 to 0.10, which is considered strong performance. Our model achieves <strong>0.0534</strong> &mdash; approximately <strong>15&times;</strong> better than random, placing it in the upper range of published models for rare clinical events.</p>
+          <p>At a prevalence of 0.36%, a model that guesses randomly scores an AUPRC of <strong>0.004</strong>. Published machine learning models on rare clinical events typically achieve AUPRC in the range of 0.05 to 0.10, which is considered strong performance. Our model achieves <strong>0.0534</strong> &mdash; approximately <strong>13&times;</strong> better than random, placing it in the upper range of published models for rare clinical events.</p>
         </div>
 
         <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3052,7 +2389,7 @@
             <tr>
               <td class="row-label">AUROC</td>
               <td>0.78 (95% CI: 0.77&ndash;0.78)</td>
-              <td><strong>0.84</strong></td>
+              <td><strong>0.8268</strong></td>
             </tr>
             <tr>
               <td class="row-label">Sensitivity (at 97% specificity)</td>
@@ -3103,7 +2440,7 @@
         <p>We are building a model that works in the messy reality of everyday clinical practice &mdash; not in a curated research dataset with near-perfect outcome labeling and 5&times; the signal density.</p>
 
         <div class="callout callout-success">
-          <p>Despite operating on a harder problem with noisier outcomes and a positive rate 5&times; lower than published benchmarks, our model achieves <strong>21&times; lift at the top 1%</strong> and an AUPRC of 0.057. This suggests the clinical signals in Mercy and Lucem&rsquo;s data carry genuine predictive value for CRC risk.</p>
+          <p>Despite operating on a harder problem with noisier outcomes and a positive rate 5&times; lower than published benchmarks, our model achieves <strong>21&times; lift at the top 1%</strong> and an AUPRC of 0.0534. This suggests the clinical signals in Mercy and Lucem&rsquo;s data carry genuine predictive value for CRC risk.</p>
         </div>
 
         <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3127,7 +2464,7 @@
             <tr>
               <td class="row-label">Development</td>
               <td>Off-the-shelf vendor product (black box)</td>
-              <td>Built in-house for Mercy and Lucem (fully interpretable)</td>
+              <td>Built in-house on Mercy data</td>
             </tr>
             <tr>
               <td class="row-label">Training Data</td>
@@ -3149,11 +2486,7 @@
               <td>None &mdash; same model for all customers</td>
               <td>Trained on Mercy and Lucem&rsquo;s patient population</td>
             </tr>
-            <tr>
-              <td class="row-label">Interpretability</td>
-              <td>Score only (no feature-level explanation)</td>
-              <td>SHAP values for every prediction &mdash; clinicians see <em>why</em></td>
-            </tr>
+
             <tr>
               <td class="row-label">Ongoing Cost</td>
               <td>Per-patient licensing fees</td>
@@ -3214,7 +2547,7 @@
           </li>
           <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
             <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Production model training with full SHAP interpretability for every prediction
+            Production model training with SHAP-based feature importance analysis
           </li>
           <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
             <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
@@ -3347,30 +2680,35 @@
              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
         <h3 style="margin-top:36px; color:#1a1a1a;">Looking Forward</h3>
 
-        <p>The final production model will likely be none of these six variants exactly. These results demonstrate what we can achieve and illuminate the tradeoffs between data scope, medication dependence, and predictive performance.</p>
+        <p>The Mercy Full Data model is the <strong>gold standard</strong> &mdash; the best performance achievable with complete data. The other five variants are experiments that quantify the performance cost of data constraints we expect to encounter when deploying across health systems. The question now is: how close can we get to this gold standard using only the features available at Lucem?</p>
 
-        <p style="font-weight:600; margin-top:20px; margin-bottom:12px; color:#006598;">Decisions for the team:</p>
+        <p style="font-weight:600; margin-top:20px; margin-bottom:12px; color:#006598;">Immediate next steps:</p>
 
         <ol style="list-style: none; padding-left: 0; counter-reset: step-counter; margin: 0 0 24px 0;">
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">1.</span>
-            Which data scope best balances performance and portability?
+            <strong>Lucem reviews the feature catalog</strong> &mdash; <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B</a> lists every feature by clinical category with standard codes (ICD-10, LOINC, CPT). Lucem identifies which features are universally available in their EHR.
           </li>
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">2.</span>
-            Is the med-averse tradeoff worthwhile for deployment robustness?
+            <strong>Automated feature selection</strong> on the Lucem-available feature subset &mdash; the same 5-phase pipeline (clustering, SHAP winnowing, CV stability, parsimony selection, production training) runs on the constrained feature set.
           </li>
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">3.</span>
-            What lift threshold should trigger clinical action?
+            <strong>Hyperparameter tuning and calibration</strong> &mdash; Optuna optimization followed by isotonic calibration and quantile transformation to produce a 0&ndash;100 risk score.
           </li>
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">4.</span>
-            How should risk scores be integrated into existing clinical workflows?
+            <strong>Model replication in Vertex AI</strong> on Google Cloud Platform for production deployment and integration with clinical workflows.
           </li>
         </ol>
 
-        <p>Detailed feature information is available in <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Per-Model Features</a> and <a href="appendix_b_feature_catalog.html" style="color: #006598; font-weight: 600;">Appendix B: Feature Catalog by Category</a>.</p>
+        <div class="callout callout-info">
+          <p class="callout-title">Action Item for Lucem</p>
+          <p>Review the complete feature list in <a href="appendix_b_feature_catalog.html" style="color:#006598; font-weight:600;">Appendix B: Feature Catalog</a> &mdash; particularly the &ldquo;All Features&rdquo; tab at the end, which consolidates all features from every clinical category into a single reference list. For each feature, identify whether the underlying data is available and reliable in Lucem&rsquo;s EHR. This determines the feature set for the portable production model.</p>
+        </div>
+
+        <p>Detailed per-model feature lists are in <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Per-Model Features</a>.</p>
 
       </div>
 
