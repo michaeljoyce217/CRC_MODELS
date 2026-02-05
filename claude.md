@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All 6 notebook variants complete (Mercy Standard/Med-Averse, Lucem Novis Standard/Med-Averse, Lucem Nodem Novis Standard/Med-Averse). Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). **Critical XGBoost fix applied**: AUCPR early stopping now uses `xgb.callback.EarlyStopping(maximize=True)` callback instead of `early_stopping_rounds` parameter (bug #3712 caused model collapse). Also added `max_delta_step=1`, adaptive parameter schedule, and collapse detection with seed retry. **Next step**: Upload and run all 6 notebooks on Databricks.
+**Current Status**: All 6 notebook variants complete and running on Databricks. Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). Phase 4 uses 20% parsimony tolerance (targeting 25-40 features); no clinical add-backs. Temporal features (`months_since_cohort_entry`, `quarters_since_study_start`) excluded from all variants. **First result**: Mercy Standard completed — Phase 2 winnowed 165→30 features, Phase 4 selected ~30 features with 20% tolerance, Phase 5 production model: val AUPRC 0.064, test AUPRC 0.057, AUROC 0.81/0.82, Lift@1% 23x.
 
 ---
 
@@ -84,15 +84,15 @@ This section documents approaches that were tried and FAILED during Book 9 devel
 
 ---
 
-### Failed Approach 7: Using `early_stopping_rounds` Parameter with AUCPR
+### Failed Approach 7: Over-Engineering XGBoost (Adaptive Params + Collapse Detection)
 
-**What we tried**: Setting `early_stopping_rounds=150` in the XGBoost params dict with `eval_metric='aucpr'`.
+**What we tried**: After identifying XGBoost bug #3712 (AUCPR early stopping minimizes instead of maximizes), we layered four fixes simultaneously: (1) replaced `early_stopping_rounds` with `xgb.callback.EarlyStopping(maximize=True)`, (2) added `max_delta_step=1`, (3) added an adaptive parameter schedule (relaxing gamma/colsample/reg_lambda as features decreased below 100/60/30), and (4) added collapse detection with seed retry.
 
-**What happened**: Models collapsed to 11-94 trees instead of the expected 1500-2000. AUPRC crashed to near-zero. The model was barely learning before early stopping killed it.
+**What happened**: The adaptive parameter schedule changed model behavior mid-pipeline. When features dropped below 100, the relaxed parameters let the model find value in marginal features, so fewer met removal criteria. Feature removal went from 6-10 per iteration to 1-2 per iteration. A run that should take ~20 iterations took hours removing one feature at a time.
 
-**Why it failed**: XGBoost bug #3712 — when using the `early_stopping_rounds` parameter with `eval_metric='aucpr'`, XGBoost **minimizes** instead of **maximizes**. AUCPR should be maximized (higher = better), but the built-in early stopping treated it as a loss metric. So it stopped training when AUCPR stopped getting *worse* — i.e., almost immediately.
+**Why it failed**: The simple conservative params (`early_stopping_rounds=150`) worked fine all along — the AUCPR bug doesn't manifest with our ultra-conservative hyperparameters because models train well beyond 150 rounds. The "fixes" were solving a problem we didn't actually have, while creating a new one (slow convergence).
 
-**Correct approach**: Use `xgb.callback.EarlyStopping(rounds=150, metric_name='aucpr', maximize=True, save_best=True)` as an explicit callback. This correctly maximizes AUCPR. Also add `max_delta_step=1` (XGBoost-recommended for extreme class imbalance) and collapse detection with seed retry as safety net.
+**Correct approach**: Keep it simple. Use `early_stopping_rounds=150` with conservative params. Don't add adaptive schedules, collapse detection, or other complexity that changes model behavior between iterations. The simple version gets to 26-30 features in ~20 iterations.
 
 ---
 
@@ -251,7 +251,7 @@ Implemented in `Mercy_Standard_Feature_Selection.ipynb` and `Mercy_Med_Adverse_F
 | **Phase 1** | Cluster-Based Reduction | 167 → 143 | Remove redundant/correlated features |
 | **Phase 2** | Iterative SHAP Winnowing | 143 → 26 | Fine-tune with up to 10 removals per iteration |
 | **Phase 3** | CV Stability Analysis | validates all | Confirm selection across 5 folds |
-| **Phase 4** | Parsimony-Aware Selection | → ~27 | Automated iteration + CV filter + clinical add-backs |
+| **Phase 4** | Parsimony-Aware Selection | → ~30 | Automated iteration selection (20% tolerance) + CV filter |
 | **Phase 5** | Production Model Training | final set | Retrain with relaxed XGBoost params + SHAP analysis |
 
 ### Input
@@ -297,15 +297,14 @@ Step 1.3: Smart Threshold Selection
 
 Step 1.4: Train Baseline Model (CONSERVATIVE PARAMS)
 ├── XGBoost with very conservative hyperparameters:
-│   ├── max_depth: 2 (very shallow)
+│   ├── max_depth: 3 (shallow)
 │   ├── gamma: 2.0 (high min loss reduction)
-│   ├── subsample: 0.3 (low row sampling)
-│   ├── colsample_bytree: 0.3 (low column sampling)
+│   ├── subsample: 0.5 (moderate row sampling)
+│   ├── colsample_bytree: 0.5 (moderate column sampling)
 │   ├── reg_alpha: 5.0 (L1 regularization)
 │   ├── reg_lambda: 50.0 (L2 regularization)
 │   ├── learning_rate: 0.005 (very slow)
-│   ├── max_delta_step: 1 (stabilize extreme imbalance)
-│   └── EarlyStopping callback (maximize=True, rounds=150)
+│   └── early_stopping_rounds: 150
 └── CHECKPOINT: Save baseline model and metrics
 
 Step 1.5: Compute SHAP with 2:1 Positive Weighting
@@ -369,8 +368,7 @@ Step 2.3: Identify Removal Candidates (2+ of 3 Criteria)
 
 Step 2.4: Stop Conditions
 ├── Would go below MIN_FEATURES_THRESHOLD (25): STOP
-├── No features meet 2+ criteria AND above threshold+5: force-remove 5 lowest
-├── No features meet 2+ criteria AND near threshold: STOP
+├── No features meet 2+ criteria: force-remove 2 lowest-SHAP features
 └── Otherwise: Remove features and continue
 
 Step 2.5: Log & Checkpoint
@@ -382,7 +380,7 @@ Step 2.5: Log & Checkpoint
 
 ### Key Parameters (Matching Original)
 
-**XGBoost (Conservative / Base)**:
+**XGBoost (Conservative — Phases 1-2 Winnowing)**:
 ```python
 max_depth = 3
 min_child_weight = 50
@@ -393,23 +391,7 @@ colsample_bylevel = 0.5
 reg_alpha = 5.0
 reg_lambda = 50.0
 learning_rate = 0.005
-max_delta_step = 1  # XGBoost-recommended for extreme imbalance
-# Early stopping via xgb.callback.EarlyStopping(rounds=150, maximize=True)
-# (NOT early_stopping_rounds param — that has AUCPR minimize bug, XGBoost #3712)
-```
-
-**Adaptive Parameter Schedule** (applied in `train_xgboost_model`):
-```python
-# >100 features: base params above
-# 60-100 features: gamma=1.5, colsample_bytree=0.6, reg_lambda=30.0
-# 30-60 features:  gamma=1.0, colsample_bytree=0.7, reg_lambda=20.0
-# <30 features:    gamma=0.5, colsample_bytree=0.8, reg_lambda=10.0
-```
-
-**Collapse Detection** (in `train_xgboost_model`):
-```python
-COLLAPSE_THRESHOLD = 200  # trees; healthy models train 1500-2000
-RETRY_SEEDS = [42, 314, 7919]  # alternate seeds if collapse detected
+early_stopping_rounds = 150
 ```
 
 **Removal Criteria**:
@@ -444,19 +426,18 @@ After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
 Manual pick:    49 features (iter12 CV-stable subset + 1 clinical addition)
 ```
 
-### Expected Outcome (Automated Phases 4-5)
-
-With Phase 4 automation using 10% parsimony tolerance:
+### First Results (Mercy Standard)
 
 ```
-Phase 4 selects: iter20 (26 features, fewest within 10% of best val AUPRC)
-CV stability filter: removes any features appearing in <3/5 folds
-Clinical add-back: lab_HEMOGLOBIN_ACCELERATING_DECLINE (if CV-stable)
-Expected final: ~27 features
-Phase 5: Production model trained on final feature set
+Starting:      165 features (after Book 8 quality checks + temporal exclusions)
+After Phase 1: 139 features (cluster-based reduction)
+After Phase 2:  30 features (28 iterations, ~51 min on Databricks)
+Phase 4 (20%): Selected ~30 features (fewest within 20% of best val AUPRC)
+Phase 5:       Production model — val AUPRC 0.064, test AUPRC 0.057
+               AUROC 0.81/0.82, Lift@1% 23x, 1554 trees
 ```
 
-**Notebooks must be run on Databricks to generate actual results.** Each methodology variant (Standard, Med-Averse) may produce different final feature sets.
+**Other 5 variants running on Databricks.** Each methodology variant may produce different final feature sets.
 
 **Med-Averse difference:** Phases 1-2 apply `MED_TIEBREAK_BAND = 0.05` — when a medication and non-medication feature are similarly ranked during SHAP winnowing, the medication feature is removed first. Phases 3-5 are identical to Standard.
 
@@ -469,24 +450,23 @@ Phase 5: Production model trained on final feature set
 **Parameters:**
 ```python
 PHASE4_GAP_THRESHOLD = 0.02        # Max |train-val gap|
-PARSIMONY_TOLERANCE_PCT = 10       # Within 10% of best val AUPRC
+PARSIMONY_TOLERANCE_PCT = 20       # Within 20% of best val AUPRC
 PHASE4_CV_STABILITY_MIN_FOLDS = 3  # Minimum 3/5 CV folds
-PHASE4_CLINICAL_MUST_KEEP = ['lab_HEMOGLOBIN_ACCELERATING_DECLINE']
+PHASE4_CLINICAL_MUST_KEEP = []     # No clinical add-backs — let data speak
 ```
 
 **Logic:**
 1. Load Phase 1-3 checkpoint artifacts (`{prefix}iteration_tracking.csv`, `{prefix}features_by_iteration.json`, `{prefix}cv_stability_report.json`)
 2. Filter iterations by |train_val_gap| < 0.02 (overfitting guard)
 3. Find best val AUPRC among qualified iterations
-4. Apply 10% parsimony tolerance: keep iterations within 10% of best
+4. Apply 20% parsimony tolerance: keep iterations within 20% of best
 5. Among qualifying iterations, select the one with **fewest features** (Occam's razor)
-6. Apply CV stability filter (≥3/5 folds)
-7. Add back PHASE4_CLINICAL_MUST_KEEP features if CV-stable
-8. Save to Spark table (`herald_std_final_features` or `herald_med_averse_final_features`)
+6. Apply CV stability filter (≥3/5 folds) — remove unstable features from the selected set
+7. Save to Spark table (per methodology — see table above)
 
 **Med-Averse difference:** Phase 4 is identical to Standard. The med-averse behavior is in Phases 1-2 (MED_TIEBREAK_BAND = 0.05), which is already reflected in the iteration results by Phase 4.
 
-**Why 10% parsimony tolerance:** With 250:1 class imbalance, val AUPRC oscillates (~SD 0.007). A 10% band captures iterations that are statistically indistinguishable. Published CRC ML models use 8-30 features (Li 2025, Hornbrook 2020). EPV ≥ 20 is recommended for ML with variable selection; at 27 features our EPV is ~115.
+**Why 20% parsimony tolerance:** With 250:1 class imbalance, val AUPRC oscillates (~SD 0.007). A 20% band captures iterations that are statistically indistinguishable, targeting 25-40 features. The true AUPRC baseline is prevalence (~0.0036), not the all-features model score. Published CRC ML models use 8-30 features (Li 2025, Hornbrook 2020). EPV ≥ 20 is recommended for ML with variable selection.
 
 ---
 
@@ -496,16 +476,15 @@ PHASE4_CLINICAL_MUST_KEEP = ['lab_HEMOGLOBIN_ACCELERATING_DECLINE']
 
 **Production XGBoost parameters** (relaxed from winnowing's ultra-conservative):
 ```python
-max_depth = 4          # was 2-3 in winnowing
+max_depth = 4          # was 3 in winnowing
 gamma = 1.0            # was 2.0
-subsample = 0.6        # was 0.3-0.5
-colsample_bytree = 0.6 # was 0.3-0.5
+subsample = 0.6        # was 0.5
+colsample_bytree = 0.6 # was 0.5
 reg_alpha = 2.0        # was 5.0
 reg_lambda = 10.0      # was 50.0
 learning_rate = 0.005  # same
 n_estimators = 3000    # more trees (early stopping controls)
-max_delta_step = 1     # stabilize extreme imbalance
-# Early stopping via xgb.callback.EarlyStopping(rounds=150, maximize=True)
+early_stopping_rounds = 150
 ```
 
 **Outputs:**
@@ -528,11 +507,13 @@ All other lab features (CBC, metabolic panel, liver enzymes, iron studies, etc.)
 
 See `docs/book4_cea_fobt_removal_guide.md` for the cell-by-cell change log.
 
-### Prevalence Bias Exclusion: `months_since_cohort_entry`
+### Temporal / Prevalence Bias Exclusions
 
-`months_since_cohort_entry` is excluded from all 6 feature selection pipelines. In a fixed-window cohort study (Jan 2023 – Sept 2024), this feature encodes **observation time**, which directly correlates with the probability of receiving a CRC diagnosis — patients observed for 18 months have more diagnostic opportunities than patients observed for 3 months. The model learns "more time in cohort → more likely diagnosed" rather than genuine clinical signal. This is the same category of circular reasoning as CEA/FOBT: the feature reflects study design artifacts, not independent predictive signal. It also would not generalize to production (its meaning changes depending on deployment date).
+Two temporal features are excluded from all 6 feature selection pipelines at data loading (Step 1.1):
 
-Despite ranking #4 by SHAP importance (7.2% of total) in the Mercy Standard run, its contribution is prevalence bias rather than clinical signal. Exclusion is applied at data loading (Step 1.1) across all notebooks.
+- **`months_since_cohort_entry`**: Encodes observation time in a fixed-window cohort study (Jan 2023 – Sept 2024). Patients observed for 18 months have more diagnostic opportunities than patients observed for 3 months. The model learns "more time in cohort → more likely diagnosed" rather than genuine clinical signal. Despite ranking #4 by SHAP importance (7.2% of total) in a prior run, its contribution is prevalence bias. Would not generalize to production (its meaning changes depending on deployment date).
+
+- **`quarters_since_study_start`**: Same issue — encodes calendar position within the study window. Correlates with diagnosis probability due to observation time, not clinical signal.
 
 ---
 
