@@ -251,7 +251,7 @@ Implemented in `Mercy_Standard_Feature_Selection.ipynb` and `Mercy_Med_Adverse_F
 | **Phase 1** | Cluster-Based Reduction | 167 → 143 | Remove redundant/correlated features |
 | **Phase 2** | Iterative SHAP Winnowing | 143 → 26 | Fine-tune with up to 10 removals per iteration |
 | **Phase 3** | CV Stability Analysis | validates all | Confirm selection across 5 folds |
-| **Phase 4** | Parsimony-Aware Selection | → ~30 | Automated iteration selection (20% tolerance) + CV filter |
+| **Phase 4** | Parsimony-Aware Selection | → ~30 | Automated iteration selection (1.5 × SD tolerance) + CV filter |
 | **Phase 5** | Production Model Training | final set | Retrain with relaxed XGBoost params + SHAP analysis |
 
 ### Input
@@ -449,24 +449,25 @@ Phase 5:       Production model — val AUPRC 0.064, test AUPRC 0.057
 
 **Parameters:**
 ```python
-PHASE4_GAP_THRESHOLD = 0.02        # Max |train-val gap|
-PARSIMONY_TOLERANCE_PCT = 20       # Within 20% of best val AUPRC
+PHASE4_GAP_THRESHOLD = 0.08        # Max |train-val gap|
+PARSIMONY_SD_MULTIPLIER = 1.5      # N × SD below best val AUPRC
 PHASE4_CV_STABILITY_MIN_FOLDS = 3  # Minimum 3/5 CV folds
 PHASE4_CLINICAL_MUST_KEEP = []     # No clinical add-backs — let data speak
 ```
 
 **Logic:**
 1. Load Phase 1-3 checkpoint artifacts (`{prefix}iteration_tracking.csv`, `{prefix}features_by_iteration.json`, `{prefix}cv_stability_report.json`)
-2. Filter iterations by |train_val_gap| < 0.02 (overfitting guard)
+2. Filter iterations by |train_val_gap| < 0.08 (overfitting guard)
 3. Find best val AUPRC among qualified iterations
-4. Apply 20% parsimony tolerance: keep iterations within 20% of best
-5. Among qualifying iterations, select the one with **fewest features** (Occam's razor)
-6. Apply CV stability filter (≥3/5 folds) — remove unstable features from the selected set
-7. Save to Spark table (per methodology — see table above)
+4. Compute SD of val AUPRC across all qualifying iterations
+5. Apply SD-based parsimony tolerance: keep iterations within 1.5 × SD of best
+6. Among qualifying iterations, select the one with **fewest features** (Occam's razor)
+7. Apply CV stability filter (≥3/5 folds) — remove unstable features from the selected set
+8. Save to Spark table (per methodology — see table above)
 
 **Med-Averse difference:** Phase 4 is identical to Standard. The med-averse behavior is in Phases 1-2 (MED_TIEBREAK_BAND = 0.05), which is already reflected in the iteration results by Phase 4.
 
-**Why 20% parsimony tolerance:** With 250:1 class imbalance, val AUPRC oscillates (~SD 0.007). A 20% band captures iterations that are statistically indistinguishable, targeting 25-40 features. The true AUPRC baseline is prevalence (~0.0036), not the all-features model score. Published CRC ML models use 8-30 features (Li 2025, Hornbrook 2020). EPV ≥ 20 is recommended for ML with variable selection.
+**Why SD-based parsimony tolerance:** With 250:1 class imbalance, val AUPRC is extremely volatile — single-feature removals can swing AUPRC by 0.03+. A fixed percentage threshold (10%, 20%) is arbitrary and doesn't adapt to the noise level. Using the observed SD automatically scales: a stable dataset gets a tight band, a noisy one gets a wider band. At 1.5 × SD, iterations within the noise floor are treated as statistically indistinguishable, and the simplest model is preferred. This is analogous to the "1-SE rule" in cross-validation.
 
 ---
 
