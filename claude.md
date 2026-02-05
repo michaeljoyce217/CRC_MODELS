@@ -4,7 +4,11 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: Simplified to **2 notebook variants** (Full Data and FHIR Portable). Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). Metrics: AUPRC, AUROC, Lift @ 1%, 10%, 100%. **Mercy Full Data result**: Phase 2 winnowed 165→28 features, Phase 5 production model: test AUPRC 0.0534, AUROC 0.83, Lift@1% 21.2x.
+**Current Status**: Ready to rerun. Simplified to **2 notebook variants**:
+1. **Full Data** (`Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb`) — gold standard with all features
+2. **FHIR Portable** (`Final_EDA/FHIR_PORTABLE/STANDARD/FHIR_Portable_Standard_Feature_Selection.ipynb`) — cross-hospital portability using only high-availability FHIR features
+
+Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases. Metrics: AUPRC, AUROC, Lift @ 1%, 10%, 100%. Presentation (`Final_EDA/presentation/crc_model_results.html`) updated for 2-model structure with placeholders ready for results.
 
 ---
 
@@ -420,18 +424,14 @@ After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
 Manual pick:    49 features (iter12 CV-stable subset + 1 clinical addition)
 ```
 
-### Results: Mercy Full Data (Complete)
+### Results: Awaiting New Run
 
-**Mercy Full Data** (28 features):
-```
-Phase 1: 167 → 139 features (cluster-based reduction)
-Phase 2: 139 → 28 features (29 iterations)
-Phase 4: SD=0.0135, threshold=0.0443 → selected iter 29 (28 features, val AUPRC 0.0503)
-         All 28 features 5/5 CV-stable, EPV=78
-Phase 5: Val AUPRC=0.0505, Test AUPRC=0.0534, AUROC=0.8268, Lift@1%=21.2x
-```
+Both notebooks ready to run on Databricks. Results will populate:
+- **Full Data**: All ~165 candidate features → expected ~25-30 final features
+- **FHIR Portable**: ~97 high-availability FHIR features → TBD final features
 
-**FHIR Portable:** Awaiting Databricks run. Expected to have fewer starting features (~97 vs 167) due to FHIR exclusions, but similar final feature count and performance if clinical signals (labs, vitals, diagnoses, core procedures) carry most of the predictive power.
+Previous run reference (may differ after rerun):
+- Full Data achieved: test AUPRC 0.0534, AUROC 0.83, Lift@1% 21.2x, 28 features
 
 ---
 
