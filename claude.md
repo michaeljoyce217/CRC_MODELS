@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All notebooks complete. Books 0-8 (dataset creation) are finalized. Feature selection notebooks (Mercy Standard and Med-Averse) include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). Phase 4 selects ~27 features via 10% parsimony tolerance; Phase 5 retrains with relaxed XGBoost parameters. **Next step**: Run notebooks on Databricks to generate final feature sets and production models. See `Final_EDA/feature_selection_rationale.md` for background on the earlier manual 49-feature selection.
+**Current Status**: All 6 notebook variants complete (Mercy Standard/Med-Averse, Lucem Novis Standard/Med-Averse, Lucem Nodem Novis Standard/Med-Averse). Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). **Critical XGBoost fix applied**: AUCPR early stopping now uses `xgb.callback.EarlyStopping(maximize=True)` callback instead of `early_stopping_rounds` parameter (bug #3712 caused model collapse). Also added `max_delta_step=1`, adaptive parameter schedule, and collapse detection with seed retry. **Next step**: Upload and run all 6 notebooks on Databricks.
 
 ---
 
@@ -81,6 +81,18 @@ This section documents approaches that were tried and FAILED during Book 9 devel
 **Why it failed**: The original methodology had fewer features with a different correlation structure. Blindly copying the threshold is wrong.
 
 **Correct approach**: Use smart selection within constrained range [0.6, 0.85], targeting a specific cluster count (40-70), using silhouette as a tiebreaker.
+
+---
+
+### Failed Approach 7: Using `early_stopping_rounds` Parameter with AUCPR
+
+**What we tried**: Setting `early_stopping_rounds=150` in the XGBoost params dict with `eval_metric='aucpr'`.
+
+**What happened**: Models collapsed to 11-94 trees instead of the expected 1500-2000. AUPRC crashed to near-zero. The model was barely learning before early stopping killed it.
+
+**Why it failed**: XGBoost bug #3712 — when using the `early_stopping_rounds` parameter with `eval_metric='aucpr'`, XGBoost **minimizes** instead of **maximizes**. AUCPR should be maximized (higher = better), but the built-in early stopping treated it as a loss metric. So it stopped training when AUCPR stopped getting *worse* — i.e., almost immediately.
+
+**Correct approach**: Use `xgb.callback.EarlyStopping(rounds=150, metric_name='aucpr', maximize=True, save_best=True)` as an explicit callback. This correctly maximizes AUCPR. Also add `max_delta_step=1` (XGBoost-recommended for extreme class imbalance) and collapse detection with seed retry as safety net.
 
 ---
 
@@ -292,7 +304,8 @@ Step 1.4: Train Baseline Model (CONSERVATIVE PARAMS)
 │   ├── reg_alpha: 5.0 (L1 regularization)
 │   ├── reg_lambda: 50.0 (L2 regularization)
 │   ├── learning_rate: 0.005 (very slow)
-│   └── early_stopping_rounds: 150
+│   ├── max_delta_step: 1 (stabilize extreme imbalance)
+│   └── EarlyStopping callback (maximize=True, rounds=150)
 └── CHECKPOINT: Save baseline model and metrics
 
 Step 1.5: Compute SHAP with 2:1 Positive Weighting
@@ -369,18 +382,34 @@ Step 2.5: Log & Checkpoint
 
 ### Key Parameters (Matching Original)
 
-**XGBoost (Conservative)**:
+**XGBoost (Conservative / Base)**:
 ```python
-max_depth = 2
+max_depth = 3
 min_child_weight = 50
 gamma = 2.0
-subsample = 0.3
-colsample_bytree = 0.3
+subsample = 0.5
+colsample_bytree = 0.5
 colsample_bylevel = 0.5
 reg_alpha = 5.0
 reg_lambda = 50.0
 learning_rate = 0.005
-early_stopping_rounds = 150
+max_delta_step = 1  # XGBoost-recommended for extreme imbalance
+# Early stopping via xgb.callback.EarlyStopping(rounds=150, maximize=True)
+# (NOT early_stopping_rounds param — that has AUCPR minimize bug, XGBoost #3712)
+```
+
+**Adaptive Parameter Schedule** (applied in `train_xgboost_model`):
+```python
+# >100 features: base params above
+# 60-100 features: gamma=1.5, colsample_bytree=0.6, reg_lambda=30.0
+# 30-60 features:  gamma=1.0, colsample_bytree=0.7, reg_lambda=20.0
+# <30 features:    gamma=0.5, colsample_bytree=0.8, reg_lambda=10.0
+```
+
+**Collapse Detection** (in `train_xgboost_model`):
+```python
+COLLAPSE_THRESHOLD = 200  # trees; healthy models train 1500-2000
+RETRY_SEEDS = [42, 314, 7919]  # alternate seeds if collapse detected
 ```
 
 **Removal Criteria**:
@@ -475,6 +504,8 @@ reg_alpha = 2.0        # was 5.0
 reg_lambda = 10.0      # was 50.0
 learning_rate = 0.005  # same
 n_estimators = 3000    # more trees (early stopping controls)
+max_delta_step = 1     # stabilize extreme imbalance
+# Early stopping via xgb.callback.EarlyStopping(rounds=150, maximize=True)
 ```
 
 **Outputs:**
