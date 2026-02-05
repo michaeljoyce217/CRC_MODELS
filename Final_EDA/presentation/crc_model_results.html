@@ -1273,7 +1273,7 @@
         </ol>
 
         <p style="font-size:0.88rem; color:#888; margin-top:16px;">
-          <em>Results shown are from the Mercy Full Data gold standard model. The other three variants are experiments testing specific data availability constraints informed by known differences between Mercy and Lucem&rsquo;s data.</em>
+          <em>Results shown are from the Mercy Full Data gold standard model. The FHIR Portable variant tests cross-hospital portability using only high-availability FHIR features.</em>
         </p>
 
       </div>
@@ -1697,21 +1697,20 @@
         <h2 class="section-header">Model Variants</h2>
 
         <!-- Why Three Variants? -->
-        <h3>Why Three Variants?</h3>
+        <h3>Why Two Variants?</h3>
         <p>
-          We first built a <strong>gold standard model</strong> using every clinical data category
+          We built a <strong>gold standard model</strong> using every clinical data category
           available in Mercy&rsquo;s EHR. This establishes the ceiling &mdash; the best performance
-          achievable with complete data. We then built two additional variants as
-          <strong>experiments</strong>, each informed by known differences between Mercy and
-          Lucem&rsquo;s data and the practical realities of cross-system deployment. By systematically
-          removing categories of data and rebuilding from the ground up, we can measure exactly
-          how much performance each data category contributes.
+          achievable with complete data. We then built a <strong>FHIR Portable</strong> variant
+          using only features available in standard US hospital FHIR R4 implementations. This
+          measures the cost of maximum cross-hospital portability &mdash; no custom integrations,
+          no medication mapping, no visit/scheduling data.
         </p>
 
         <hr class="divider">
 
         <!-- Three Model Cards -->
-        <h3>Four Models, Four Questions</h3>
+        <h3>Two Models, Two Questions</h3>
         <div class="model-cards">
 
           <!-- Card 1: Mercy and Lucem Full Data -->
@@ -1737,55 +1736,7 @@
             </p>
           </div>
 
-          <!-- Card 2: No Visit Data (Experiment) -->
-          <div class="model-card">
-            <span class="model-tag tag-novisit">Experiment</span>
-            <h3>No Visit Data</h3>
-            <p style="font-weight:600; color:#333; margin-bottom:12px;">Excludes Visit History Features</p>
-            <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
-              <li style="margin-bottom:8px;">
-                Removes ~19&ndash;24 visit history features (appointment frequency,
-                no-show patterns, specialty visit counts)
-              </li>
-              <li style="margin-bottom:8px;">
-                <strong>Motivated by Lucem data:</strong> visit history data may be structured
-                differently or less complete across systems
-              </li>
-              <li style="margin-bottom:8px;">
-                Measures the performance cost of dropping visit data &mdash; informing
-                whether it&rsquo;s worth the mapping effort
-              </li>
-            </ul>
-            <p style="font-size:0.82rem; color:#bf5412; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              Experiment &mdash; how much does visit data contribute?
-            </p>
-          </div>
-
-          <!-- Card 3: No Demographic or Visit Data (Experiment) -->
-          <div class="model-card">
-            <span class="model-tag tag-nodemo">Experiment</span>
-            <h3>No Demographic or Visit Data</h3>
-            <p style="font-weight:600; color:#333; margin-bottom:12px;">Clinical Signals Only</p>
-            <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
-              <li style="margin-bottom:8px;">
-                Excludes both visit history AND demographic features (age, gender,
-                race, marital status, etc.)
-              </li>
-              <li style="margin-bottom:8px;">
-                <strong>Motivated by portability and equity:</strong> demographic data
-                definitions vary across systems, and demographic features raise fairness questions
-              </li>
-              <li style="margin-bottom:8px;">
-                The most portable option &mdash; uses only clinical signals (labs, vitals,
-                diagnoses, medications, procedures) available in any EHR
-              </li>
-            </ul>
-            <p style="font-size:0.82rem; color:#2e7d32; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              Experiment &mdash; how well can clinical signals alone perform?
-            </p>
-          </div>
-
-          <!-- Card 4: FHIR Portable (Experiment) -->
+          <!-- Card 2: FHIR Portable (Experiment) -->
           <div class="model-card">
             <span class="model-tag tag-fhir">Experiment</span>
             <h3>FHIR Portable</h3>
@@ -1830,18 +1781,6 @@
             </div>
           </div>
           <div class="bar-row">
-            <div class="bar-label">No Visit Data</div>
-            <div class="bar-track">
-              <div class="bar-fill fill-accent" style="width:87%;"><span class="placeholder">[TBD]</span></div>
-            </div>
-          </div>
-          <div class="bar-row">
-            <div class="bar-label">No Demo/Visit Data</div>
-            <div class="bar-track">
-              <div class="bar-fill fill-success" style="width:80%;"><span class="placeholder">[TBD]</span></div>
-            </div>
-          </div>
-          <div class="bar-row">
             <div class="bar-label">FHIR Portable</div>
             <div class="bar-track">
               <div class="bar-fill" style="width:60%; background: linear-gradient(90deg, #6f42c1, #9d7bd8);"><span class="placeholder">[TBD]</span></div>
@@ -1855,18 +1794,6 @@
             <div class="bar-label">Mercy and Lucem Full Data</div>
             <div class="bar-track">
               <div class="bar-fill fill-primary" style="width:50%;">28 features</div>
-            </div>
-          </div>
-          <div class="bar-row">
-            <div class="bar-label">No Visit Data</div>
-            <div class="bar-track">
-              <div class="bar-fill fill-accent" style="width:50%;"><span class="placeholder">[TBD]</span></div>
-            </div>
-          </div>
-          <div class="bar-row">
-            <div class="bar-label">No Demo/Visit Data</div>
-            <div class="bar-track">
-              <div class="bar-fill fill-success" style="width:50%;"><span class="placeholder">[TBD]</span></div>
             </div>
           </div>
           <div class="bar-row">
@@ -2058,10 +1985,9 @@
         <h2 class="section-header">All Models Comparison</h2>
 
         <p>
-          Side-by-side comparison of the gold standard model and its experimental variants.
-          The Full Data column is the performance target; each additional column measures the cost
-          of removing different data categories. These experiments inform which features Lucem
-          needs to map for the portable production model.
+          Side-by-side comparison of the gold standard model and the FHIR Portable variant.
+          The Full Data column is the performance target; the FHIR Portable column measures the cost
+          of using only standard FHIR features for maximum cross-hospital portability.
         </p>
 
         <!-- ── Summary Comparison Table ── -->
@@ -2072,8 +1998,6 @@
               <tr>
                 <th scope="col">Metric</th>
                 <th scope="col">Full Data</th>
-                <th scope="col">No Visit</th>
-                <th scope="col">No Demo/Visit</th>
                 <th scope="col" style="background:#6f42c1;">FHIR Portable</th>
               </tr>
             </thead>
@@ -2082,42 +2006,31 @@
                 <td class="row-label">Lift @ Top 1%</td>
                 <td><strong>21.2&times;</strong></td>
                 <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
               </tr>
-              <tr style="background-color:#fff8f4;">
-                <td class="row-label">Lift @ Top 5%</td>
-                <td><strong>[--]</strong></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
+
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 10%</td>
                 <td><strong>[--]</strong></td>
                 <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+              </tr>
+              <tr style="background-color:#fff8f4;">
+                <td class="row-label">Lift @ 100%</td>
+                <td><strong>1.0&times;</strong></td>
+                <td>1.0&times;</td>
               </tr>
               <tr>
                 <td>Test AUPRC</td>
                 <td><strong>0.0534</strong></td>
                 <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
               </tr>
-              <tr style="color:#999999;">
+              <tr>
                 <td>Test AUROC</td>
                 <td>0.8268</td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
               <tr>
                 <td class="row-label">Final Features</td>
                 <td><strong>28</strong></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
 
@@ -2130,16 +2043,6 @@
 
         <!-- ── Observations ── -->
         <h3>Key Observations</h3>
-
-        <div class="callout callout-info">
-          <p class="callout-title">Visit Data Contribution</p>
-          <p><span class="placeholder">[Analysis of how much visit history features contribute to predictive performance will be added when metrics are available.]</span></p>
-        </div>
-
-        <div class="callout callout-info">
-          <p class="callout-title">Demographic Data Contribution</p>
-          <p><span class="placeholder">[Analysis of how much demographic features contribute to predictive performance will be added when metrics are available.]</span></p>
-        </div>
 
         <div class="callout callout-info" style="border-left-color:#6f42c1;">
           <p class="callout-title">FHIR Portable Feasibility</p>
@@ -2515,7 +2418,7 @@
              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
         <h3 style="margin-top:36px; color:#1a1a1a;">Looking Forward</h3>
 
-        <p>The Mercy Full Data model is the <strong>gold standard</strong> &mdash; the best performance achievable with complete data. The other five variants are experiments that quantify the performance cost of data constraints we expect to encounter when deploying across health systems. The question now is: how close can we get to this gold standard using only the features available at Lucem?</p>
+        <p>The Mercy Full Data model is the <strong>gold standard</strong> &mdash; the best performance achievable with complete data. The FHIR Portable variant quantifies the performance cost of using only standard FHIR features. The question now is: how close can we get to this gold standard using only the features universally available via FHIR?</p>
 
         <p style="font-weight:600; margin-top:20px; margin-bottom:12px; color:#006598;">Immediate next steps:</p>
 
