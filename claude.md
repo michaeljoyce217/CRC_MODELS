@@ -484,7 +484,9 @@ n_estimators = 3000    # more trees (early stopping controls)
 
 ---
 
-## Circular Reasoning Exclusions (Book 4)
+## Feature Exclusions
+
+### Circular Reasoning Exclusions (Book 4)
 
 CEA (Carcinoembryonic Antigen), CA 19-9, and FOBT/FIT were removed from the entire Book 4 labs pipeline. These features create circular reasoning in a model designed for early CRC identification:
 
@@ -494,6 +496,12 @@ CEA (Carcinoembryonic Antigen), CA 19-9, and FOBT/FIT were removed from the enti
 All other lab features (CBC, metabolic panel, liver enzymes, iron studies, etc.) are routine tests ordered for many clinical reasons and remain appropriate. CA125 was preserved (ovarian cancer marker, not CRC-specific).
 
 See `docs/book4_cea_fobt_removal_guide.md` for the cell-by-cell change log.
+
+### Prevalence Bias Exclusion: `months_since_cohort_entry`
+
+`months_since_cohort_entry` is excluded from all 6 feature selection pipelines. In a fixed-window cohort study (Jan 2023 – Sept 2024), this feature encodes **observation time**, which directly correlates with the probability of receiving a CRC diagnosis — patients observed for 18 months have more diagnostic opportunities than patients observed for 3 months. The model learns "more time in cohort → more likely diagnosed" rather than genuine clinical signal. This is the same category of circular reasoning as CEA/FOBT: the feature reflects study design artifacts, not independent predictive signal. It also would not generalize to production (its meaning changes depending on deployment date).
+
+Despite ranking #4 by SHAP importance (7.2% of total) in the Mercy Standard run, its contribution is prevalence bias rather than clinical signal. Exclusion is applied at data loading (Step 1.1) across all notebooks.
 
 ---
 
