@@ -1696,7 +1696,7 @@
       <div class="tab-pane" id="tab2" role="tabpanel" aria-labelledby="btn-tab2" tabindex="0" hidden>
         <h2 class="section-header">Model Variants</h2>
 
-        <!-- Why Three Variants? -->
+        <!-- Why Two Variants? -->
         <h3>Why Two Variants?</h3>
         <p>
           We built a <strong>gold standard model</strong> using every clinical data category
@@ -1713,7 +1713,7 @@
         <h3>Two Models, Two Questions</h3>
         <div class="model-cards">
 
-          <!-- Card 1: Mercy and Lucem Full Data -->
+          <!-- Card 1: Full Data (Gold Standard) -->
           <div class="model-card" style="border: 2px solid #006598;">
             <span class="model-tag tag-full">Gold Standard</span>
             <h3>Mercy Full Data</h3>
@@ -1775,7 +1775,7 @@
         <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">Starting Features (Candidate Pool)</h4>
         <div class="bar-chart">
           <div class="bar-row">
-            <div class="bar-label">Mercy and Lucem Full Data</div>
+            <div class="bar-label">Full Data</div>
             <div class="bar-track">
               <div class="bar-fill fill-primary" style="width:100%;">~425 engineered &rarr; 165 candidates</div>
             </div>
@@ -1791,7 +1791,7 @@
         <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">Final Features (After Winnowing)</h4>
         <div class="bar-chart">
           <div class="bar-row">
-            <div class="bar-label">Mercy and Lucem Full Data</div>
+            <div class="bar-label">Full Data</div>
             <div class="bar-track">
               <div class="bar-fill fill-primary" style="width:50%;">28 features</div>
             </div>
@@ -1826,9 +1826,8 @@
         <h2 class="section-header">Standard Model Results</h2>
 
         <p>
-          Results from the standard models (without med-averse adjustments).
-          The Full Data column is the <strong>gold standard</strong>; the experimental variant columns
-          will be populated as those models complete.
+          Results from the two model variants. The Full Data column is the <strong>gold standard</strong>;
+          the FHIR Portable column measures cross-hospital portability using only standard FHIR features.
           All metrics are computed on the held-out test set &mdash; patients the model
           never saw during training or feature selection.
         </p>
@@ -1921,15 +1920,14 @@
         <hr class="divider">
 
         <!-- Summary Metrics Table -->
-        <h3>Summary Metrics &mdash; Standard Models</h3>
+        <h3>Summary Metrics</h3>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead>
               <tr>
                 <th scope="col">Metric</th>
-                <th scope="col">Mercy and Lucem Full Data</th>
-                <th scope="col">No Visit Data</th>
-                <th scope="col">No Demo/Visit Data</th>
+                <th scope="col">Full Data</th>
+                <th scope="col" style="background:#6f42c1;">FHIR Portable</th>
               </tr>
             </thead>
             <tbody>
@@ -1937,36 +1935,30 @@
                 <td class="row-label">Lift @ Top 1%</td>
                 <td><strong>21.2&times;</strong></td>
                 <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr style="background-color:#fff8f4;">
-                <td class="row-label">Lift @ Top 5%</td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
               </tr>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 10%</td>
                 <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+              </tr>
+              <tr style="background-color:#fff8f4;">
+                <td class="row-label">Lift @ 100%</td>
+                <td><strong>1.0&times;</strong></td>
+                <td>1.0&times;</td>
               </tr>
               <tr>
                 <td>Test AUPRC</td>
                 <td><strong>0.0534</strong></td>
                 <td><span class="placeholder">[--]</span></td>
-                <td><span class="placeholder">[--]</span></td>
               </tr>
-              <tr style="color:#999999;">
+              <tr>
                 <td>Test AUROC</td>
                 <td>0.8268</td>
-                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
               <tr>
                 <td>Final Feature Count</td>
                 <td><strong>28</strong></td>
-                <td><span class="placeholder">[--]</span></td>
                 <td><span class="placeholder">[--]</span></td>
               </tr>
             </tbody>
@@ -2345,18 +2337,16 @@
 
         <div class="collapsible">
           <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Why build 6 model variants instead of just one?</h4>
+            <h4>Why build 2 model variants instead of just one?</h4>
             <span class="collapse-icon">&#9660;</span>
           </div>
           <div class="collapsible-body">
-            <p>The six variants answer specific questions about <strong>data dependency and portability</strong>:</p>
+            <p>The two variants answer specific questions about <strong>performance and portability</strong>:</p>
             <ul>
-              <li><strong>Mercy and Lucem Full Data</strong> &mdash; what is the best possible performance with all available data?</li>
-              <li><strong>No Visit Data</strong> &mdash; do appointment/utilization patterns add signal, or just reflect access-to-care bias?</li>
-              <li><strong>No Demographics or Visit Data</strong> &mdash; can we predict CRC from clinical signals alone, without demographic features that raise equity concerns?</li>
-
+              <li><strong>Full Data</strong> &mdash; what is the best possible performance with all available Mercy clinical data? This is the gold standard.</li>
+              <li><strong>FHIR Portable</strong> &mdash; how well can we do using only high-availability FHIR features? This measures the cost of maximum cross-hospital portability.</li>
             </ul>
-            <p>Comparing these variants reveals which data categories truly matter. If the &ldquo;No Demographics&rdquo; model performs nearly as well as the full model, demographics can be dropped without meaningful performance loss &mdash; a better outcome for equitable deployment.</p>
+            <p>Comparing these variants reveals whether the full EHR data significantly outperforms a FHIR-only model. If FHIR Portable performs nearly as well, the model can be deployed across any Cures Act&ndash;compliant hospital without custom integrations.</p>
           </div>
         </div>
 
@@ -2369,7 +2359,7 @@
             <p>The model was trained on Mercy and Lucem data and would need <strong>retraining or validation</strong> before deployment elsewhere. However, the feature engineering pipeline is designed for portability:</p>
             <ul>
               <li>All features map to standard terminologies (ICD-10, LOINC, RxNorm, CPT) &mdash; see <a href="appendix_b_feature_catalog.html" style="color:#006598; font-weight:600;">Appendix B</a></li>
-              <li>The &ldquo;No Visit Data&rdquo; and &ldquo;No Demographics&rdquo; variants eliminate the most institution-specific features</li>
+              <li>The FHIR Portable variant uses only standardized features available across all Cures Act&ndash;compliant hospitals</li>
 
             </ul>
             <p>A partner institution would need to: (1) map their EHR data to the same feature definitions, (2) retrain the model on their population, and (3) validate on held-out data. The feature engineering notebooks and standard code references are designed to make step 1 straightforward.</p>
