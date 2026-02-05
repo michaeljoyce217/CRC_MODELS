@@ -4,7 +4,7 @@
 
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
-**Current Status**: All 6 notebook variants complete and running on Databricks. Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). Phase 4 uses 20% parsimony tolerance (targeting 25-40 features); no clinical add-backs. Temporal features (`months_since_cohort_entry`, `quarters_since_study_start`) excluded from all variants. **First result**: Mercy Standard completed — Phase 2 winnowed 165→30 features, Phase 4 selected ~30 features with 20% tolerance, Phase 5 production model: val AUPRC 0.064, test AUPRC 0.057, AUROC 0.81/0.82, Lift@1% 23x.
+**Current Status**: Simplified to **2 notebook variants** (Full Data and FHIR Portable). Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases: cluster-based reduction (Phase 1), iterative SHAP winnowing (Phase 2), CV stability analysis (Phase 3), automated parsimony-aware iteration selection (Phase 4), and production model training (Phase 5). Metrics: AUPRC, AUROC, Lift @ 1%, 10%, 100%. **Mercy Full Data result**: Phase 2 winnowed 165→28 features, Phase 5 production model: test AUPRC 0.0534, AUROC 0.83, Lift@1% 21.2x.
 
 ---
 
@@ -106,7 +106,7 @@ The **original CRC_ITER1_MODEL-PREVALENCE.py** was a manual iterative process th
 4. **High-importance cluster protection** (top 20% max_shap = max 1 removal)
 5. **Global cap** of 30 removals per iteration
 
-The automated feature selection notebooks (Mercy Standard / Med-Averse) now implement this exact logic.
+The automated feature selection notebooks (Mercy Full Data and FHIR Portable) now implement this exact logic.
 
 ---
 
@@ -134,45 +134,39 @@ CRC_MODELS/
 ├── Final_EDA/                      # Final run outputs with notebooks and artifacts
 │   ├── DATASET_CREATION/           # Books 0-8: cohort + feature engineering
 │   │   └── V2_Book0 through V2_Book8 (.ipynb)
-│   ├── MERCY_EFFORTS/              # Mercy feature selection pipelines
-│   │   ├── STANDARD/
-│   │   │   └── Mercy_Standard_Feature_Selection.ipynb  # Phases 1-5
-│   │   └── MED_ADVERSE/
-│   │       └── Mercy_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5 with med tiebreaking
-│   ├── LUCEM_NODEM_NOVIS/          # No visit features + no demographics (Book 0 + Book 6 excluded)
-│   │   ├── STANDARD/
-│   │   │   └── Lucem_Nodem_Novis_Standard_Feature_Selection.ipynb  # Phases 1-5, visit_ + demographics excluded
-│   │   └── MED_ADVERSE/
-│   │       └── Lucem_Nodem_Novis_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5, visit_ + demographics excluded, med tiebreaking
-│   ├── LUCEM_NOVIS/                # No visit features (Book 6 excluded)
-│   │   ├── STANDARD/
-│   │   │   └── Lucem_Novis_Standard_Feature_Selection.ipynb  # Phases 1-5, visit_ excluded
-│   │   └── MED_ADVERSE/
-│   │       └── Lucem_Novis_Med_Adverse_Feature_Selection.ipynb  # Phases 1-5, visit_ excluded, med tiebreaking
-│   ├── OLD_EFFORTS/                # Archived/superseded notebooks (empty)
+│   ├── MERCY_EFFORTS/              # Mercy Full Data (gold standard)
+│   │   └── STANDARD/
+│   │       └── Mercy_Standard_Feature_Selection.ipynb  # Phases 1-5, all features
+│   ├── FHIR_PORTABLE/              # FHIR Portable variant (cross-hospital portability)
+│   │   └── STANDARD/
+│   │       └── FHIR_Portable_Standard_Feature_Selection.ipynb  # Phases 1-5, high-availability FHIR features only
+│   ├── OLD_EFFORTS/                # Archived/superseded notebooks
 │   ├── compiled/                   # Reduced production-ready scripts (Books 0-8)
 │   │   ├── reduced_V2_Book0 through reduced_V2_Book8 (.py)
 │   │   └── herald_test_train_pipeline.py
+│   ├── presentation/               # HTML presentations
+│   │   ├── crc_model_results.html          # Main results presentation
+│   │   └── appendix_b_feature_catalog.html # Feature catalog with FHIR availability
 │   ├── CRC_Feature_Dictionary_with_codes.xlsx
 │   └── feature_selection_rationale.md  # Reasoning for manual 49-feature selection
 ├── claude.md                       # Project instructions (this file)
 └── README.md
 ```
 
-**Notebook organization:** Each methodology folder (MERCY_EFFORTS, LUCEM_NODEM_NOVIS, LUCEM_NOVIS) has STANDARD and MED_ADVERSE subdirectories. When run on Databricks, each notebook generates its own checkpoint artifacts in its respective `feature_selection_outputs/` directory. Output filenames are prefixed by methodology so files don't collide when downloaded:
+**Notebook organization:** Two model variants (Full Data and FHIR Portable). When run on Databricks, each notebook generates checkpoint artifacts in its `feature_selection_outputs/` directory. Output filenames are prefixed by methodology:
 
-| Methodology | Prefix | Spark Table |
-|---|---|---|
-| Mercy Standard | `mercy_standard_` | `herald_std_final_features` |
-| Mercy Med-Averse | `mercy_med_adverse_` | `herald_med_averse_final_features` |
-| Lucem Novis Standard | `lucem_novis_standard_` | `herald_lucem_novis_std_final_features` |
-| Lucem Novis Med-Averse | `lucem_novis_med_adverse_` | `herald_lucem_novis_med_averse_final_features` |
-| Lucem Nodem Novis Standard | `lucem_nodem_novis_standard_` | `herald_lucem_nodem_novis_std_final_features` |
-| Lucem Nodem Novis Med-Averse | `lucem_nodem_novis_med_adverse_` | `herald_lucem_nodem_novis_med_averse_final_features` |
+| Variant | Prefix | Spark Table | Purpose |
+|---|---|---|---|
+| Mercy Full Data | `mercy_standard_` | `herald_std_final_features` | Gold standard with all features |
+| FHIR Portable | `fhir_portable_standard_` | `herald_fhir_portable_std_final_features` | Cross-hospital portability |
 
-**Lucem Novis variant:** Identical to the corresponding Mercy pipeline except all visit history features (Book 6, `visit_` prefix) are excluded at data load. This tests whether visit utilization patterns add predictive value beyond clinical signals.
-
-**Lucem Nodem Novis variant:** Excludes both visit history features (Book 6) AND demographic features (Book 0: `AGE`/`AGE_GROUP`, `IS_FEMALE`, `IS_MARRIED_PARTNER`, `RACE_*`, `HAS_PCP_AT_END`, `HAS_FULL_24M_HISTORY`, `OBS_MONTHS_PRIOR`). This tests whether the model can predict using only clinical signals (labs, vitals, diagnoses, medications, procedures) without demographic or utilization data.
+**FHIR Portable variant:** Uses only features available in standard US hospital FHIR R4 implementations (~97 high-availability features). Excludes:
+- Demographics not in FHIR: `HAS_PCP_AT_END`, `HAS_FULL_24M_HISTORY`, `OBS_MONTHS_PRIOR`
+- All outpatient meds (`med_*` prefix) — requires RxNorm→category mapping not standardized
+- All inpatient meds (`inp_med_*` prefix) — MAR data not in FHIR
+- All visit history (`visit_*` prefix) — scheduling data not clinical
+- Labs not universally available: CRP, ESR, CA-125, inflammatory burden
+- Procedures not in standard CPT: transfusions, iron infusions, hemorrhoid procedures, anemia treatment intensity
 
 ## Completed Work Summary
 
@@ -244,7 +238,7 @@ Analyzed two notebooks in Original_Methodology folder:
 
 ### Pipeline Overview
 
-Implemented in `Mercy_Standard_Feature_Selection.ipynb` and `Mercy_Med_Adverse_Feature_Selection.ipynb`:
+Implemented in `Mercy_Standard_Feature_Selection.ipynb` (Full Data) and `FHIR_Portable_Standard_Feature_Selection.ipynb` (FHIR Portable):
 
 | Phase | Method | Features | Purpose |
 |-------|--------|----------|---------|
@@ -426,37 +420,24 @@ After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
 Manual pick:    49 features (iter12 CV-stable subset + 1 clinical addition)
 ```
 
-### Results: Mercy Standard and Med-Averse (Complete)
+### Results: Mercy Full Data (Complete)
 
-**Mercy Standard** (28 features):
+**Mercy Full Data** (28 features):
 ```
 Phase 1: 167 → 139 features (cluster-based reduction)
 Phase 2: 139 → 28 features (29 iterations)
 Phase 4: SD=0.0135, threshold=0.0443 → selected iter 29 (28 features, val AUPRC 0.0503)
          All 28 features 5/5 CV-stable, EPV=78
-Phase 5: Val AUPRC=0.0505, Test AUPRC=0.0534, Lift@1%=21.2x
+Phase 5: Val AUPRC=0.0505, Test AUPRC=0.0534, AUROC=0.8268, Lift@1%=21.2x
 ```
 
-**Mercy Med-Averse** (30 features):
-```
-Phase 1: 167 → 139 features (cluster-based reduction)
-Phase 2: 139 → 30 features (26 iterations)
-Phase 4: SD=0.0124, threshold=0.0447 → selected iter 26 (30 features, val AUPRC 0.0552)
-         All 30 features 5/5 CV-stable, EPV=73
-Phase 5: Val AUPRC=0.0523, Test AUPRC=0.0460, Lift@1%=21.9x
-```
-
-**Key differences:** Med-averse dropped AGE_GROUP, added more lab/ICD features (ALK_PHOS, PLATELETS, ELIXHAUSER, ANEMIA_FLAG, MALIGNANCY_FLAG). The medication tiebreaking during winnowing steered it toward different clinical signals. Both share a core of ~24 features.
-
-**Other 4 variants running on Databricks.** Each methodology variant may produce different final feature sets.
-
-**Med-Averse difference:** Phases 1-2 apply `MED_TIEBREAK_BAND = 0.05` — when a medication and non-medication feature are similarly ranked during SHAP winnowing, the medication feature is removed first. Phases 3-5 are identical to Standard.
+**FHIR Portable:** Awaiting Databricks run. Expected to have fewer starting features (~97 vs 167) due to FHIR exclusions, but similar final feature count and performance if clinical signals (labs, vitals, diagnoses, core procedures) carry most of the predictive power.
 
 ---
 
 ### Phase 4: Automated Parsimony-Aware Feature Selection
 
-**Cells 55-59 in both Standard and Med-Averse notebooks.**
+**Cells 55-59 in both Full Data and FHIR Portable notebooks.**
 
 **Parameters:**
 ```python
@@ -476,15 +457,13 @@ PHASE4_CLINICAL_MUST_KEEP = []     # No clinical add-backs — let data speak
 7. Apply CV stability filter (≥3/5 folds) — remove unstable features from the selected set
 8. Save to Spark table (per methodology — see table above)
 
-**Med-Averse difference:** Phase 4 is identical to Standard. The med-averse behavior is in Phases 1-2 (MED_TIEBREAK_BAND = 0.05), which is already reflected in the iteration results by Phase 4.
-
 **Why SD-based parsimony tolerance:** With 250:1 class imbalance, val AUPRC is extremely volatile — single-feature removals can swing AUPRC by 0.03+. A fixed percentage threshold (10%, 20%) is arbitrary and doesn't adapt to the noise level. Using the observed SD automatically scales: a stable dataset gets a tight band, a noisy one gets a wider band. At 1.5 × SD, iterations within the noise floor are treated as statistically indistinguishable, and the simplest model is preferred. This is analogous to the "1-SE rule" in cross-validation.
 
 ---
 
 ### Phase 5: Production Model Training
 
-**Cells 60-63 in both Standard and Med-Averse notebooks.**
+**Cells 60-63 in both Full Data and FHIR Portable notebooks.**
 
 **Production XGBoost parameters** (relaxed from winnowing's ultra-conservative):
 ```python
@@ -521,7 +500,7 @@ See `docs/book4_cea_fobt_removal_guide.md` for the cell-by-cell change log.
 
 ### Temporal / Prevalence Bias Exclusions
 
-Two temporal features are excluded from all 6 feature selection pipelines at data loading (Step 1.1):
+Two temporal features are excluded from both feature selection pipelines at data loading (Step 1.1):
 
 - **`months_since_cohort_entry`**: Encodes observation time in a fixed-window cohort study (Jan 2023 – Sept 2024). Patients observed for 18 months have more diagnostic opportunities than patients observed for 3 months. The model learns "more time in cohort → more likely diagnosed" rather than genuine clinical signal. Despite ranking #4 by SHAP importance (7.2% of total) in a prior run, its contribution is prevalence bias. Would not generalize to production (its meaning changes depending on deployment date).
 
@@ -632,14 +611,10 @@ claude
 
 1. **Upload notebooks to Databricks:**
    - `Final_EDA/DATASET_CREATION/V2_Book0` through `V2_Book8`
-   - `Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb`
-   - `Final_EDA/MERCY_EFFORTS/MED_ADVERSE/Mercy_Med_Adverse_Feature_Selection.ipynb`
-   - `Final_EDA/LUCEM_NOVIS/STANDARD/Lucem_Novis_Standard_Feature_Selection.ipynb`
-   - `Final_EDA/LUCEM_NOVIS/MED_ADVERSE/Lucem_Novis_Med_Adverse_Feature_Selection.ipynb`
-   - `Final_EDA/LUCEM_NODEM_NOVIS/STANDARD/Lucem_Nodem_Novis_Standard_Feature_Selection.ipynb`
-   - `Final_EDA/LUCEM_NODEM_NOVIS/MED_ADVERSE/Lucem_Nodem_Novis_Med_Adverse_Feature_Selection.ipynb`
+   - `Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb` (Full Data)
+   - `Final_EDA/FHIR_PORTABLE/STANDARD/FHIR_Portable_Standard_Feature_Selection.ipynb` (FHIR Portable)
 2. **Run Books 0-8** (in DATASET_CREATION) to create the wide feature table with SPLIT column
-3. **Run feature selection notebook** (Standard or Med-Averse):
+3. **Run feature selection notebook** (Full Data or FHIR Portable):
    - Phase 1: Cluster-based reduction (167 → ~143 features)
    - Phase 2: Iterative SHAP winnowing (~143 → ~26, ~20 iterations)
    - Phase 3: CV stability analysis (5-fold validation)
