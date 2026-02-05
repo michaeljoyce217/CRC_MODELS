@@ -352,12 +352,12 @@ Step 2.3: Identify Removal Candidates (2+ of 3 Criteria)
 ├── Feature must meet 2+ criteria to be flagged
 ├── Apply cluster-specific caps (using ORIGINAL sizes)
 ├── Apply high-importance cluster protection
-├── Cap at 30 removals
-└── Clinical must-keep features always protected
+└── Cap at 10 removals (iter 1-5) or 5 (iter 6+)
 
 Step 2.4: Stop Conditions
 ├── Would go below MIN_FEATURES_THRESHOLD (25): STOP
-├── No features meet 2+ criteria: STOP
+├── No features meet 2+ criteria AND above threshold+5: force-remove 5 lowest
+├── No features meet 2+ criteria AND near threshold: STOP
 └── Otherwise: Remove features and continue
 
 Step 2.5: Log & Checkpoint
@@ -452,7 +452,7 @@ PHASE4_CLINICAL_MUST_KEEP = ['lab_HEMOGLOBIN_ACCELERATING_DECLINE']
 4. Apply 10% parsimony tolerance: keep iterations within 10% of best
 5. Among qualifying iterations, select the one with **fewest features** (Occam's razor)
 6. Apply CV stability filter (≥3/5 folds)
-7. Add back CLINICAL_MUST_KEEP features if CV-stable
+7. Add back PHASE4_CLINICAL_MUST_KEEP features if CV-stable
 8. Save to Spark table (`herald_std_final_features` or `herald_med_averse_final_features`)
 
 **Med-Averse difference:** Phase 4 is identical to Standard. The med-averse behavior is in Phases 1-2 (MED_TIEBREAK_BAND = 0.05), which is already reflected in the iteration results by Phase 4.
