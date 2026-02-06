@@ -4,7 +4,9 @@
 **Date of Research:** February 2026
 **Reference File:** `Final_EDA/RUN_MODELS/CRC Cohort and Features.xlsx`
 
-Andrei compiled a comprehensive literature-based feature list of 193 features across demographics, vitals, labs, comorbidities, and medications for CRC risk prediction. This document tracks which of his suggestions were incorporated into our pipeline, and which were considered but not added (with rationale).
+Andrei delivered an outstanding literature review, compiling 193 candidate features across demographics, vitals, labs, comorbidities, and medications for CRC risk prediction. His work gave us a strong evidence-based foundation to expand the feature set well beyond what we had originally engineered. Several of his suggestions — particularly the CBC differential ratios (NLR, PLR, SII) and the lifestyle risk factors (alcohol/tobacco ICD codes) — filled genuine gaps in our pipeline that we hadn't identified on our own.
+
+This document tracks which of his suggestions were incorporated, which were already present in the pipeline (validating his recommendations), and which we set aside for now with reasoning.
 
 ### Model Availability
 
@@ -23,7 +25,11 @@ Features are available in two model variants:
 
 ## Section 1: Features Added
 
+Andrei's research directly led to ~89 new engineered features across three Books. Several of his suggestions also confirmed that features we'd already built were well-chosen, which is valuable validation.
+
 ### Book 4 — Laboratory Features (20 new components + 6 derived ratios)
+
+Andrei's lab recommendations were especially strong. His emphasis on the full CBC differential (enabling NLR, PLR, LMR, and SII calculations) and nutritional markers (B12, Folate, Vitamin D) addressed real blind spots in our pipeline. The BUN/Creatinine ratio for GI bleeding detection was a particularly sharp clinical insight.
 
 **FHIR Portable availability:** All new lab features are FHIR-available EXCEPT `lab_SYSTEMIC_INFLAMMATION_INDEX` (depends on CRP and ESR, which are not universally available in FHIR).
 
@@ -72,6 +78,8 @@ Features are available in two model variants:
 
 ### Book 2 — ICD-10 Comorbidity Features (12 new code groups)
 
+Andrei's comorbidity recommendations rounded out our diagnostic feature set nicely. The alcohol and tobacco use disorder codes were a smart workaround for the social history data quality problems we'd identified in Book 3 — using clinically documented ICD codes avoids Epic's workflow bias entirely. His suggestion of hemorrhoids and IBS as differential-diagnosis features was also a good catch; these conditions generate symptoms that overlap with CRC and help the model distinguish true signal from noise.
+
 **FHIR Portable availability:** All ICD-10 features are available in both models. ICD codes are standard FHIR Condition resources.
 
 | Feature | ICD-10 Codes | Engineered Columns | Clinical Rationale | Winnowed? |
@@ -93,50 +101,54 @@ Features are available in two model variants:
 
 ### Book 5.1 — Medication Features (1 new category + 3 pre-existing)
 
+Andrei correctly identified four medication categories relevant to CRC risk. Three of them — aspirin (in NSAID_ASA_USE), opioids (in CHRONIC_OPIOID_USE), and B12/folate supplements (in B12_FOLATE_USE) — were already in the pipeline, which is good independent validation of both his literature review and our original feature engineering. H2 blockers were a genuine addition.
+
 **FHIR Portable availability:** None. All `med_*` features are excluded from the FHIR Portable model (outpatient medication data requires RxNorm-to-category mapping not standardized in FHIR).
 
 | Feature | Drug Names | Engineered Columns | Status | Winnowed? |
 |---|---|---|---|---|
 | **H2-Blockers** | Famotidine, Ranitidine, Cimetidine, Nizatidine | `med_h2_blocker_use_flag`, `med_h2_blocker_use_days_since`, `med_h2_blocker_use_count_2yr` | **NEW** — Added via generic name matching | TBD |
-| **Aspirin** | Aspirin, ASA | `med_nsaid_asa_use_flag/days_since/count_2yr` | **Pre-existing** — Already in NSAID_ASA_USE category | TBD |
-| **Opioids** | Oxycodone, Hydrocodone, Morphine, Tramadol, Fentanyl | `med_opioid_use_flag/days_since/count_2yr` | **Pre-existing** — Already in CHRONIC_OPIOID_USE category | TBD |
-| **B12/Folate** | Leucovorin, Methylfolate, Mecobalamin | `med_b12_or_folate_use_flag/days_since/count_2yr` | **Pre-existing** — Already in B12_FOLATE_USE category | TBD |
+| **Aspirin** | Aspirin, ASA | `med_nsaid_asa_use_flag/days_since/count_2yr` | **Pre-existing** — Already in NSAID_ASA_USE category | N/A |
+| **Opioids** | Oxycodone, Hydrocodone, Morphine, Tramadol, Fentanyl | `med_opioid_use_flag/days_since/count_2yr` | **Pre-existing** — Already in CHRONIC_OPIOID_USE category | N/A |
+| **B12/Folate** | Leucovorin, Methylfolate, Mecobalamin | `med_b12_or_folate_use_flag/days_since/count_2yr` | **Pre-existing** — Already in B12_FOLATE_USE category | N/A |
 
 ---
 
-## Section 2: Features Considered But Not Added
+## Section 2: Features We Chose Not to Add (For Now)
+
+Andrei's literature review was thorough — many of the features below are genuinely relevant to CRC biology but didn't fit our pipeline for practical reasons (data quality, population coverage, or redundancy with existing features). We've documented the reasoning so these decisions can be revisited as the model evolves.
 
 ### Urinalysis Panel (15 features)
 **Andrei's reference:** LOINC 5778-6 (color), 5767-9 (clarity), 5810-7 (specific gravity), 5803-2 (pH), 2887-8 (protein), 5792-7 (glucose), 2514-8 (ketones), 5794-3 (blood/hemoglobin), 5770-3 (bilirubin), 19161-9 (urobilinogen), 5802-4 (nitrite), 5799-2 (leukocyte esterase), 798-9/799-7 (RBCs), 20408-1 (WBCs), 5769-5 (bacteria)
 
-**Why not added:** Urinalysis results are primarily qualitative (e.g., "trace", "1+", "2+", "small", "large") and use different extraction patterns from quantitative blood labs. Adding UA would require a separate extraction pipeline for qualitative result interpretation. The most CRC-relevant UA finding (hematuria/blood in urine) is already captured indirectly by ICD-10 codes (R31.*) in the diagnosis pipeline. The clinical signal for CRC prediction from routine urinalysis is low compared to blood-based markers.
+**Why not added now:** Urinalysis results are primarily qualitative (e.g., "trace", "1+", "2+") and use different extraction patterns from quantitative blood labs. Adding UA would require a separate extraction pipeline for qualitative result interpretation. The most CRC-relevant UA finding (hematuria) is already captured indirectly by ICD-10 codes (R31.*) in the diagnosis pipeline.
 
-**Could revisit?** Yes, if urine blood (hematuria) alone proves valuable via ICD analysis, a targeted UA blood extraction could be added.
+**Could revisit?** Yes. If urine blood alone proves valuable via ICD analysis, a targeted UA blood extraction could be worthwhile.
 
 ---
 
 ### Full Thyroid Panel (7 features beyond TSH)
 **Andrei's reference:** Free T4 (LOINC 3024-7), Total T4 (3026-2), Free T3 (3051-0), Total T3 (3050-3), Reverse T3 (3052-8), TPO Antibody (8098-6), Thyroglobulin Antibody (11574-1)
 
-**Why not added:** TSH alone (which IS being added) is the standard screening test for thyroid dysfunction and captures >95% of the clinical information. The full thyroid panel is ordered only when TSH is abnormal. Including Free T4/T3 would create highly missing data (only ordered for ~5-10% of patients) with strong selection bias. The clinical evidence linking thyroid disorders to CRC risk is indirect (via weight/metabolism effects), not a direct oncogenic pathway.
+**Why not added now:** TSH alone (which IS being added per Andrei's recommendation) is the standard screening test for thyroid dysfunction and captures >95% of the clinical information. The full panel is ordered only when TSH is abnormal, so including it would create highly missing data with strong selection bias.
 
-**Could revisit?** Unlikely to add value. TSH captures the key signal.
+**Could revisit?** Unlikely to improve on TSH alone for this use case.
 
 ---
 
 ### Reproductive Hormones (5 features)
 **Andrei's reference:** Total Testosterone (LOINC 2986-8), Free Testosterone (2991-8), Estradiol, FSH, LH
 
-**Why not added:** Minimal evidence linking reproductive hormones directly to CRC risk prediction. These labs are ordered for specific clinical indications (infertility, menopause, hypogonadism) creating extreme selection bias. Population coverage would be <5%. While estrogen exposure may have a protective CRC effect in women, this is better captured by age and sex (already in model) than by measured hormone levels.
+**Why not added now:** These labs are ordered for specific clinical indications (infertility, menopause, hypogonadism), creating extreme selection bias with <5% population coverage. While estrogen exposure may have a protective CRC effect in women, this is better captured by age and sex (already in model) than by measured hormone levels.
 
-**Could revisit?** Only if gender-stratified CRC models are developed.
+**Could revisit?** Potentially relevant if gender-stratified CRC models are developed in the future.
 
 ---
 
 ### LDH Isoenzyme Fractions (5 features)
 **Andrei's reference:** LDH1 (LOINC 2536-1), LDH2 (2539-5), LDH3 (2542-9), LDH4 (2545-2), LDH5 (2548-6)
 
-**Why not added:** LDH isoenzyme fractionation is a specialty test rarely ordered in routine care. Total LDH (already in our pipeline) captures the primary signal. Individual fractions require electrophoresis and have extremely low population availability (<1% of patients). The diagnostic utility for CRC screening is negligible.
+**Why not added now:** LDH isoenzyme fractionation is a specialty test with extremely low population availability (<1%). Total LDH (already in our pipeline) captures the primary signal.
 
 **Could revisit?** No practical value for population-level screening.
 
@@ -145,16 +157,16 @@ Features are available in two model variants:
 ### C-Peptide and Insulin (2 features)
 **Andrei's reference:** C-Peptide (LOINC 1986-9), Insulin (20448-7)
 
-**Why not added:** Specialty endocrinology tests with very low population availability. HbA1c (already in our pipeline) provides a better population-level measure of glucose control. C-Peptide and Insulin are ordered for specific indications (differentiating Type 1 vs Type 2 diabetes, insulin resistance workup) creating strong selection bias.
+**Why not added now:** Specialty endocrinology tests with very low population availability. HbA1c (already in our pipeline) provides a better population-level measure of glucose control for CRC risk.
 
-**Could revisit?** No. HbA1c is the appropriate diabetes marker for screening models.
+**Could revisit?** HbA1c covers this ground well.
 
 ---
 
 ### Specialty Lipids — ApoB, ApoA1, Lipoprotein(a) (3 features)
 **Andrei's reference:** Apolipoprotein B (LOINC 1871-3), Apolipoprotein A1 (1869-7), Lipoprotein(a) (10835-7)
 
-**Why not added:** Very rarely ordered specialty lipid tests (<2% population availability). Standard lipid panel (LDL, HDL, Triglycerides, Total Cholesterol) — all now in our pipeline — captures the clinically relevant lipid information. These advanced markers are primarily used for cardiovascular risk stratification, not cancer prediction.
+**Why not added now:** Very rarely ordered (<2% population availability). The standard lipid panel (LDL, HDL, Triglycerides, Total Cholesterol — all now in our pipeline) captures the clinically relevant information. These advanced markers are primarily for cardiovascular risk stratification.
 
 **Could revisit?** No practical value for CRC screening.
 
@@ -163,25 +175,23 @@ Features are available in two model variants:
 ### VLDL Cholesterol (1 feature)
 **Andrei's reference:** LOINC 13458-5, 2091-7
 
-**Why not added:** VLDL is typically calculated (not directly measured) as Total Cholesterol - HDL - LDL. Since all three components are now in the pipeline, VLDL can be trivially derived if needed. Adding a calculated field that's a linear combination of existing features provides no additional information to tree-based models.
-
-**Could revisit?** Can be added as a derived feature with one line of code if needed.
+**Why not added now:** VLDL is typically calculated as Total Cholesterol - HDL - LDL. Since all three components are now in the pipeline, VLDL provides no additional information to tree-based models. Can be trivially derived with one line of code if needed.
 
 ---
 
 ### Globulin and Albumin/Globulin Ratio (2 features)
 **Andrei's reference:** Globulin (LOINC 2336-6), A/G Ratio (1759-0)
 
-**Why not added:** Globulin = Total Protein - Albumin, and A/G Ratio = Albumin / Globulin. Both Total Protein and Albumin are already in the pipeline. Like VLDL, these are linear transformations of existing features. XGBoost can learn the relevant splits from the component features directly.
+**Why not added now:** Both are linear transformations of Total Protein and Albumin, which are already in the pipeline. XGBoost can learn the relevant splits from the component features directly.
 
-**Could revisit?** Can be added as derived features trivially if needed.
+**Could revisit?** Can be added as derived features trivially if the winnowing results suggest it.
 
 ---
 
 ### MPV — Mean Platelet Volume (1 feature)
 **Andrei's reference:** LOINC 32623-1, 28542-9
 
-**Why not added:** MPV is inconsistently reported across different hematology analyzers and institutions. Many EHR systems do not standardize MPV results, leading to high missingness and instrument-dependent variability. The clinical signal (reactive thrombocytosis vs. primary) is better captured by platelet count trends (already extensive in our pipeline: VALUE, 6MO_CHANGE, VELOCITY, ACCELERATION, MAX_12MO, RISING_PATTERN, THROMBOCYTOSIS_FLAG).
+**Why not added now:** MPV is inconsistently reported across different hematology analyzers and institutions. The clinical signal is better captured by our extensive platelet count trends (VALUE, 6MO_CHANGE, VELOCITY, ACCELERATION, MAX_12MO, RISING_PATTERN, THROMBOCYTOSIS_FLAG).
 
 **Could revisit?** Yes, if data quality analysis shows consistent MPV reporting at Mercy.
 
@@ -190,36 +200,32 @@ Features are available in two model variants:
 ### Rare CBC Components — Nucleated RBCs, Immature Granulocytes (4 features)
 **Andrei's reference:** Nucleated RBCs (LOINC 58413-6, 771-6), Immature Granulocytes (71695-1, 53115-2)
 
-**Why not added:** Not part of the standard automated CBC differential. These are reflex tests triggered by abnormal results, creating extreme selection bias. Population prevalence is <1%. Nucleated RBCs indicate severe bone marrow stress (not CRC-specific); immature granulocytes indicate left-shift (captured better by NLR).
+**Why not added now:** Not part of the standard automated CBC differential — these are reflex tests triggered by abnormal results, creating extreme selection bias. Population prevalence <1%.
 
-**Could revisit?** No. Selection bias makes these unsuitable for screening models.
+**Could revisit?** Selection bias makes these unsuitable for screening models.
 
 ---
 
 ### Drug Use Disorders — F11-F19 (multiple features)
 **Andrei's reference:** ICD-10 F11.* (opioid), F12.* (cannabis), F13.* (sedative), F14.* (cocaine), F15.* (stimulant), F16.* (hallucinogen), F18.* (inhalant), F19.* (other)
 
-**Why not added:** These are social/behavioral confounders, not CRC-specific risk factors. Including them could introduce socioeconomic bias into the model. Alcohol (F10.*) and tobacco (F17.*) ARE being added because they have established direct biological CRC risk pathways (IARC carcinogens). Other substances lack this evidence. Drug use disorders may also correlate with reduced healthcare utilization, creating reverse causation bias.
+**Why not added now:** These are social/behavioral confounders rather than direct CRC risk factors. Including them could introduce socioeconomic bias. Alcohol (F10.*) and tobacco (F17.*) ARE being added because they have established direct biological CRC risk pathways (IARC carcinogens). That distinction matters.
 
-**Could revisit?** Only in the context of studying health equity impacts.
+**Could revisit?** Only in the context of health equity impact analysis.
 
 ---
 
 ### Aminosalicylates — A07EC (1 feature)
 **Andrei's reference:** ATC A07EC (Mesalamine, Sulfasalazine, Balsalazide)
 
-**Why not added:** Very low population prevalence (IBD-specific medication). The clinical information (active IBD treatment) is already captured by IBD diagnosis codes (K50.*, K51.*) in Book 2. Adding a rare medication with <1% prevalence creates a very sparse feature that XGBoost would struggle to learn from.
-
-**Could revisit?** No. Diagnosis codes capture the same information more reliably.
+**Why not added now:** Very low population prevalence (IBD-specific medication). The clinical information is already captured by IBD diagnosis codes (K50.*, K51.*) in Book 2.
 
 ---
 
 ### Acetaminophen / Paracetamol — N02BE (1 feature)
 **Andrei's reference:** ATC N02BE01
 
-**Why not added:** Acetaminophen is ubiquitous as an OTC medication and is inconsistently captured in EHR prescribing data. Many patients take it without prescriptions, making EHR records unreliable for true usage. Unlike opioids (which require prescriptions and ARE being added), acetaminophen presence/absence in the EHR reflects documentation patterns rather than actual analgesic needs.
-
-**Could revisit?** No. EHR capture is too unreliable for OTC medications.
+**Why not added now:** Acetaminophen is ubiquitous as an OTC medication and is inconsistently captured in EHR prescribing data. Unlike opioids (which require prescriptions and ARE being added), acetaminophen presence in the EHR reflects documentation patterns more than actual usage.
 
 ---
 
@@ -233,7 +239,7 @@ Features are available in two model variants:
 ### AFP (Alpha-Fetoprotein)
 **Andrei's reference:** LOINC 1834-1, 83073-7
 
-**Why not added:** AFP is primarily a hepatocellular carcinoma and germ cell tumor marker, not a CRC marker. It is ordered for specific clinical suspicions (liver mass, testicular mass), creating extreme selection bias. CEA is the CRC-specific tumor marker, and we deliberately excluded it due to circular reasoning (ordered only when CRC is already suspected). AFP has the same circularity problem for liver cancer but would not provide CRC-specific signal.
+**Why not added now:** AFP is primarily a hepatocellular carcinoma and germ cell tumor marker, not a CRC marker. It's ordered for specific clinical suspicions, creating the same circularity problem we identified with CEA (ordered only when cancer is already suspected).
 
 **Could revisit?** No. Tumor markers are excluded from screening models by design.
 
