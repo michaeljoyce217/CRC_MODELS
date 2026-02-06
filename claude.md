@@ -8,7 +8,7 @@ This project is improving the **feature selection methodology** for a **colorect
 1. **Full Data** (`Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb`) — gold standard with all features
 2. **FHIR Portable** (`Final_EDA/FHIR_PORTABLE/STANDARD/FHIR_Portable_Standard_Feature_Selection.ipynb`) — cross-hospital portability using only high-availability FHIR features
 
-Books 0-8 (dataset creation) are finalized. Feature selection notebooks include 5 phases. Metrics: AUPRC, AUROC, Lift @ 1%, 10%, 100%. Presentation (`Final_EDA/presentation/crc_model_results.html`) updated for 2-model structure with placeholders ready for results.
+Books 2, 4, and 5.1 updated with Andrei's (Lucem Health) literature-based feature additions (~89 new features: 20 lab components + 6 derived ratios + 2 composites, 12 ICD code groups + 2 composites, 1 new medication category). See `docs/andrei_feature_contributions.md` for full credit and rationale. Feature selection notebooks include 5 phases. Metrics: AUPRC, AUROC, Lift @ 1%, 10%, 100%. Presentation (`Final_EDA/presentation/crc_model_results.html`) updated for 2-model structure with placeholders ready for results.
 
 ---
 
@@ -169,7 +169,7 @@ CRC_MODELS/
 - All outpatient meds (`med_*` prefix) — requires RxNorm→category mapping not standardized
 - All inpatient meds (`inp_med_*` prefix) — MAR data not in FHIR
 - All visit history (`visit_*` prefix) — scheduling data not clinical
-- Labs not universally available: CRP, ESR, CA-125, inflammatory burden
+- Labs not universally available: CRP (VALUE, ELEVATED, 6MO_CHANGE), ESR, CA-125, inflammatory burden, systemic inflammation index
 - Procedures not in standard CPT: transfusions, iron infusions, hemorrhoid procedures, anemia treatment intensity
 
 ## Completed Work Summary
@@ -246,14 +246,14 @@ Implemented in `Mercy_Standard_Feature_Selection.ipynb` (Full Data) and `FHIR_Po
 
 | Phase | Method | Features | Purpose |
 |-------|--------|----------|---------|
-| **Phase 1** | Cluster-Based Reduction | 167 → 143 | Remove redundant/correlated features |
+| **Phase 1** | Cluster-Based Reduction | ~256 → TBD | Remove redundant/correlated features |
 | **Phase 2** | Iterative SHAP Winnowing | 143 → 26 | Fine-tune with up to 10 removals per iteration |
 | **Phase 3** | CV Stability Analysis | validates all | Confirm selection across 5 folds |
 | **Phase 4** | Parsimony-Aware Selection | → ~30 | Automated iteration selection (1.5 × SD tolerance) + CV filter |
 | **Phase 5** | Production Model Training | final set | Retrain with relaxed XGBoost params + SHAP analysis |
 
 ### Input
-- Wide feature table from Book 8 compilation (167 features after quality checks)
+- Wide feature table from Book 8 compilation (~256 features after quality checks, up from 167 after Andrei's additions)
 - Train/val/test split assignments from Book 0
 
 ### Output (per notebook run)
@@ -417,7 +417,7 @@ TARGET_CLUSTER_RANGE = (40, 70)
 The earlier manual run (documented in `Final_EDA/feature_selection_rationale.md`) produced:
 
 ```
-Starting:      167 features (after Book 8 quality checks)
+Starting:      ~256 features (after Book 8 quality checks, includes Andrei's additions)
 After Phase 1: 143 features (62 clusters at threshold 0.75)
 After Phase 2:  26 features (20 iterations, stopped at MIN_FEATURES_THRESHOLD)
 After Phase 3:  26 features (all 26 are CV-stable across 5 folds)
