@@ -5,8 +5,8 @@
 This project is improving the **feature selection methodology** for a **colorectal cancer (CRC) risk prediction model** with highly imbalanced data (250:1 negative:positive ratio). The model predicts CRC diagnosis within 6 months for unscreened patients.
 
 **Current Status**: Ready to rerun. Simplified to **2 notebook variants**:
-1. **Full Data** (`Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb`) — gold standard with all features
-2. **FHIR Portable** (`Final_EDA/FHIR_PORTABLE/STANDARD/FHIR_Portable_Standard_Feature_Selection.ipynb`) — cross-hospital portability using only high-availability FHIR features
+1. **Full Data** (`Final_EDA/MERCY_EFFORTS/Mercy_Standard_Feature_Selection.ipynb`) — gold standard with all features
+2. **FHIR Portable** (`Final_EDA/FHIR_PORTABLE/FHIR_Portable_Standard_Feature_Selection.ipynb`) — cross-hospital portability using only high-availability FHIR features
 
 Books 2, 4, and 5.1 updated with Andrei's (Lucem Health) literature-based feature additions (~89 new features: 20 lab components + 6 derived ratios + 2 composites, 12 ICD code groups + 2 composites, 1 new medication category). See `docs/andrei_feature_contributions.md` for full credit and rationale. Feature selection notebooks include 5 phases. Metrics: AUPRC, AUROC, Lift @ 1%, 10%, 100%. Presentation (`Final_EDA/presentation/crc_model_results.html`) updated for 2-model structure with placeholders ready for results.
 
@@ -139,11 +139,9 @@ CRC_MODELS/
 │   ├── DATASET_CREATION/           # Books 0-8: cohort + feature engineering
 │   │   └── V2_Book0 through V2_Book8 (.ipynb)
 │   ├── MERCY_EFFORTS/              # Mercy Full Data (gold standard)
-│   │   └── STANDARD/
-│   │       └── Mercy_Standard_Feature_Selection.ipynb  # Phases 1-5, all features
+│   │   └── Mercy_Standard_Feature_Selection.ipynb  # Phases 1-5, all features
 │   ├── FHIR_PORTABLE/              # FHIR Portable variant (cross-hospital portability)
-│   │   └── STANDARD/
-│   │       └── FHIR_Portable_Standard_Feature_Selection.ipynb  # Phases 1-5, high-availability FHIR features only
+│   │   └── FHIR_Portable_Standard_Feature_Selection.ipynb  # Phases 1-5, high-availability FHIR features only
 │   ├── OLD_EFFORTS/                # Archived/superseded notebooks
 │   ├── compiled/                   # Reduced production-ready scripts (Books 0-8)
 │   │   ├── reduced_V2_Book0 through reduced_V2_Book8 (.py)
@@ -611,8 +609,8 @@ claude
 
 1. **Upload notebooks to Databricks:**
    - `Final_EDA/DATASET_CREATION/V2_Book0` through `V2_Book8`
-   - `Final_EDA/MERCY_EFFORTS/STANDARD/Mercy_Standard_Feature_Selection.ipynb` (Full Data)
-   - `Final_EDA/FHIR_PORTABLE/STANDARD/FHIR_Portable_Standard_Feature_Selection.ipynb` (FHIR Portable)
+   - `Final_EDA/MERCY_EFFORTS/Mercy_Standard_Feature_Selection.ipynb` (Full Data)
+   - `Final_EDA/FHIR_PORTABLE/FHIR_Portable_Standard_Feature_Selection.ipynb` (FHIR Portable)
 2. **Run Books 0-8** (in DATASET_CREATION) to create the wide feature table with SPLIT column
 3. **Run feature selection notebook** (Full Data or FHIR Portable):
    - Phase 1: Cluster-based reduction (167 → ~143 features)
