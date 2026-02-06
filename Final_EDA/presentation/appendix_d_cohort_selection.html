@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix D: How We Built the Study Population | Mercy and Lucem Clinical Analytics</title>
+  <style>
+    /* ========================================================
+       RESET & BASE STYLES
+       ======================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #333333;
+      background-color: #ffffff;
+      line-height: 1.6;
+    }
+
+    /* ========================================================
+       MERCY BRAND COLOR VARIABLES (used via direct values)
+       Primary:    Bahama Blue  #006598
+       Accent:     Fiery Orange #bf5412
+       Background: White #ffffff / Light Gray #f5f7fa
+       Text:       Dark Gray #333333 / Headings #1a1a1a
+       ======================================================== */
+
+    /* ========================================================
+       NAV BAR
+       ======================================================== */
+    .nav-bar {
+      background-color: #006598;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-bar .nav-brand {
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .nav-bar .nav-links {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .nav-bar .nav-links a {
+      color: rgba(255, 255, 255, 0.85);
+      text-decoration: none;
+      font-size: 0.82rem;
+      padding: 6px 14px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-bar .nav-links a:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    .nav-bar .nav-links a.nav-active {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    /* ========================================================
+       HEADER
+       ======================================================== */
+    .header {
+      background: linear-gradient(135deg, #006598 0%, #004d73 100%);
+      color: #ffffff;
+      padding: 48px 24px 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .header .subtitle {
+      font-size: 1.1rem;
+      font-weight: 300;
+      opacity: 0.9;
+      margin-bottom: 4px;
+    }
+
+    .header .header-meta {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      margin-top: 12px;
+    }
+
+    /* ========================================================
+       MAIN CONTAINER
+       ======================================================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ========================================================
+       SECTION HEADERS
+       ======================================================== */
+    .section-header {
+      color: #006598;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e0e7ed;
+    }
+
+    h2 {
+      color: #1a1a1a;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      color: #1a1a1a;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      color: #333333;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      line-height: 1.65;
+    }
+
+    /* ========================================================
+       CALLOUT BOXES
+       ======================================================== */
+    .callout {
+      padding: 16px 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #006598;
+      background-color: #f0f6fa;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .callout p:last-child {
+      margin-bottom: 0;
+    }
+
+    .callout-info {
+      border-left-color: #006598;
+      background-color: #f0f6fa;
+    }
+
+    .callout-success {
+      border-left-color: #2e7d32;
+      background-color: #f1f8e9;
+    }
+
+    .callout-warning {
+      border-left-color: #bf5412;
+      background-color: #fff3e8;
+    }
+
+    .callout-danger {
+      border-left-color: #dc3545;
+      background-color: #fdf0f0;
+    }
+
+    .callout-title {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ========================================================
+       METRIC CARDS
+       ======================================================== */
+    .metric-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin: 24px 0;
+    }
+
+    .metric-card {
+      flex: 1 1 160px;
+      background: #ffffff;
+      border: 1px solid #e0e7ed;
+      border-radius: 8px;
+      padding: 20px 16px;
+      text-align: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+
+    .metric-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .metric-card .metric-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #006598;
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+
+    .metric-card .metric-label {
+      font-size: 0.82rem;
+      color: #666666;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-weight: 500;
+    }
+
+    /* ========================================================
+       TIER CARDS
+       ======================================================== */
+    .tier-card {
+      border-left: 5px solid #cccccc;
+      background-color: #ffffff;
+      border-radius: 0 8px 8px 0;
+      padding: 20px 24px;
+      margin: 16px 0;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .tier-card .tier-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .tier-card .tier-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #ffffff;
+    }
+
+    .tier-card .tier-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 0;
+    }
+
+    .tier-card .tier-coverage {
+      font-size: 0.85rem;
+      color: #666666;
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+
+    .tier-card .tier-analogy {
+      margin-top: 10px;
+      padding: 10px 14px;
+      background-color: #f9fafb;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: #555555;
+      font-style: italic;
+    }
+
+    .tier-card .tier-analogy strong {
+      font-style: normal;
+      color: #333333;
+    }
+
+    .tier-1 { border-left-color: #2e7d32; }
+    .tier-1 .tier-badge { background-color: #2e7d32; }
+
+    .tier-2 { border-left-color: #f9a825; }
+    .tier-2 .tier-badge { background-color: #f9a825; color: #333333; }
+
+    .tier-3 { border-left-color: #bf5412; }
+    .tier-3 .tier-badge { background-color: #bf5412; }
+
+    .tier-excluded { border-left-color: #dc3545; }
+    .tier-excluded .tier-badge { background-color: #dc3545; }
+
+    /* ========================================================
+       INCLUSION/EXCLUSION LIST
+       ======================================================== */
+    .criteria-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 16px 0;
+    }
+
+    .criteria-list li {
+      padding: 10px 16px 10px 48px;
+      position: relative;
+      border-left: 3px solid #006598;
+      margin-bottom: 8px;
+      background: #f9fbfd;
+      border-radius: 0 4px 4px 0;
+      line-height: 1.55;
+    }
+
+    .criteria-list li::before {
+      position: absolute;
+      left: 14px;
+      top: 10px;
+      font-size: 1.1rem;
+    }
+
+    .criteria-list.include li { border-left-color: #2e7d32; }
+    .criteria-list.include li::before { content: "+"; color: #2e7d32; font-weight: 700; }
+
+    .criteria-list.exclude li { border-left-color: #dc3545; }
+    .criteria-list.exclude li::before { content: "\2013"; color: #dc3545; font-weight: 700; }
+
+    /* ========================================================
+       DIVIDER
+       ======================================================== */
+    .divider {
+      border: none;
+      border-top: 1px solid #e0e7ed;
+      margin: 32px 0;
+    }
+
+    /* ========================================================
+       LISTS
+       ======================================================== */
+    ul, ol {
+      margin-bottom: 14px;
+      padding-left: 24px;
+    }
+
+    li {
+      margin-bottom: 6px;
+      line-height: 1.55;
+    }
+
+    /* ========================================================
+       COMPARISON TABLE
+       ======================================================== */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 500px;
+    }
+
+    .comparison-table thead th {
+      background-color: #006598;
+      color: #ffffff;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .comparison-table thead th:first-child {
+      border-top-left-radius: 8px;
+    }
+
+    .comparison-table thead th:last-child {
+      border-top-right-radius: 8px;
+    }
+
+    .comparison-table tbody td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #eaeef2;
+      color: #333333;
+    }
+
+    .comparison-table tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    .comparison-table tbody tr:hover {
+      background-color: #f0f6fa;
+    }
+
+    .comparison-table tbody tr:last-child td:first-child {
+      border-bottom-left-radius: 8px;
+    }
+
+    .comparison-table tbody tr:last-child td:last-child {
+      border-bottom-right-radius: 8px;
+    }
+
+    .comparison-table .row-label {
+      font-weight: 600;
+      color: #1a1a1a;
+      white-space: nowrap;
+    }
+
+    /* ========================================================
+       STRONG / EMPHASIS UTILITIES
+       ======================================================== */
+    strong {
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    em {
+      color: #555555;
+    }
+
+    .text-accent {
+      color: #bf5412;
+      font-weight: 600;
+    }
+
+    .text-primary {
+      color: #006598;
+      font-weight: 600;
+    }
+
+    .text-muted {
+      color: #888888;
+      font-size: 0.88rem;
+    }
+
+    /* ========================================================
+       SECTION NUMBER BADGES
+       ======================================================== */
+    .section-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background-color: #006598;
+      color: #ffffff;
+      border-radius: 50%;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    /* ========================================================
+       FOOTER
+       ======================================================== */
+    footer {
+      background-color: #f5f7fa;
+      border-top: 3px solid #006598;
+      padding: 28px 24px;
+      text-align: center;
+      margin-top: 48px;
+    }
+
+    footer p {
+      color: #666666;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
+    footer .tagline {
+      color: #006598;
+      font-style: italic;
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+
+    footer .footer-links {
+      margin-top: 12px;
+    }
+
+    footer .footer-links a {
+      color: #006598;
+      text-decoration: none;
+      font-size: 0.82rem;
+      margin: 0 12px;
+      transition: color 0.2s ease;
+    }
+
+    footer .footer-links a:hover {
+      color: #bf5412;
+      text-decoration: underline;
+    }
+
+    /* ========================================================
+       RESPONSIVE
+       ======================================================== */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.6rem;
+      }
+
+      .header .subtitle {
+        font-size: 0.95rem;
+      }
+
+      .nav-bar {
+        flex-direction: column;
+        height: auto;
+        padding: 8px 16px;
+        gap: 4px;
+      }
+
+      .nav-bar .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .container {
+        padding: 0 16px;
+      }
+
+      .metric-card {
+        flex: 1 1 130px;
+      }
+
+      .metric-card .metric-value {
+        font-size: 1.4rem;
+      }
+
+      .tier-card {
+        padding: 16px 18px;
+      }
+    }
+
+    /* ========================================================
+       PRINT STYLES
+       ======================================================== */
+    @media print {
+      .nav-bar {
+        display: none;
+      }
+
+      .header {
+        background: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .comparison-table thead th {
+        background-color: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .metric-card {
+        box-shadow: none;
+        border: 1px solid #cccccc;
+      }
+
+      .tier-card {
+        box-shadow: none;
+        border: 1px solid #cccccc;
+      }
+
+      footer {
+        page-break-before: always;
+      }
+
+      body {
+        font-size: 11pt;
+      }
+
+      .container {
+        max-width: 100%;
+      }
+    }
+
+    /* ========================================================
+       ACCESSIBILITY
+       ======================================================== */
+    /* Skip navigation link */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 8px;
+      background: #006598;
+      color: #ffffff;
+      padding: 8px 16px;
+      z-index: 10000;
+      font-size: 0.9rem;
+      border-radius: 0 0 4px 4px;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* Focus indicators */
+    .nav-links a:focus-visible,
+    a:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #bf5412;
+      outline-offset: 2px;
+    }
+
+    /* Screen-reader-only class */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ============================================================
+       NAV BAR
+       ============================================================ -->
+  <nav class="nav-bar" aria-label="Site navigation">
+    <div class="nav-brand">Mercy and Lucem Clinical Analytics</div>
+    <div class="nav-links" role="navigation" aria-label="Page navigation">
+      <a href="crc_model_results.html">Main Results</a>
+      <a href="appendix_a_model_features.html">Appendix A</a>
+      <a href="appendix_b_feature_catalog.html">Appendix B</a>
+      <a href="appendix_c_technical_context.html">Appendix C</a>
+      <a href="appendix_d_cohort_selection.html" class="nav-active" aria-current="page">Appendix D</a>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header class="header" role="banner">
+    <h1>Appendix D: How We Built the Study Population</h1>
+    <p class="subtitle">From Inference Population to Training Cohort</p>
+    <p class="header-meta">CRC Risk Prediction Model &mdash; Cohort Selection Methodology</p>
+  </header>
+
+  <!-- ============================================================
+       MAIN CONTENT
+       ============================================================ -->
+  <main id="main-content" class="container" style="padding-top: 36px; padding-bottom: 48px;">
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 1: Who Gets a Risk Score
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <div class="section-title-row">
+      <span class="section-number">1</span>
+      <h2 class="section-header" style="margin-bottom:0; flex:1;">Who Gets a Risk Score</h2>
+    </div>
+
+    <p>In production, the model assigns a CRC risk score to any patient who meets these criteria:</p>
+
+    <ul class="criteria-list include">
+      <li>
+        <strong>Age 45 or older</strong> &mdash; matching the U.S. Preventive Services Task Force (USPSTF) recommendation that CRC screening begin at age 45.
+      </li>
+      <li>
+        <strong>Not currently up-to-date on CRC screening</strong> &mdash; no colonoscopy, Cologuard, FOBT/FIT, or other CRC screening procedure within the guideline-recommended timeframe.
+      </li>
+      <li>
+        <strong>Has clinical data available</strong> &mdash; the model uses lab results, diagnoses, vitals, and other routinely collected clinical data to assess risk. Any patient with records in the EHR can be scored.
+      </li>
+    </ul>
+
+    <p>That is the full set of requirements. Every eligible patient receives a <strong>0&ndash;100 risk score</strong> reflecting their likelihood of a CRC diagnosis in the next 6 months. Higher scores indicate higher risk and can be used to prioritize screening outreach.</p>
+
+    <div class="callout callout-success">
+      <p class="callout-title">Inference Is Broader Than Training</p>
+      <p>The training cohort described in the sections below has additional requirements &mdash; like 24 months of prior medical history and follow-up verification &mdash; that exist solely to ensure label quality during model development. <strong>The inference population is intentionally broader.</strong> If a patient is age 45+, unscreened, and has clinical data in the EHR, they receive a risk score. The strict criteria below explain how we built high-quality training data, not who gets scored in production.</p>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 2: Why Training Labels Must Be Accurate
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <div class="section-title-row">
+      <span class="section-number">2</span>
+      <h2 class="section-header" style="margin-bottom:0; flex:1;">Why Training Labels Must Be Accurate</h2>
+    </div>
+
+    <p>The model learns by studying examples. We show it thousands of patient records, each labeled either <strong>&ldquo;diagnosed with colorectal cancer within 6 months&rdquo;</strong> (a positive case) or <strong>&ldquo;not diagnosed&rdquo;</strong> (a negative case). The model looks for patterns in lab results, diagnoses, medications, and other clinical data that distinguish the two groups.</p>
+
+    <p>But here is the critical point: <strong>if the labels are wrong, the patterns it learns are wrong.</strong></p>
+
+    <p>Getting the positive labels right is relatively straightforward &mdash; a cancer diagnosis code appears in the medical record, and we can verify it. The hard part is the negatives. In our study population, only about <strong>1 in every 278 patients</strong> is diagnosed with CRC. That means for every single cancer case, there are roughly 277 patients labeled &ldquo;no cancer.&rdquo;</p>
+
+    <div class="callout callout-danger">
+      <p class="callout-title">Why False Negatives Are Devastating</p>
+      <p>A <strong>false negative</strong> is a patient who actually has cancer but is incorrectly labeled &ldquo;no cancer&rdquo; in the training data. This happens when a patient has an undetected tumor, is diagnosed at a different hospital, or leaves the health system before diagnosis.</p>
+      <p style="margin-top:10px;">Every false negative actively <strong>poisons</strong> the model&rsquo;s learning. The model studies that patient&rsquo;s medical record &mdash; which contains real cancer signals &mdash; and learns: <em>&ldquo;this pattern means no cancer.&rdquo;</em> But it actually means the opposite. The model becomes confused, learning contradictory signals that weaken its ability to identify real cancer cases.</p>
+      <p style="margin-top:10px;">With a 278:1 ratio of negatives to positives, even a small contamination rate has an outsized effect. If just 1% of the 277 negatives are false (roughly 3 patients), the model is trying to learn from 1 true cancer case while seeing 3 &ldquo;not-cancer&rdquo; examples that actually <em>are</em> cancer. The real signal gets drowned out.</p>
+    </div>
+
+    <div class="callout callout-warning">
+      <p class="callout-title">An Analogy</p>
+      <p>Consider training a dog to find truffles by showing it 278 objects &mdash; 277 rocks and 1 truffle. The dog learns to distinguish the truffle&rsquo;s scent from the rocks. But if 5 of those &ldquo;rocks&rdquo; are actually truffles in disguise, the dog picks up on the truffle scent mixed into the &ldquo;rock&rdquo; pile and gets confused about what it is supposed to be looking for.</p>
+      <p style="margin-top:10px;">Or consider a simple math problem. A fair die has an average roll of 3.5. Ask 100 people to roll a die and report their result &mdash; the average should be very close to 3.5. But what if 50 people actually roll the die and 50 quietly report &ldquo;zero&rdquo; without rolling? If you include all 100 reports, the average drops to about 1.75. You would conclude the die is broken &mdash; but the die is fine. Your data is contaminated with non-results masquerading as results. That is exactly what false negatives do to our model: patients with undetected cancer report &ldquo;zero&rdquo; (no cancer), dragging the learned patterns away from reality.</p>
+    </div>
+
+    <p>This is why the rest of this document describes extraordinary measures to ensure that when we label a patient as &ldquo;no cancer,&rdquo; we really mean it.</p>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 3: How We Built the Training Population
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <div class="section-title-row">
+      <span class="section-number">3</span>
+      <h2 class="section-header" style="margin-bottom:0; flex:1;">How We Built the Training Population</h2>
+    </div>
+
+    <p>Building the training population is a multi-step process. We start by defining who belongs in the study, then remove patients who would distort the model&rsquo;s learning, then verify that each negative label is trustworthy. Each step is designed to maximize label quality &mdash; the foundation everything else depends on.</p>
+
+    <!-- 3a: Inclusion Criteria -->
+    <h3 style="margin-top: 28px; color:#1a1a1a;">3a. Who Gets Included</h3>
+
+    <p>Not every patient in the health system is appropriate for training. We start with a set of common-sense requirements &mdash; note that these are stricter than the inference population criteria in Section 1, because training requires high-quality labels.</p>
+
+    <ul class="criteria-list include">
+      <li>
+        <strong>Age 45 to 100.</strong> This matches USPSTF guidelines. The upper limit of 100 also catches data entry errors (nobody in our records is older than 100).
+      </li>
+      <li>
+        <strong>Active in our health system.</strong> The patient must have had at least one completed visit during the study period (January 2023 through September 2024). This ensures we are looking at patients who actually use our hospitals and clinics.
+      </li>
+      <li>
+        <strong>At least 24 months of prior medical history.</strong> The model uses trends in lab results, weight changes, visit patterns, and other data that unfold over time. A patient who just walked in the door last month does not have enough history for the model to work with. <em>(Note: this requirement is for training only &mdash; at inference time, the model scores patients with whatever data is available.)</em>
+      </li>
+      <li>
+        <strong>Clean data.</strong> We remove records with impossible values &mdash; ages that do not make sense, dates that contradict each other, and other quality flags that suggest a data entry error rather than a real patient record.
+      </li>
+    </ul>
+
+    <!-- 3b: Exclusion Criteria -->
+    <h3 style="margin-top: 28px; color:#1a1a1a;">3b. Who Gets Excluded</h3>
+
+    <p>Some patients meet all the inclusion criteria but still should not be in a screening prediction model. These are patients for whom CRC screening is either unnecessary, inappropriate, or would distort the model&rsquo;s learning.</p>
+
+    <ul class="criteria-list exclude">
+      <li>
+        <strong>Already diagnosed with CRC.</strong> If a patient has already been diagnosed with colorectal cancer at any point in their medical history, they are not a screening candidate &mdash; they already know they have (or had) the disease. Including them would give the model a shortcut that defeats the purpose of early detection.
+      </li>
+      <li>
+        <strong>Prior colectomy (colon removal).</strong> A patient who has had their colon surgically removed cannot develop colon cancer. Keeping them in the dataset would add false negatives &mdash; patients who appear cancer-free for a reason that has nothing to do with the clinical signals the model is trying to learn.
+      </li>
+      <li>
+        <strong>Hospice or palliative care.</strong> Patients receiving end-of-life care are not appropriate candidates for cancer screening. Including these patients would introduce a population with very different clinical patterns that would confuse the model.
+      </li>
+      <li>
+        <strong>Already up-to-date on CRC screening.</strong> Our model is designed to identify risk among <strong>unscreened patients</strong>. Including screened patients would contaminate the model because they have different characteristics: they are more likely to be health-conscious, more likely to follow up on abnormal results, and their cancer detection pathway is entirely different.
+      </li>
+    </ul>
+
+    <!-- 3c: Confirming Negatives -->
+    <h3 style="margin-top: 28px; color:#1a1a1a;">3c. The Hard Part &mdash; Confirming Negatives</h3>
+
+    <p>This is the most important part of building the training population, and the part that requires the most care.</p>
+
+    <h4 style="margin-top: 20px;">The Two Sides of the Labeling Problem</h4>
+
+    <p><strong>Positive labels are straightforward.</strong> When a patient is diagnosed with colorectal cancer, a specific diagnosis code (C18, C19, or C20) gets recorded in their medical chart. If that code appears within 6 months of our observation date, we label them as positive. It is a clear, verifiable event.</p>
+
+    <p><strong>Negative labels are the real challenge.</strong> Just because we do not <em>see</em> a cancer diagnosis in the record does not mean the patient does not <em>have</em> cancer. <strong>Absence of evidence is not evidence of absence.</strong></p>
+
+    <p>A patient without a CRC diagnosis code could be in one of several situations:</p>
+
+    <ul>
+      <li>They genuinely do not have cancer (this is true for the vast majority)</li>
+      <li>They have cancer that was diagnosed at a <strong>different hospital</strong> we do not have records for</li>
+      <li>They <strong>stopped coming to our health system</strong> entirely, so we have no way to know what happened to them</li>
+      <li>They have a <strong>growing tumor that simply has not been found yet</strong></li>
+    </ul>
+
+    <div class="callout callout-danger">
+      <p class="callout-title">The Naive Approach &mdash; And Why It Fails</p>
+      <p>The simplest approach would be to label every patient without a CRC diagnosis as &ldquo;negative.&rdquo; This is fast and easy, but it is also reckless. It would sweep in patients who vanished from our system, patients diagnosed elsewhere, and patients harboring undetected tumors &mdash; all labeled as &ldquo;no cancer.&rdquo;</p>
+      <p>Every one of those is a <strong>false negative</strong> that actively poisons the model&rsquo;s learning. Rather than guess, we sort patients into confidence tiers.</p>
+    </div>
+
+    <h4 style="margin-top: 24px;">Three Tiers of Confidence</h4>
+
+    <p>Instead of blindly labeling everyone without a diagnosis as negative, we sort patients into confidence tiers based on how sure we can be that &ldquo;no cancer&rdquo; really means no cancer.</p>
+
+    <!-- Tier 1 -->
+    <div class="tier-card tier-1">
+      <div class="tier-header">
+        <span class="tier-badge">Tier 1</span>
+        <span class="tier-title">High Confidence Negative</span>
+      </div>
+      <div class="tier-coverage">Approximately 47% of negative cases</div>
+      <p>The patient came back for a visit <strong>more than 6 months after</strong> our observation date, and no CRC diagnosis appeared anywhere in their record during that time.</p>
+      <p>This is our strongest evidence. The 6-month prediction window is the period we are asking the model to predict over. If the patient&rsquo;s medical record spans that entire window and beyond &mdash; with visits, lab work, and clinical encounters throughout &mdash; and no cancer diagnosis shows up, we can be highly confident they did not have CRC during that period.</p>
+      <div class="tier-analogy">
+        <strong>Think of it this way:</strong> We watched the entire movie from beginning to end, and no cancer appeared in the plot. We are not guessing &mdash; we saw the whole story.
+      </div>
+    </div>
+
+    <!-- Tier 2 -->
+    <div class="tier-card tier-2">
+      <div class="tier-header">
+        <span class="tier-badge">Tier 2</span>
+        <span class="tier-title">Medium Confidence Negative</span>
+      </div>
+      <div class="tier-coverage">Approximately 23% of negative cases</div>
+      <p>The patient returned for a visit during <strong>months 4 through 6</strong> of the prediction window <strong>and</strong> has an active primary care physician (PCP) in our health system.</p>
+      <p>The return visit covers most of the prediction window, giving us direct observation for the bulk of the time period we care about. The PCP relationship adds a second layer of safety: in the U.S. healthcare system, when a patient is diagnosed with cancer at any facility, their primary care doctor is typically notified.</p>
+      <div class="tier-analogy">
+        <strong>Think of it this way:</strong> We saw most of the movie, and their doctor &mdash; who would have heard about any major plot twists &mdash; confirmed nothing happened in the part we missed.
+      </div>
+    </div>
+
+    <!-- Tier 3 -->
+    <div class="tier-card tier-3">
+      <div class="tier-header">
+        <span class="tier-badge">Tier 3</span>
+        <span class="tier-title">Lower Confidence Negative</span>
+      </div>
+      <div class="tier-coverage">Approximately 30% of negative cases</div>
+      <p>The patient did <strong>not</strong> return for a visit within 12 months <strong>but</strong> has an active primary care physician in our system.</p>
+      <p>We do not have a direct visit to confirm their status. However, the active PCP relationship provides a safety net. If the patient were diagnosed with cancer anywhere &mdash; even at a different hospital or through an emergency room visit &mdash; their primary care doctor would typically receive notification through standard medical communication channels.</p>
+      <div class="tier-analogy">
+        <strong>Think of it this way:</strong> We did not see them come in, but their doctor has been keeping watch. If something significant happened, their doctor would almost certainly know about it by now.
+      </div>
+    </div>
+
+    <!-- Excluded -->
+    <div class="tier-card tier-excluded">
+      <div class="tier-header">
+        <span class="tier-badge">Excluded</span>
+        <span class="tier-title">Not Used for Training</span>
+      </div>
+      <div class="tier-coverage">These patients are removed from the training dataset entirely</div>
+      <p>The patient had <strong>no return visit</strong> within the follow-up period <strong>and</strong> has <strong>no active PCP</strong> in our system.</p>
+      <p>We simply cannot confirm their cancer status either way. They may have moved, switched health systems, or stopped seeking care entirely. Labeling these patients as &ldquo;no cancer&rdquo; would be a guess &mdash; and guessing wrong adds the exact kind of label noise that degrades the model.</p>
+      <div class="tier-analogy">
+        <strong>Think of it this way:</strong> We lost track of them. Rather than guess and risk contaminating our training data, we leave them out entirely. No label is better than a wrong label.
+      </div>
+    </div>
+
+    <!-- Tier 3 tradeoff callout -->
+    <div class="callout callout-info">
+      <p class="callout-title">Why Include Tier 3 at All?</p>
+      <p>You might wonder: if Tier 3 has less evidence, why not exclude those patients too and only use Tiers 1 and 2? The answer comes down to a tradeoff between label purity and training data volume.</p>
+      <p>With only 1 cancer case per 278 patients, the model needs as many training examples as possible. Dropping Tier 3 would remove roughly 30% of our negative examples &mdash; a significant loss. The vast majority of Tier 3 patients genuinely do not have CRC; the risk of mislabeling is small. And the benefit of having 30% more training data outweighs the tiny amount of label noise that Tier 3 might introduce.</p>
+    </div>
+
+    <!-- 3d: The Screening Check -->
+    <h3 style="margin-top: 28px; color:#1a1a1a;">3d. The Screening Check</h3>
+
+    <p>The model targets <strong>unscreened patients</strong> &mdash; people who have not had a colonoscopy, stool test, or other CRC screening procedure within the recommended timeframe. Including screened patients would teach the model the wrong lesson: it would learn patterns associated with people who <em>get screened</em> rather than patterns that <em>predict cancer</em>.</p>
+
+    <p>To identify who has been screened, we cross-reference two independent data sources:</p>
+
+    <div class="table-wrapper">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th scope="col">Data Source</th>
+            <th scope="col">What It Captures</th>
+            <th scope="col">Limitation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Hospital-wide screening registry</td>
+            <td>A centralized record of whether each patient is considered up-to-date on CRC screening across the health system</td>
+            <td>No timestamps &mdash; shows current status only, not status at each observation date</td>
+          </tr>
+          <tr>
+            <td class="row-label">Internal procedure records</td>
+            <td>Specific screening procedures (colonoscopy, Cologuard, FOBT/FIT, CT colonography, sigmoidoscopy) with dates and validity windows</td>
+            <td>Reliable only from July 2021 onward; may miss procedures done at external facilities</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Because both sources have gaps, we <strong>intentionally over-exclude</strong>. Our philosophy is: it is better to accidentally remove an unscreened patient from the training data than to accidentally include a screened one. Removing an unscreened patient just means we have slightly less training data. Including a screened patient means we contaminate the model with a patient whose clinical journey is fundamentally different from the population we are trying to serve.</p>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 4: By the Numbers
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <div class="section-title-row">
+      <span class="section-number">4</span>
+      <h2 class="section-header" style="margin-bottom:0; flex:1;">By the Numbers</h2>
+    </div>
+
+    <p>After applying all inclusion criteria, exclusion criteria, label quality tiers, and screening checks, the final training population looks like this:</p>
+
+    <div class="metric-cards">
+      <div class="metric-card">
+        <div class="metric-value">~831K</div>
+        <div class="metric-label">Patient Observations</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">~233K</div>
+        <div class="metric-label">Unique Patients</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">0.36%</div>
+        <div class="metric-label">Positive Rate</div>
+      </div>
+      <div class="metric-card" style="border-top: 3px solid #bf5412;">
+        <div class="metric-value" style="color: #bf5412;">1 in 278</div>
+        <div class="metric-label">Cancer Cases per Patients</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">21 mo</div>
+        <div class="metric-label">Study Window</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">6 mo</div>
+        <div class="metric-label">Prediction Window</div>
+      </div>
+    </div>
+
+    <p class="text-muted" style="text-align: center; margin-top: 8px;">Study period: January 2023 through September 2024. Each patient may contribute multiple monthly observations.</p>
+
+    <div class="callout callout-success">
+      <p class="callout-title">What These Numbers Mean</p>
+      <p>A positive rate of 0.36% means the model is looking for a needle in a very large haystack. For every cancer case it can learn from, there are 277 non-cancer examples. This extreme imbalance makes every aspect of the pipeline harder &mdash; from feature selection to model training to performance measurement. It also makes label quality paramount: even a small contamination rate among the 277 negatives can degrade the model&rsquo;s ability to find the 1 positive.</p>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 5: Known Limitations
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <div class="section-title-row">
+      <span class="section-number">5</span>
+      <h2 class="section-header" style="margin-bottom:0; flex:1;">Known Limitations</h2>
+    </div>
+
+    <p>No study population is perfect. We believe in being transparent about the limitations of our approach, so that results are interpreted with the right context.</p>
+
+    <div class="callout callout-warning">
+      <p class="callout-title">Limitations to Keep in Mind</p>
+      <ul style="margin-bottom:0;">
+        <li style="margin-bottom:10px;">
+          <strong>Single health system.</strong> All training data comes from Mercy. Patients who leave our system and are diagnosed with CRC elsewhere may be incorrectly labeled as negative. The PCP notification pathway provides partial protection, but it is not foolproof.
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>Screening registry lacks timestamps.</strong> The hospital-wide screening registry tells us whether a patient is currently screened, not whether they were screened at each point in time during the study. Some patients who were genuinely unscreened during the observation period but got screened later are excluded from the entire cohort.
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>Tier 3 negatives are assumed.</strong> Roughly 30% of our negative labels come from patients we did not directly observe during the follow-up period. While the PCP safety net and 12-month elapsed time provide reasonable confidence, a small fraction of these patients may have undetected CRC.
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>21-month study window.</strong> Our study spans just under two years. A longer observation period would let us validate that the model&rsquo;s predictions remain stable over time.
+        </li>
+        <li>
+          <strong>ICD-10 codes, not a cancer registry.</strong> We identify CRC cases through diagnosis codes in the medical record, not through a dedicated cancer registry. Some cases coded during a rule-out workup may not be confirmed cancer, and some confirmed cases may be missed if coded imprecisely.
+        </li>
+      </ul>
+    </div>
+
+    <p>Despite these limitations, the tiered label quality approach, conservative exclusion strategy, and large cohort size give us confidence that the training population is a solid foundation for building a clinically useful model. And as noted in Section 1, the strict criteria described here apply only to training &mdash; the model scores any eligible patient age 45+ who is due for screening.</p>
+
+  </main>
+
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
+  <footer role="contentinfo">
+    <p>Generated for Mercy and Lucem Clinical Analytics | February 2026</p>
+    <p class="tagline">&ldquo;Your life is our life&rsquo;s work&rdquo;</p>
+    <div class="footer-links">
+      <a href="crc_model_results.html">Main Results</a>
+      <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
+      <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_c_technical_context.html">Appendix C: Technical Context</a>
+    </div>
+  </footer>
+
+</body>
+</html>

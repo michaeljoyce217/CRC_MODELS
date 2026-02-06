@@ -1009,6 +1009,8 @@
       <a href="crc_model_results.html" class="nav-active" aria-current="page">Main Results</a>
       <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
       <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_c_technical_context.html">Appendix C: Technical Context</a>
+      <a href="appendix_d_cohort_selection.html">Appendix D: Cohort Selection</a>
     </div>
   </nav>
 
@@ -1030,8 +1032,8 @@
       <button class="tab-btn" role="tab" id="btn-tab1" aria-controls="tab1" aria-selected="false" data-tab="tab1" tabindex="-1">Methodology</button>
       <button class="tab-btn" role="tab" id="btn-tab2" aria-controls="tab2" aria-selected="false" data-tab="tab2" tabindex="-1">Model Variants</button>
       <button class="tab-btn" role="tab" id="btn-tab3" aria-controls="tab3" aria-selected="false" data-tab="tab3" tabindex="-1">Standard Results</button>
-      <button class="tab-btn" role="tab" id="btn-tab5" aria-controls="tab5" aria-selected="false" data-tab="tab5" tabindex="-1">All Models</button>
-      <button class="tab-btn" role="tab" id="btn-tab6" aria-controls="tab6" aria-selected="false" data-tab="tab6" tabindex="-1">Context &amp; Next Steps</button>
+      <button class="tab-btn" role="tab" id="btn-tab5" aria-controls="tab5" aria-selected="false" data-tab="tab5" tabindex="-1">Head-to-Head</button>
+      <button class="tab-btn" role="tab" id="btn-tab6" aria-controls="tab6" aria-selected="false" data-tab="tab6" tabindex="-1">Next Steps</button>
     </div>
 
     <!-- ============================================================
@@ -1047,10 +1049,11 @@
         <h2 class="section-header">Executive Summary</h2>
 
         <p style="font-size: 1.15rem; color: #006598; font-weight: 500; margin-bottom: 28px; line-height: 1.6;">
-          Using Mercy&rsquo;s complete clinical data, we built a <strong>gold standard model</strong> that identifies
-          patients at elevated risk for colorectal cancer &mdash; before symptoms appear &mdash; using data
-          already captured in routine clinical care. This model sets the performance target that portable
-          variants will aim to match.
+          We built <strong>two complementary models</strong> that identify patients at elevated risk for colorectal
+          cancer &mdash; before symptoms appear &mdash; using data already captured in routine clinical care.
+          The <strong>Full Data</strong> model leverages every clinical signal in Mercy&rsquo;s EHR;
+          the <strong>FHIR Portable</strong> model uses only features available at any US hospital with
+          a Cures Act&ndash;compliant EHR. Both deliver transformative screening efficiency.
         </p>
 
         <!-- ── The Stakes ── -->
@@ -1075,21 +1078,35 @@
 
           <!-- Headline metric card -->
           <div style="flex: 1 1 100%; background: linear-gradient(135deg, #006598 0%, #004d73 100%); border-radius: 12px; padding: 32px 28px; text-align: center; color: #ffffff;">
-            <div style="font-size: 3.2rem; font-weight: 800; letter-spacing: -1px;">21&times;</div>
-            <div style="font-size: 1.15rem; font-weight: 500; margin-top: 8px; opacity: 0.95;">
+            <div style="display: flex; justify-content: center; align-items: baseline; gap: 24px; flex-wrap: wrap;">
+              <div>
+                <div style="font-size: 3.2rem; font-weight: 800; letter-spacing: -1px;">22&times;</div>
+                <div style="font-size: 0.85rem; font-weight: 500; opacity: 0.85; margin-top: 4px;">Full Data</div>
+              </div>
+              <div style="font-size: 1.5rem; font-weight: 300; opacity: 0.5; align-self: center;">&amp;</div>
+              <div>
+                <div style="font-size: 3.2rem; font-weight: 800; letter-spacing: -1px; color: #d4b8ff;">20&times;</div>
+                <div style="font-size: 0.85rem; font-weight: 500; opacity: 0.85; margin-top: 4px;">FHIR Portable</div>
+              </div>
+            </div>
+            <div style="font-size: 1.15rem; font-weight: 500; margin-top: 12px; opacity: 0.95;">
               more CRC cases identified in the highest-risk 1% of patients
             </div>
-            <div style="font-size: 0.9rem; margin-top: 12px; opacity: 0.75; line-height: 1.5;">
-              If we contact the top 1% of patients flagged by the model for screening,<br>
-              we find <strong>21 times more</strong> colorectal cancer cases than contacting patients at random.
+            <div style="font-size: 0.9rem; margin-top: 16px; opacity: 0.80; line-height: 1.7;">
+              <strong>Top 1%:</strong> Screen just 1% of patients, find <strong>22% / 20%</strong> of all CRC cases (NNS: 13 / 14)<br>
+              <strong>Top 10%:</strong> Screen 10% of patients, find <strong>55% / 50%</strong> of all CRC cases (NNS: 52 / 57)<br>
+              <strong>100%:</strong> Screen everyone &rarr; find everyone (lift = 1.0&times;) &mdash; but at 286 patients per case found
+            </div>
+            <div style="font-size: 0.82rem; margin-top: 10px; opacity: 0.6;">
+              The FHIR Portable model delivers comparable lift at every threshold &mdash; deployable at any FHIR-compliant hospital.
             </div>
           </div>
 
           <!-- Supporting metric cards -->
           <div style="flex: 1 1 200px; background: #f5f7fa; border: 1px solid #e0e7ed; border-radius: 10px; padding: 20px; text-align: center;">
-            <div style="font-size: 2rem; font-weight: 700; color: #006598;">28</div>
+            <div style="font-size: 2rem; font-weight: 700; color: #006598;">30 <span style="font-size:1rem; color:#999;">/</span> <span style="color:#6f42c1;">31</span></div>
             <div style="font-size: 0.88rem; color: #555;">Features Selected</div>
-            <div style="font-size: 0.78rem; color: #888; margin-top: 4px;">from 425+ engineered</div>
+            <div style="font-size: 0.78rem; color: #888; margin-top: 4px;">Full Data / FHIR Portable</div>
           </div>
 
           <div style="flex: 1 1 200px; background: #f5f7fa; border: 1px solid #e0e7ed; border-radius: 10px; padding: 20px; text-align: center;">
@@ -1162,30 +1179,30 @@
           </li>
           <li style="padding: 14px 16px 14px 60px; position: relative; margin-bottom: 10px; background: #f9fbfd; border-left: 4px solid #006598; border-radius: 0 6px 6px 0;">
             <span style="position: absolute; left: 16px; top: 12px; font-size: 1.3rem; font-weight: 700; color: #006598;">2</span>
-            <strong>Statistical reduction to 165</strong> using effect size (risk ratios) and information content
+            <strong>Statistical reduction to 169</strong> using effect size (risk ratios) and information content
             (mutual information) &mdash; not p-values, which are meaningless at this sample size.
           </li>
           <li style="padding: 14px 16px 14px 60px; position: relative; margin-bottom: 10px; background: #f9fbfd; border-left: 4px solid #006598; border-radius: 0 6px 6px 0;">
             <span style="position: absolute; left: 16px; top: 12px; font-size: 1.3rem; font-weight: 700; color: #006598;">3</span>
             <strong>Correlation clustering</strong> grouped related features and removed redundancy,
-            reducing to 139 while preserving the best representative from each group.
+            reducing to 141 while preserving the best representative from each group.
           </li>
           <li style="padding: 14px 16px 14px 60px; position: relative; margin-bottom: 10px; background: #f9fbfd; border-left: 4px solid #006598; border-radius: 0 6px 6px 0;">
             <span style="position: absolute; left: 16px; top: 12px; font-size: 1.3rem; font-weight: 700; color: #006598;">4</span>
-            <strong>28 rounds of iterative winnowing</strong> &mdash; at each round, the model was retrained
+            <strong>29 rounds of iterative winnowing</strong> &mdash; at each round, the model was retrained
             and features that contributed little were identified through multiple independent criteria.
             No single metric could eliminate a feature on its own.
           </li>
           <li style="padding: 14px 16px 14px 60px; position: relative; margin-bottom: 10px; background: #f9fbfd; border-left: 4px solid #006598; border-radius: 0 6px 6px 0;">
             <span style="position: absolute; left: 16px; top: 12px; font-size: 1.3rem; font-weight: 700; color: #006598;">5</span>
-            <strong>Cross-validation stability</strong> &mdash; all 28 final features were confirmed as
+            <strong>Cross-validation stability</strong> &mdash; all 30 final features were confirmed as
             important across 5 independent data splits. None survived by luck.
           </li>
         </ol>
 
         <div class="callout callout-info">
           <p>
-            <strong>The result:</strong> 425+ candidate features reduced to 28 that are statistically robust,
+            <strong>The result:</strong> 425+ candidate features reduced to 30 that are statistically robust,
             clinically interpretable, and independently validated. Every one of these features has a
             plain-English explanation that a clinician can review and understand.
           </p>
@@ -1216,6 +1233,29 @@
           appropriate next steps for each flagged patient.
         </p>
 
+        <div class="callout callout-info" style="margin-top:20px;">
+          <p class="callout-title">From Model Output to Clinical Action</p>
+          <p>
+            The raw model output (XGBoost predicted probabilities) goes through a three-step calibration
+            pipeline before reaching the clinical workflow:
+          </p>
+          <ol style="margin: 12px 0 0 20px;">
+            <li style="margin-bottom:8px;">
+              <strong>Isotonic calibration</strong> (fitted on training data) &mdash; aligns predicted
+              probabilities with observed event rates, correcting any systematic over- or under-confidence
+            </li>
+            <li style="margin-bottom:8px;">
+              <strong>Quantile transformation</strong> &mdash; maps calibrated probabilities to a 0&ndash;100
+              risk score where each point represents a percentile of the patient population
+            </li>
+            <li style="margin-bottom:8px;">
+              <strong>High-risk flag</strong> &mdash; patients above a clinical threshold receive a flag in
+              the EHR workflow. The care team never sees raw probabilities or numeric risk scores &mdash;
+              only the actionable flag
+            </li>
+          </ol>
+        </div>
+
         <hr class="divider">
 
         <!-- ── Quick comparison ── -->
@@ -1234,7 +1274,7 @@
               <tr>
                 <td class="row-label">Data Used</td>
                 <td>Blood tests + age + gender<br><span style="font-size:0.82rem; color:#888;">(~8&ndash;10 features)</span></td>
-                <td><strong>8 clinical categories</strong><br><span style="font-size:0.82rem; color:#888;">(28 features from vitals, diagnoses, visits, labs, demographics)</span></td>
+                <td><strong>8 clinical categories</strong><br><span style="font-size:0.82rem; color:#888;">(30&ndash;31 features from vitals, diagnoses, labs, visits, demographics, procedures)</span></td>
               </tr>
               <tr>
                 <td class="row-label">Trained On</td>
@@ -1249,7 +1289,7 @@
               <tr>
                 <td class="row-label">Screening Efficiency</td>
                 <td>Reported as odds ratios, not lift</td>
-                <td><strong>21&times; lift</strong> at top 1%</td>
+                <td><strong>22&times; / 20&times; lift</strong> at top 1%</td>
               </tr>
             </tbody>
           </table>
@@ -1260,20 +1300,20 @@
         <!-- ── Next Steps ── -->
         <h3>What Happens Next</h3>
         <p>
-          The Mercy Full Data model is our <strong>gold standard</strong> &mdash; the best performance achievable
-          with complete Mercy data. The next step is building a portable model that Lucem can deploy
-          in their own environment.
+          Both models are trained and validated. The FHIR Portable variant demonstrates that
+          <strong>strong clinical performance is achievable</strong> using only standard FHIR features &mdash;
+          20&times; lift at top 1%, 5&times; at top 10%, with no custom integrations required. The path to production:
         </p>
 
         <ol style="margin: 12px 0 20px 20px;">
-          <li style="margin-bottom:8px;"><strong>Lucem reviews the feature catalog</strong> (<a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B</a>) and identifies which features are universally available in their EHR</li>
-          <li style="margin-bottom:8px;"><strong>We run feature selection</strong> on the identified feature subset using the same automated pipeline that produced these results</li>
-          <li style="margin-bottom:8px;"><strong>Hyperparameter tuning</strong> (Optuna) and <strong>isotonic calibration followed by quantile transformation</strong> to produce a 0&ndash;100 risk score</li>
+          <li style="margin-bottom:8px;"><strong>Lucem reviews the feature catalog</strong> (<a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B</a>) to confirm which features are available in their EHR and determine the deployment model</li>
+          <li style="margin-bottom:8px;"><strong>Hyperparameter tuning</strong> (Optuna) on the selected model variants to squeeze maximum performance</li>
+          <li style="margin-bottom:8px;"><strong>Isotonic calibration + quantile transformation</strong> to produce a 0&ndash;100 risk score and clinical high-risk flag</li>
           <li style="margin-bottom:8px;"><strong>Model replication in Vertex AI</strong> on Google Cloud Platform for production deployment</li>
         </ol>
 
         <p style="font-size:0.88rem; color:#888; margin-top:16px;">
-          <em>Results shown are from the Mercy Full Data gold standard model. The FHIR Portable variant tests cross-hospital portability using only high-availability FHIR features.</em>
+          <em>Both models trained on 858K+ patient observations from Mercy&rsquo;s EHR (2023&ndash;2024). All metrics computed on a held-out test set never used during training or feature selection.</em>
         </p>
 
       </div>
@@ -1301,11 +1341,13 @@
           no follow-up after a missed appointment, no flag in the system. These are the patients we built this model to find.
         </p>
         <p>
-          Using <strong>858,000+ patient observations</strong> from Mercy&rsquo;s electronic health records, we developed a
-          gold standard model that identifies high-risk unscreened patients based on their existing clinical data &mdash;
-          labs, vitals, diagnoses, medications, procedures, and visit patterns. This gold standard establishes the
-          performance target; we then test how close we can get using only the data available for portable deployment
-          across health systems.
+          Using <strong>858,000+ patient observations</strong> from Mercy&rsquo;s electronic health records, we developed
+          two models that identify high-risk unscreened patients based on their existing clinical data &mdash;
+          labs, vitals, diagnoses, medications, procedures, and visit patterns.
+          In production, any patient age 45+ who is due for CRC screening receives a risk score
+          (see <a href="appendix_d_cohort_selection.html" style="color:#006598;">Appendix D</a> for inference population and training cohort details). The <strong>Full Data</strong> model
+          uses every available signal; the <strong>FHIR Portable</strong> model restricts to features available
+          at any Cures Act&ndash;compliant hospital. Both run through the same rigorous 5-phase selection pipeline.
         </p>
 
         <hr class="divider">
@@ -1314,8 +1356,11 @@
         <h3>How We Built It: The Pipeline</h3>
         <p>
           Building a reliable prediction model is not a single step &mdash; it is a careful, multi-stage process.
-          We started with eight categories of clinical data, engineered over 400 candidate features, used statistical
-          methods to identify the 165 most informative, and then systematically winnowed to the signals that matter most.
+          Both models follow the same 5-phase pipeline; the diagram below shows the <strong>Full Data</strong> model&rsquo;s
+          numbers. We started with eight categories of clinical data, engineered over 400 candidate features, used statistical
+          methods to identify the 169 most informative, and then systematically winnowed to the 30 signals that matter most.
+          The <strong>FHIR Portable</strong> model runs the identical pipeline starting from 118 candidates
+          (after excluding features not available in standard FHIR), winnowing through 14 rounds to 31 final features.
         </p>
 
         <div class="flow-diagram">
@@ -1332,7 +1377,7 @@
           </div>
           <div class="flow-arrow">&rarr;</div>
           <div class="flow-step flow-highlight">
-            165 Candidate<br>Features
+            169 Candidate<br>Features
           </div>
           <div class="flow-arrow">&rarr;</div>
           <div class="flow-step">
@@ -1340,7 +1385,7 @@
           </div>
           <div class="flow-arrow">&rarr;</div>
           <div class="flow-step">
-            Iterative<br>Winnowing<br><span class="flow-count">28 rounds</span>
+            Iterative<br>Winnowing<br><span class="flow-count">29 rounds</span>
           </div>
           <div class="flow-arrow">&rarr;</div>
           <div class="flow-step">
@@ -1352,7 +1397,7 @@
           </div>
           <div class="flow-arrow">&rarr;</div>
           <div class="flow-step flow-highlight">
-            28 Final<br>Features
+            30 Final<br>Features
           </div>
           <div class="flow-arrow">&rarr;</div>
           <div class="flow-step flow-highlight">
@@ -1361,13 +1406,13 @@
         </div>
 
         <p class="text-muted" style="text-align: center; margin-top: -8px;">
-          Each arrow represents a data-driven decision point. No features are removed arbitrarily.
+          Full Data pipeline shown. FHIR Portable follows the same process: 118 candidates &rarr; 14 rounds &rarr; 31 features.
         </p>
 
         <hr class="divider">
 
         <!-- Key Numbers Callout Cards -->
-        <h3>By the Numbers</h3>
+        <h3>By the Numbers <span style="font-size:0.7em; font-weight:400; color:#666;">(Full Data model)</span></h3>
         <div class="metric-cards">
           <div class="metric-card">
             <div class="metric-value">858,000+</div>
@@ -1378,7 +1423,7 @@
             <div class="metric-label">Features Engineered</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">165</div>
+            <div class="metric-value">169</div>
             <div class="metric-label">Statistical Survivors</div>
           </div>
           <div class="metric-card">
@@ -1386,11 +1431,11 @@
             <div class="metric-label">Feature Engineering Books</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">28</div>
+            <div class="metric-value">29</div>
             <div class="metric-label">Iterative Winnowing Rounds</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">28</div>
+            <div class="metric-value">30</div>
             <div class="metric-label">Final Features Selected</div>
           </div>
         </div>
@@ -1400,20 +1445,21 @@
         <!-- From Raw Data to Candidate Features -->
         <h3>From Raw Data to Candidate Features</h3>
         <p>
-          The 165 candidate features that enter the winnowing process are themselves the output of an earlier
-          reduction. Seven dedicated notebooks (Books 0&ndash;7) each extract and engineer features from a
-          single clinical data source, producing <strong>over 425 features in total</strong>. Each book then
+          For the Full Data model, the 169 candidate features that enter the winnowing process are themselves the output of an earlier
+          reduction. Seven dedicated feature engineering pipelines each extract and engineer features from a
+          single clinical data source, producing <strong>over 425 features in total</strong>. Each pipeline then
           applies statistical screening &mdash; risk ratio analysis and mutual information scoring &mdash;
           to identify which engineered features carry genuine predictive signal for CRC, discarding
-          those that are redundant, noisy, or clinically irrelevant. An eighth book (Book 8) compiles the
-          survivors into a single wide table.
+          those that are redundant, noisy, or clinically irrelevant. A final compilation step merges the
+          survivors into a single wide table. The FHIR Portable model follows the same pipeline but
+          excludes features not available in standard FHIR R4 implementations, starting from 118 candidates.
         </p>
 
         <!-- Single Book Schematic -->
-        <h4>How a Single Book Works: Laboratory Results (Book 4)</h4>
+        <h4>How a Single Pipeline Works: Laboratory Results</h4>
         <p>
-          Each of the seven feature engineering books follows the same disciplined process. Here is
-          Book 4 (Labs) as a representative example:
+          Each of the seven feature engineering pipelines follows the same disciplined process. Here is
+          Laboratory Results as a representative example:
         </p>
 
         <div class="flow-diagram">
@@ -1439,7 +1485,7 @@
         </div>
 
         <p style="font-size:0.92rem; color:#555;">
-          From 15 raw lab test types, Book 4 engineers 93 features &mdash; latest values, velocities (rate of change),
+          From 15 raw lab test types, this pipeline engineers 93 features &mdash; latest values, velocities (rate of change),
           accelerations (change in rate of change), composite flags (like &ldquo;comprehensive iron deficiency&rdquo;),
           and interaction terms. Statistical screening then identifies the 25 that carry the most information about
           future CRC risk, eliminating redundant time windows (e.g., keeping 6-month change but not also 12-month),
@@ -1449,7 +1495,7 @@
         <!-- Per-Book Breakdown (collapsible) -->
         <div class="collapsible">
           <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Per-Book Feature Counts: All Seven Feature Engineering Books</h4>
+            <h4>Feature Counts by Data Source</h4>
             <span class="collapse-icon">&#9660;</span>
           </div>
           <div class="collapsible-body">
@@ -1457,7 +1503,7 @@
               <table class="comparison-table">
                 <thead>
                   <tr>
-                    <th scope="col">Book</th>
+                    <th scope="col">Step</th>
                     <th scope="col">Domain</th>
                     <th scope="col">Engineered</th>
                     <th scope="col">Survived</th>
@@ -1466,63 +1512,63 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td class="row-label">Book 0</td>
+                    <td class="row-label">1</td>
                     <td>Demographics</td>
                     <td>13</td>
                     <td>11</td>
                     <td>15%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 1</td>
+                    <td class="row-label">2</td>
                     <td>Vitals</td>
                     <td>~70</td>
                     <td>24</td>
                     <td>66%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 2</td>
+                    <td class="row-label">3</td>
                     <td>ICD-10 Diagnoses</td>
                     <td>116</td>
                     <td>26</td>
                     <td>78%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 3</td>
+                    <td class="row-label">4</td>
                     <td>Social Factors</td>
                     <td>~30</td>
                     <td>0</td>
                     <td style="color:#bf5412; font-weight:600;">100% &mdash; excluded</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 4</td>
+                    <td class="row-label">5</td>
                     <td>Laboratory Results</td>
                     <td>93</td>
                     <td>25</td>
                     <td>73%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 5.1</td>
+                    <td class="row-label">6a</td>
                     <td>Outpatient Medications</td>
                     <td>48</td>
                     <td>19</td>
                     <td>60%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 5.2</td>
+                    <td class="row-label">6b</td>
                     <td>Inpatient Medications</td>
                     <td>48</td>
                     <td>20</td>
                     <td>58%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 6</td>
+                    <td class="row-label">7</td>
                     <td>Visit History</td>
                     <td>41</td>
                     <td>24</td>
                     <td>41%</td>
                   </tr>
                   <tr>
-                    <td class="row-label">Book 7</td>
+                    <td class="row-label">8</td>
                     <td>Procedures</td>
                     <td>33</td>
                     <td>17</td>
@@ -1532,18 +1578,19 @@
                     <td class="row-label">Total</td>
                     <td></td>
                     <td>~425</td>
-                    <td>165</td>
-                    <td>61%</td>
+                    <td>169*</td>
+                    <td>60%</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p style="font-size:0.88rem; color:#555; margin-top:12px;">
-              <strong>Book 3 (Social Factors)</strong> was fully excluded due to data quality issues &mdash; 78% of
+              <strong>Social Factors (step 4)</strong> was fully excluded due to data quality issues &mdash; 78% of
               patients had default &ldquo;never smoker&rdquo; status due to Epic workflow artifacts, producing
               inverted risk relationships. All ~30 social features were removed before compilation.
-              <strong>Book 8</strong> compiles survivors from Books 0&ndash;7 and applies final exclusions
-              (CEA, CA19-9, FOBT for circular reasoning; <code>months_since_cohort_entry</code> for prevalence bias).
+              The final compilation step merges survivors and applies exclusions
+              (CEA, CA19-9, FOBT for circular reasoning; <code>MONTHS_SINCE_COHORT_ENTRY</code> for prevalence bias).
+              *Total includes features derived during the compilation step.
             </p>
           </div>
         </div>
@@ -1553,18 +1600,18 @@
           <p class="callout-title">Why Statistical Screening Matters: Surfacing What Intuition Misses</p>
           <p>
             This automated, data-driven process does more than filter noise &mdash; it surfaces features that
-            clinical intuition alone might overlook. A clinician reviewing a patient chart would notice an
-            abnormally low hemoglobin value. But the statistical screening identified that
-            <strong>hemoglobin&rsquo;s accelerating decline</strong> &mdash; a second-derivative trend computed
-            from serial lab draws &mdash; is the single strongest lab predictor, carrying
-            <strong>10.9x elevated CRC risk</strong>. That&rsquo;s not a value on a lab report; it&rsquo;s a
-            mathematical pattern across visits that no human reviewer would calculate.
+            clinical intuition alone might overlook, and it rigorously tests whether their signal is truly
+            independent. For example, <strong>hemoglobin&rsquo;s accelerating decline</strong> &mdash; a second-derivative
+            trend computed from serial lab draws &mdash; showed <strong>10.9&times; elevated CRC risk</strong> during
+            initial statistical screening. But the iterative winnowing process determined that its predictive signal
+            was already captured by simpler hemoglobin and iron features, so it was correctly eliminated as redundant.
+            The pipeline doesn&rsquo;t just find strong signals &mdash; it identifies which ones are truly independent.
           </p>
           <p>
-            Similarly, features like <strong>systolic blood pressure variability over 6 months</strong> &mdash;
-            the #1 feature in both models by SHAP importance &mdash; emerge
-            from the statistical process: patterns that exist in the data but would never appear on a
-            clinical problem list. The combination of domain-driven feature engineering (what to measure)
+            The features that <em>do</em> survive are often ones a clinician would never think to look for.
+            <strong>Systolic blood pressure variability over 6 months</strong> is the #1 feature in both
+            models by SHAP importance &mdash; a pattern that exists in the data but would never appear on
+            a clinical problem list. The combination of domain-driven feature engineering (what to measure)
             with statistical screening (what matters) is what gives this pipeline its power.
           </p>
         </div>
@@ -1574,9 +1621,9 @@
         <!-- Feature Categories Table -->
         <h3>What Data Goes In: Eight Clinical Categories</h3>
         <p>
-          Every feature in the model traces back to real clinical data already captured in Mercy and Lucem's EHR.
+          Every feature in both models traces back to real clinical data already captured in Mercy and Lucem&rsquo;s EHR.
           We organized the raw data into eight categories, then engineered predictive signals from each.
-          The table below shows the final 165 survivors that enter the winnowing process.
+          The table below shows the 169 survivors from the Full Data model that enter the winnowing process.
         </p>
 
         <div class="table-wrapper">
@@ -1641,7 +1688,7 @@
               <tr style="background-color:#f0f6fa; font-weight:600;">
                 <td class="row-label">Total</td>
                 <td></td>
-                <td>165</td>
+                <td>169</td>
                 <td></td>
               </tr>
             </tbody>
@@ -1674,7 +1721,7 @@
               of correlated features is always preserved. The model never loses an entire category of signal.
             </li>
             <li>
-              <strong>Roughly 20 winnowing rounds,</strong> each removing only a handful of features at a time.
+              <strong>29 winnowing rounds,</strong> each removing only a handful of features at a time.
               This is a cautious, data-driven process &mdash; not aggressive pruning.
             </li>
             <li>
@@ -1683,7 +1730,7 @@
             </li>
           </ul>
           <p>
-            The result is a set of 28 features that have earned their place through repeated,
+            The result is a set of 30 features that have earned their place through repeated,
             independent evaluation &mdash; identifying the most predictive signals (feature selection) while
             guarding against the risk of over-fitting a rare outcome.
           </p>
@@ -1700,64 +1747,62 @@
         <!-- Why Two Variants? -->
         <h3>Why Two Variants?</h3>
         <p>
-          We built a <strong>gold standard model</strong> using every clinical data category
-          available in Mercy&rsquo;s EHR. This establishes the ceiling &mdash; the best performance
-          achievable with complete data. We then built a <strong>FHIR Portable</strong> variant
-          using only features available in standard US hospital FHIR R4 implementations. This
-          measures the cost of maximum cross-hospital portability &mdash; no custom integrations,
-          no medication mapping, no visit/scheduling data.
+          We built two models using the <strong>same automated pipeline</strong> but different
+          feature pools. The <strong>Full Data</strong> model uses every clinical data category
+          available in Mercy&rsquo;s EHR. The <strong>FHIR Portable</strong> model uses only
+          features available in standard US hospital FHIR R4 implementations &mdash; no custom
+          integrations, no medication mapping, no visit/scheduling data. The result: the portable
+          model delivers <strong>20&times; lift at top 1%</strong> and <strong>5&times; at top 10%</strong>,
+          closely tracking the Full Data model at every clinical operating point while being deployable at any
+          Cures Act&ndash;compliant hospital.
         </p>
 
         <hr class="divider">
 
         <!-- Three Model Cards -->
-        <h3>Two Models, Two Questions</h3>
+        <h3>Two Models, Two Deployment Scenarios</h3>
         <div class="model-cards">
 
-          <!-- Card 1: Full Data (Gold Standard) -->
+          <!-- Card 1: Full Data -->
           <div class="model-card" style="border: 2px solid #006598;">
-            <span class="model-tag tag-full">Gold Standard</span>
+            <span class="model-tag tag-full">Full Data</span>
             <h3>Mercy Full Data</h3>
             <p style="font-weight:600; color:#333; margin-bottom:12px;">All 8 Clinical Categories</p>
             <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
               <li style="margin-bottom:8px;">
-                ~425 engineered features statistically reduced to 165 candidates from demographics,
-                vitals, diagnoses, labs, medications, visits, and procedures
+                ~425 engineered features from 8 categories (demographics, vitals, diagnoses, labs,
+                medications, visits, procedures) &rarr; 169 candidates after statistical screening &rarr; 30 final
               </li>
               <li style="margin-bottom:8px;">
-                Our most comprehensive model &mdash; leverages every available clinical
-                signal from Mercy&rsquo;s EHR
-              </li>
-              <li style="margin-bottom:8px;">
-                <strong>Sets the performance target</strong> that portable variants will aim to match
+                Leverages every available clinical signal from Mercy&rsquo;s EHR, including
+                medication history and visit patterns
               </li>
             </ul>
             <p style="font-size:0.82rem; color:#006598; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              The gold standard &mdash; what&rsquo;s possible with complete data
+              Maximum performance &mdash; what&rsquo;s possible with complete data
             </p>
           </div>
 
-          <!-- Card 2: FHIR Portable (Experiment) -->
+          <!-- Card 2: FHIR Portable (Cross-Hospital) -->
           <div class="model-card">
-            <span class="model-tag tag-fhir">Experiment</span>
+            <span class="model-tag tag-fhir">Cross-Hospital</span>
             <h3>FHIR Portable</h3>
             <p style="font-weight:600; color:#333; margin-bottom:12px;">Standard FHIR Resources Only</p>
             <ul style="font-size:0.92rem; color:#555; padding-left:18px; margin-bottom:16px;">
               <li style="margin-bottom:8px;">
-                Uses only features available in standard US hospital FHIR R4 implementations
-                (US Core profiles)
+                ~290 FHIR-eligible features from 5 categories (demographics, vitals, diagnoses, labs,
+                procedures) &rarr; 118 candidates after screening &rarr; 31 final
               </li>
               <li style="margin-bottom:8px;">
                 <strong>Excludes:</strong> All medications (requires RxNorm mapping), visit history
                 (scheduling data), inpatient MAR, specialty labs (CRP, ESR, CA-125)
               </li>
               <li style="margin-bottom:8px;">
-                <strong>Motivated by cross-hospital portability:</strong> Works with any Cures Act&ndash;compliant
-                EHR without custom integrations
+                Works with any Cures Act&ndash;compliant EHR &mdash; no custom integrations required
               </li>
             </ul>
             <p style="font-size:0.82rem; color:#6f42c1; font-style:italic; border-top:1px solid #e0e7ed; padding-top:10px; margin-bottom:0;">
-              Experiment &mdash; maximum portability baseline
+              Cross-hospital portability &mdash; 20&times; lift at top 1%, 5&times; at top 10%
             </p>
           </div>
 
@@ -1768,39 +1813,57 @@
         <!-- Feature Count Comparison (CSS Bar Chart) -->
         <h3>Feature Count Comparison</h3>
         <p>
-          Each variant starts with a different number of candidate features, depending on which
-          data categories are included. The 5-phase pipeline then winnows each set down to the
-          most predictive signals.
+          Each variant starts from a different pool of features depending on which clinical data
+          categories are available. The same 5-phase pipeline then winnows each pool to the
+          most predictive signals. FHIR Portable excludes three entire categories (outpatient medications,
+          inpatient medications, and visit history) plus select specialty labs and procedures, starting
+          from a smaller pool.
         </p>
 
-        <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">Starting Features (Candidate Pool)</h4>
+        <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">1. Features Engineered (Books 0&ndash;7)</h4>
         <div class="bar-chart">
           <div class="bar-row">
             <div class="bar-label">Full Data</div>
             <div class="bar-track">
-              <div class="bar-fill fill-primary" style="width:100%;">~425 engineered &rarr; 165 candidates</div>
+              <div class="bar-fill fill-primary" style="width:100%;">~425 features from 8 categories</div>
             </div>
           </div>
           <div class="bar-row">
             <div class="bar-label">FHIR Portable</div>
             <div class="bar-track">
-              <div class="bar-fill" style="width:70%; background: linear-gradient(90deg, #6f42c1, #9d7bd8);">~425 engineered &rarr; 116 candidates</div>
+              <div class="bar-fill" style="width:68%; background: linear-gradient(90deg, #6f42c1, #9d7bd8);">~290 features from 5 categories</div>
             </div>
           </div>
         </div>
 
-        <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">Final Features (After Winnowing)</h4>
+        <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">2. Candidate Pool (After Statistical Screening)</h4>
         <div class="bar-chart">
           <div class="bar-row">
             <div class="bar-label">Full Data</div>
             <div class="bar-track">
-              <div class="bar-fill fill-primary" style="width:50%;">28 features</div>
+              <div class="bar-fill fill-primary" style="width:100%;">169 candidates</div>
             </div>
           </div>
           <div class="bar-row">
             <div class="bar-label">FHIR Portable</div>
             <div class="bar-track">
-              <div class="bar-fill" style="width:57%; background: linear-gradient(90deg, #6f42c1, #9d7bd8);">32 features</div>
+              <div class="bar-fill" style="width:70%; background: linear-gradient(90deg, #6f42c1, #9d7bd8);">118 candidates</div>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="color:#555; font-size:0.95rem; margin-top:24px; margin-bottom:12px;">3. Final Features (After Winnowing)</h4>
+        <div class="bar-chart">
+          <div class="bar-row">
+            <div class="bar-label">Full Data</div>
+            <div class="bar-track">
+              <div class="bar-fill fill-primary" style="width:97%;">30 features</div>
+            </div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">FHIR Portable</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:100%; background: linear-gradient(90deg, #6f42c1, #9d7bd8);">31 features</div>
             </div>
           </div>
         </div>
@@ -1811,10 +1874,10 @@
         <div class="callout callout-success">
           <p class="callout-title">Independent Optimization</p>
           <p>
-            Each experimental variant is built from scratch through the complete 5-phase pipeline &mdash;
-            not pruned from the gold standard. This ensures each experiment is independently optimized
+            Each model variant is built from scratch through the complete 5-phase pipeline &mdash;
+            not pruned from the Full Data model. This ensures each variant is independently optimized
             for its available data. The feature selection process discovers the best signals
-            within each data scope, giving us a true measure of what each data category contributes.
+            within each data scope, giving us a true measure of what each feature pool contributes.
           </p>
         </div>
 
@@ -1827,10 +1890,10 @@
         <h2 class="section-header">Standard Model Results</h2>
 
         <p>
-          Results from the two model variants. The Full Data column is the <strong>gold standard</strong>;
-          the FHIR Portable column measures cross-hospital portability using only standard FHIR features.
-          All metrics are computed on the held-out test set &mdash; patients the model
-          never saw during training or feature selection.
+          Side-by-side results from both model variants. The Full Data model uses every available
+          clinical signal; the FHIR Portable model uses only features available via standard FHIR.
+          All metrics are computed on the held-out test set &mdash; patients neither model
+          saw during training or feature selection.
         </p>
 
         <!-- Held-Out Test Set Explanation -->
@@ -1872,7 +1935,7 @@
             how many more CRC cases will we find compared to reaching out at random?&rdquo;</em>
           </p>
           <p>
-            A lift of 21&times; at the top 1% means the highest-risk 1% of patients contains 21 times more CRC cases
+            A lift of 22&times; at the top 1% means the highest-risk 1% of patients contains 22 times more CRC cases
             than a random 1% sample. This translates directly to <strong>screening program efficiency</strong> &mdash;
             the same outreach budget reaches far more patients who actually need colonoscopies. We report lift
             at multiple thresholds (top 1%, 5%, 10%) because the operational question is &ldquo;how many patients
@@ -1882,8 +1945,11 @@
           <p>
             <strong>AUPRC (Area Under Precision-Recall Curve)</strong> &mdash;
             Summarizes model quality across all decision thresholds. At our 0.36% prevalence,
-            a random classifier scores 0.004. Published ML models on rare clinical events
-            typically achieve 0.05&ndash;0.10, representing a 12&ndash;25&times; improvement over random. AUPRC was
+            a random classifier scores 0.0036. Published CRC models (e.g., ColonFlag) report
+            AUPRC of 0.05&ndash;0.10 &mdash; but at prevalence rates of 1&ndash;2%, where the problem is
+            3&ndash;5&times; easier. Our Full Data model achieves <strong>0.0622</strong> (17&times; above random)
+            at nearly 5&times; lower prevalence, and the FHIR Portable model achieves <strong>0.0478</strong>
+            (13&times; above random). AUPRC was
             used to guide model selection during training because it correctly penalizes false positives
             in highly imbalanced settings.
           </p>
@@ -1934,48 +2000,61 @@
             <tbody>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 1%</td>
-                <td><strong>21.2&times;</strong></td>
-                <td><strong>20.1&times;</strong></td>
+                <td><strong>22.1&times;</strong></td>
+                <td><strong>19.9&times;</strong></td>
               </tr>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 10%</td>
                 <td><strong>5.5&times;</strong></td>
-                <td><strong>5.1&times;</strong></td>
-              </tr>
-              <tr style="background-color:#fff8f4;">
-                <td class="row-label">Lift @ 100%</td>
-                <td><strong>1.0&times;</strong></td>
-                <td>1.0&times;</td>
+                <td><strong>5.0&times;</strong></td>
               </tr>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">NNS @ Top 1%</td>
-                <td><strong>14</strong></td>
+                <td><strong>13</strong></td>
                 <td><strong>14</strong></td>
               </tr>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">NNS @ Top 10%</td>
                 <td><strong>52</strong></td>
-                <td><strong>56</strong></td>
+                <td><strong>57</strong></td>
               </tr>
               <tr>
                 <td>Test AUPRC</td>
-                <td><strong>0.0534</strong></td>
-                <td>0.0401</td>
+                <td><strong>0.0622</strong></td>
+                <td>0.0478</td>
               </tr>
               <tr>
                 <td>Test AUROC</td>
-                <td>0.8268</td>
-                <td>0.7805</td>
+                <td><strong>0.8308</strong></td>
+                <td>0.7866</td>
               </tr>
               <tr>
                 <td>Final Feature Count</td>
-                <td><strong>28</strong></td>
-                <td><strong>32</strong></td>
+                <td><strong>30</strong></td>
+                <td><strong>31</strong></td>
               </tr>
             </tbody>
           </table>
         </div>
         <p style="font-size:0.82rem; color:#666; margin-top:6px;">NNS = Number Needed to Screen &mdash; patients screened to find one CRC case. Random screening baseline: 286 patients per case found.</p>
+
+        <!-- Interpretation Callout -->
+        <div class="callout callout-info" style="margin-top:20px;">
+          <p class="callout-title">Reading This Table</p>
+          <p>
+            <strong>At the top 1%</strong> (highest-acuity outreach), Full Data finds 22% of CRC cases and FHIR Portable finds 20% &mdash;
+            screening 13 vs. 14 patients per case found. <strong>At the top 10%</strong> (broader screening program),
+            Full Data finds 55% of cases and FHIR Portable finds 50%, screening 52 vs. 57 patients per case.
+            Both models are far superior to unguided screening, where 286 patients must be screened per case found.
+          </p>
+          <p>
+            The gap between models widens for overall statistical metrics: FHIR Portable&rsquo;s AUPRC is 23% lower (0.048 vs. 0.062)
+            and its AUROC is 5% lower (0.79 vs. 0.83). These differences reflect the Full Data model&rsquo;s richer feature set
+            (visit patterns, PCP status, specialty labs) improving ranking quality across the entire score distribution.
+            At the clinical operating points that matter most &mdash; the top 1&ndash;10% where outreach resources are deployed &mdash;
+            the models perform comparably.
+          </p>
+        </div>
 
         <hr class="divider">
 
@@ -1983,15 +2062,15 @@
       </div>
 
       <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 5: All Models Comparison
+           TAB 5: Head-to-Head Comparison
            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
       <div class="tab-pane" id="tab5" role="tabpanel" aria-labelledby="btn-tab5" tabindex="0" hidden>
-        <h2 class="section-header">All Models Comparison</h2>
+        <h2 class="section-header">Head-to-Head Comparison</h2>
 
         <p>
-          Side-by-side comparison of the gold standard model and the FHIR Portable variant.
-          The Full Data column is the performance target; the FHIR Portable column measures the cost
-          of using only standard FHIR features for maximum cross-hospital portability.
+          Side-by-side comparison of both model variants. The Full Data model represents maximum
+          performance with complete Mercy data; the FHIR Portable model demonstrates how much
+          of that performance is retained using only standard FHIR features.
         </p>
 
         <!-- ── Summary Comparison Table ── -->
@@ -2008,44 +2087,39 @@
             <tbody>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 1%</td>
-                <td><strong>21.2&times;</strong></td>
-                <td><strong>20.1&times;</strong></td>
+                <td><strong>22.1&times;</strong></td>
+                <td><strong>19.9&times;</strong></td>
               </tr>
 
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">Lift @ Top 10%</td>
                 <td><strong>5.5&times;</strong></td>
-                <td><strong>5.1&times;</strong></td>
-              </tr>
-              <tr style="background-color:#fff8f4;">
-                <td class="row-label">Lift @ 100%</td>
-                <td><strong>1.0&times;</strong></td>
-                <td>1.0&times;</td>
+                <td><strong>5.0&times;</strong></td>
               </tr>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">NNS @ Top 1%</td>
-                <td><strong>14</strong></td>
+                <td><strong>13</strong></td>
                 <td><strong>14</strong></td>
               </tr>
               <tr style="background-color:#fff8f4;">
                 <td class="row-label">NNS @ Top 10%</td>
                 <td><strong>52</strong></td>
-                <td><strong>56</strong></td>
+                <td><strong>57</strong></td>
               </tr>
               <tr>
                 <td>Test AUPRC</td>
-                <td><strong>0.0534</strong></td>
-                <td>0.0401</td>
+                <td><strong>0.0622</strong></td>
+                <td>0.0478</td>
               </tr>
               <tr>
                 <td>Test AUROC</td>
-                <td>0.8268</td>
-                <td>0.7805</td>
+                <td><strong>0.8308</strong></td>
+                <td>0.7866</td>
               </tr>
               <tr>
                 <td class="row-label">Final Features</td>
-                <td><strong>28</strong></td>
-                <td><strong>32</strong></td>
+                <td><strong>30</strong></td>
+                <td><strong>31</strong></td>
               </tr>
 
             </tbody>
@@ -2055,130 +2129,116 @@
 
         <hr class="divider">
 
-        <!-- ── Cumulative Gains Chart ── -->
-        <h3>Cumulative Gains</h3>
+        <!-- ── Screening Efficiency Chart ── -->
+        <h3>Screening Efficiency: Models vs. Random</h3>
         <p style="font-size:0.88rem; color:#555; margin-bottom:16px;">
-          How many CRC cases does each model find as you screen increasing portions of the population?
-          The steeper the curve above the diagonal, the more efficiently the model concentrates risk at the top.
+          If you screen a fixed portion of patients, how many CRC cases does each model find &mdash;
+          and how does that compare to screening at random?
         </p>
         <div style="text-align:center; margin:20px 0;">
-          <svg viewBox="0 0 680 480" style="max-width:620px; width:100%; height:auto; font-family:'Inter','Segoe UI',sans-serif;" role="img" aria-label="Cumulative gains chart comparing Full Data and FHIR Portable models">
+          <svg viewBox="0 0 680 440" style="max-width:620px; width:100%; height:auto; font-family:'Inter','Segoe UI',sans-serif;" role="img" aria-label="Bar chart comparing CRC cases found by Full Data, FHIR Portable, and random screening at top 1% and top 10% thresholds">
 
             <!-- Chart background -->
-            <rect x="75" y="35" width="555" height="370" fill="#fafbfc"/>
+            <rect x="80" y="40" width="540" height="320" fill="#fafbfc" rx="4"/>
 
             <!-- Horizontal gridlines -->
-            <line x1="75" y1="312.5" x2="630" y2="312.5" stroke="#e8e8e8" stroke-width="0.5"/>
-            <line x1="75" y1="220" x2="630" y2="220" stroke="#e8e8e8" stroke-width="0.5"/>
-            <line x1="75" y1="127.5" x2="630" y2="127.5" stroke="#e8e8e8" stroke-width="0.5"/>
+            <line x1="80" y1="93" x2="620" y2="93" stroke="#e8e8e8" stroke-width="0.5"/>
+            <line x1="80" y1="147" x2="620" y2="147" stroke="#e8e8e8" stroke-width="0.5"/>
+            <line x1="80" y1="200" x2="620" y2="200" stroke="#e8e8e8" stroke-width="0.5"/>
+            <line x1="80" y1="253" x2="620" y2="253" stroke="#e8e8e8" stroke-width="0.5"/>
+            <line x1="80" y1="307" x2="620" y2="307" stroke="#e8e8e8" stroke-width="0.5"/>
 
-            <!-- Vertical gridlines -->
-            <line x1="213.75" y1="35" x2="213.75" y2="405" stroke="#e8e8e8" stroke-width="0.5"/>
-            <line x1="352.5" y1="35" x2="352.5" y2="405" stroke="#e8e8e8" stroke-width="0.5"/>
-            <line x1="491.25" y1="35" x2="491.25" y2="405" stroke="#e8e8e8" stroke-width="0.5"/>
-
-            <!-- Reference lines at 1% and 10% screening thresholds -->
-            <line x1="80.55" y1="35" x2="80.55" y2="405" stroke="#bf5412" stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5"/>
-            <line x1="130.5" y1="35" x2="130.5" y2="405" stroke="#bf5412" stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5"/>
-
-            <!-- Random baseline (diagonal) -->
-            <line x1="75" y1="405" x2="630" y2="35" stroke="#aaa" stroke-width="1.5" stroke-dasharray="6,4"/>
-
-            <!-- Full Data curve (blue, solid) -->
-            <path d="M 75 405 C 75 365, 78 340, 80.55 326.56 C 88 285, 107 230, 130.5 201.5 C 230 125, 440 55, 630 35"
-                  stroke="#006598" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-
-            <!-- FHIR Portable curve (purple, dashed) -->
-            <path d="M 75 405 C 75 370, 78 345, 80.55 330.63 C 88 295, 107 240, 130.5 216.3 C 230 140, 440 60, 630 35"
-                  stroke="#6f42c1" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="10,5"/>
-
-            <!-- Data points &mdash; Full Data (1%, 10%) -->
-            <circle cx="80.55" cy="326.56" r="4.5" fill="#006598"/>
-            <circle cx="130.5" cy="201.5" r="4.5" fill="#006598"/>
-
-            <!-- Data points &mdash; FHIR Portable (1%, 10%) -->
-            <circle cx="80.55" cy="330.63" r="4.5" fill="#6f42c1"/>
-            <circle cx="130.5" cy="216.3" r="4.5" fill="#6f42c1"/>
-
-            <!-- Annotation: Top 1% callout -->
-            <rect x="108" y="260" width="128" height="56" rx="5" fill="white" stroke="#bf5412" stroke-width="1" opacity="0.95"/>
-            <text x="172" y="276" text-anchor="middle" font-size="11" fill="#bf5412" font-weight="700">Top 1%</text>
-            <text x="172" y="291" text-anchor="middle" font-size="10">
-              <tspan fill="#006598" font-weight="600">21%</tspan>
-              <tspan fill="#999"> | </tspan>
-              <tspan fill="#6f42c1" font-weight="600">20%</tspan>
-              <tspan fill="#666"> of cases</tspan>
-            </text>
-            <text x="172" y="306" text-anchor="middle" font-size="10">
-              <tspan fill="#666">NNS: </tspan>
-              <tspan fill="#006598" font-weight="600">14</tspan>
-              <tspan fill="#999"> | </tspan>
-              <tspan fill="#6f42c1" font-weight="600">14</tspan>
-            </text>
-            <line x1="80.55" y1="326" x2="108" y2="293" stroke="#bf5412" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.7"/>
-
-            <!-- Annotation: Top 10% callout -->
-            <rect x="168" y="148" width="128" height="56" rx="5" fill="white" stroke="#bf5412" stroke-width="1" opacity="0.95"/>
-            <text x="232" y="164" text-anchor="middle" font-size="11" fill="#bf5412" font-weight="700">Top 10%</text>
-            <text x="232" y="179" text-anchor="middle" font-size="10">
-              <tspan fill="#006598" font-weight="600">55%</tspan>
-              <tspan fill="#999"> | </tspan>
-              <tspan fill="#6f42c1" font-weight="600">51%</tspan>
-              <tspan fill="#666"> of cases</tspan>
-            </text>
-            <text x="232" y="194" text-anchor="middle" font-size="10">
-              <tspan fill="#666">NNS: </tspan>
-              <tspan fill="#006598" font-weight="600">52</tspan>
-              <tspan fill="#999"> | </tspan>
-              <tspan fill="#6f42c1" font-weight="600">56</tspan>
-            </text>
-            <line x1="130.5" y1="209" x2="168" y2="176" stroke="#bf5412" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.7"/>
-
+            <!-- Y-axis: 0% to 60%, chart height 320px → 5.33px per % -->
             <!-- Axes -->
-            <line x1="75" y1="405" x2="630" y2="405" stroke="#333" stroke-width="1.5"/>
-            <line x1="75" y1="35" x2="75" y2="405" stroke="#333" stroke-width="1.5"/>
-
-            <!-- X-axis labels -->
-            <text x="80.55" y="422" text-anchor="middle" font-size="10" fill="#bf5412" font-weight="600">1%</text>
-            <text x="130.5" y="422" text-anchor="middle" font-size="10" fill="#bf5412" font-weight="600">10%</text>
-            <text x="213.75" y="422" text-anchor="middle" font-size="11" fill="#666">25%</text>
-            <text x="352.5" y="422" text-anchor="middle" font-size="11" fill="#666">50%</text>
-            <text x="491.25" y="422" text-anchor="middle" font-size="11" fill="#666">75%</text>
-            <text x="630" y="422" text-anchor="middle" font-size="11" fill="#666">100%</text>
+            <line x1="80" y1="360" x2="620" y2="360" stroke="#333" stroke-width="1.5"/>
+            <line x1="80" y1="40" x2="80" y2="360" stroke="#333" stroke-width="1.5"/>
 
             <!-- Y-axis labels -->
-            <text x="67" y="409" text-anchor="end" font-size="11" fill="#666">0%</text>
-            <text x="67" y="316.5" text-anchor="end" font-size="11" fill="#666">25%</text>
-            <text x="67" y="224" text-anchor="end" font-size="11" fill="#666">50%</text>
-            <text x="67" y="131.5" text-anchor="end" font-size="11" fill="#666">75%</text>
-            <text x="67" y="39" text-anchor="end" font-size="11" fill="#666">100%</text>
+            <text x="72" y="364" text-anchor="end" font-size="11" fill="#666">0%</text>
+            <text x="72" y="307" text-anchor="end" font-size="11" fill="#666">10%</text>
+            <text x="72" y="253" text-anchor="end" font-size="11" fill="#666">20%</text>
+            <text x="72" y="200" text-anchor="end" font-size="11" fill="#666">30%</text>
+            <text x="72" y="147" text-anchor="end" font-size="11" fill="#666">40%</text>
+            <text x="72" y="93" text-anchor="end" font-size="11" fill="#666">50%</text>
+            <text x="72" y="40" text-anchor="end" font-size="11" fill="#666">60%</text>
 
-            <!-- Axis titles -->
-            <text x="352" y="452" text-anchor="middle" font-size="12" fill="#333" font-weight="500">% of Population Screened</text>
-            <text x="24" y="220" text-anchor="middle" font-size="12" fill="#333" font-weight="500" transform="rotate(-90 24 220)">% of CRC Cases Found</text>
+            <!-- Y-axis title -->
+            <text x="22" y="200" text-anchor="middle" font-size="12" fill="#333" font-weight="500" transform="rotate(-90 22 200)">% of CRC Cases Found</text>
 
-            <!-- Random label -->
-            <text x="555" y="108" font-size="10" fill="#999" font-style="italic" transform="rotate(-33 555 108)">Random</text>
+            <!-- ═══ GROUP 1: Screen Top 1% ═══ -->
+            <!-- Full Data: 22% → height=117, top=243 -->
+            <rect x="140" y="243" width="55" height="117" fill="#006598" rx="3"/>
+            <text x="167" y="236" text-anchor="middle" font-size="12" fill="#006598" font-weight="700">22%</text>
+
+            <!-- FHIR Portable: 20% → height=107, top=253 -->
+            <rect x="205" y="253" width="55" height="107" fill="#6f42c1" rx="3"/>
+            <text x="232" y="246" text-anchor="middle" font-size="12" fill="#6f42c1" font-weight="700">20%</text>
+
+            <!-- Random: 1% → height=5, top=355 -->
+            <rect x="270" y="355" width="55" height="5" fill="#ccc" rx="1"/>
+            <text x="297" y="348" text-anchor="middle" font-size="11" fill="#999" font-weight="600">1%</text>
+
+            <!-- Group label -->
+            <text x="230" y="390" text-anchor="middle" font-size="13" fill="#333" font-weight="600">Screen Top 1%</text>
+            <text x="230" y="405" text-anchor="middle" font-size="10" fill="#888">(~8,600 patients)</text>
+
+            <!-- ═══ GROUP 2: Screen Top 10% ═══ -->
+            <!-- Full Data: 55% → height=293, top=67 -->
+            <rect x="400" y="67" width="55" height="293" fill="#006598" rx="3"/>
+            <text x="427" y="59" text-anchor="middle" font-size="12" fill="#006598" font-weight="700">55%</text>
+
+            <!-- FHIR Portable: 50% → height=267, top=93 -->
+            <rect x="465" y="93" width="55" height="267" fill="#6f42c1" rx="3"/>
+            <text x="492" y="86" text-anchor="middle" font-size="12" fill="#6f42c1" font-weight="700">50%</text>
+
+            <!-- Random: 10% → height=53, top=307 -->
+            <rect x="530" y="307" width="55" height="53" fill="#ccc" rx="1"/>
+            <text x="557" y="300" text-anchor="middle" font-size="11" fill="#999" font-weight="600">10%</text>
+
+            <!-- Group label -->
+            <text x="490" y="390" text-anchor="middle" font-size="13" fill="#333" font-weight="600">Screen Top 10%</text>
+            <text x="490" y="405" text-anchor="middle" font-size="10" fill="#888">(~85,800 patients)</text>
 
             <!-- Legend -->
-            <rect x="400" y="360" width="222" height="38" rx="4" fill="white" stroke="#ddd" stroke-width="0.5"/>
-            <line x1="410" y1="373" x2="435" y2="373" stroke="#006598" stroke-width="2.5"/>
-            <text x="440" y="377" font-size="10" fill="#333">Full Data (28 features)</text>
-            <line x1="410" y1="390" x2="435" y2="390" stroke="#6f42c1" stroke-width="2.5" stroke-dasharray="10,5"/>
-            <text x="440" y="394" font-size="10" fill="#333">FHIR Portable (32 features)</text>
+            <rect x="160" y="420" width="360" height="18" rx="3" fill="none"/>
+            <rect x="160" y="422" width="12" height="12" fill="#006598" rx="2"/>
+            <text x="176" y="432" font-size="10" fill="#333">Full Data (30)</text>
+            <rect x="280" y="422" width="12" height="12" fill="#6f42c1" rx="2"/>
+            <text x="296" y="432" font-size="10" fill="#333">FHIR Portable (31)</text>
+            <rect x="420" y="422" width="12" height="12" fill="#ccc" rx="2"/>
+            <text x="436" y="432" font-size="10" fill="#333">Random Screening</text>
 
           </svg>
         </div>
-        <p style="font-size:0.82rem; color:#666; margin-top:6px;">Cumulative gains at each screening threshold: percentage of all CRC cases captured when screening the top N% of patients by model risk score. Both models are nearly indistinguishable at operating thresholds (1% and 10%). NNS = patients screened per cancer found (random = 286).</p>
+        <p style="font-size:0.82rem; color:#666; margin-top:6px;">Both models dramatically outperform random screening. At the top 1% threshold, each model finds 20&ndash;22&times; more CRC cases than random &mdash; the equivalent of screening 13&ndash;14 patients per cancer found, vs. 286 for unguided screening.</p>
 
         <hr class="divider">
 
         <!-- ── Observations ── -->
         <h3>Key Observations</h3>
 
+        <div class="callout callout-success">
+          <p class="callout-title">Full Data: What Survived Winnowing</p>
+          <p>
+            Of the 8 clinical data categories that went into feature engineering, the final 30-feature
+            model draws from just <strong>5 categories</strong>: vitals (7 features), ICD-10 diagnoses (8),
+            labs (6), visit history (6), and demographics (3). Notably, <strong>no medication features</strong>
+            (outpatient or inpatient) and <strong>no procedure features</strong> survived 29 rounds of winnowing.
+            This suggests the core CRC signal in Mercy&rsquo;s data comes from physiological markers
+            (labs, vitals), diagnostic history (ICD codes), and care utilization patterns (visits) &mdash;
+            not from what was prescribed or what procedures were performed.
+          </p>
+          <p style="margin-top:10px; font-size:0.88rem; color:#555;">
+            This finding has important implications for portability: 3 of the 5 surviving categories
+            (labs, diagnoses, demographics) are standard FHIR resources, while vitals and visit patterns
+            require varying levels of integration. The FHIR Portable run will test whether the model
+            can maintain performance without the visit features.
+          </p>
+        </div>
+
         <div class="callout callout-info" style="border-left-color:#6f42c1;">
           <p class="callout-title">FHIR Portable Feasibility</p>
-          <p>The FHIR Portable model loses 49 features (all medications, all visit history, PCP status, specialty labs) yet delivers <strong>20.1&times; lift at top 1%</strong> vs. the gold standard&rsquo;s 21.2&times; &mdash; a gap of just 5%. In clinical terms: <strong>14 patients screened per cancer found</strong> (vs. 14 for Full Data, vs. 286 for random screening). The model compensates for lost utilization features by recruiting more ICD diagnosis codes (9 vs. 6) and vital sign derivatives (12 vs. 8), producing a more clinically defensible feature set. Notably, the FHIR model&rsquo;s train-validation gap is <strong>half</strong> that of the Full Data model (0.03 vs. 0.07), suggesting better generalizability &mdash; the visit features in Full Data may partially capture institutional patterns rather than pure clinical signal.</p>
+          <p>The FHIR Portable model uses only features available in standard US FHIR R4 implementations, starting from 118 candidate features (vs. 169 for Full Data). Despite losing all visit history and PCP status features, it delivers <strong>19.9&times; lift at top 1%</strong> vs. Full Data&rsquo;s 22.1&times; &mdash; a gap of just 10%. In clinical terms: <strong>14 patients screened per cancer found</strong> (vs. 13 for Full Data, vs. 286 for random screening). The two models share a core of <strong>18 common features</strong> but diverge in how they compensate: Full Data leverages visit utilization patterns (6 features), while FHIR Portable recruits additional vital sign derivatives (4 more than Full Data) and retains procedure and medication features that Full Data winnowed away.</p>
         </div>
 
         <hr class="divider">
@@ -2190,380 +2250,30 @@
            TAB 6: Context & Next Steps
            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
       <div class="tab-pane" id="tab6" role="tabpanel" aria-labelledby="btn-tab6" tabindex="0" hidden>
-        <h2 class="section-header">Context &amp; Next Steps</h2>
+        <h2 class="section-header">Next Steps</h2>
 
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 1: Our Results in Context
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:28px; color:#1a1a1a;">Our Results in Context</h3>
+        <p>
+          The FHIR Portable model &mdash; designed to work with any Cures Act&ndash;compliant EHR &mdash; is the deployment target.
+          The path forward focuses on agreeing on which features are universally available, rebuilding the model
+          on the finalized feature set, and delivering a turnkey product for clinical deployment.
+        </p>
 
-        <p>The results discussed in this section are from the <strong>Mercy Full Data (Standard)</strong> model &mdash; our gold standard trained on all available Mercy data. We will build a portable Lucem model and aim to match this gold standard using the features Lucem identifies as available in their EHR.</p>
+        <hr class="divider">
 
-        <p>These results represent strong performance on one of the most challenging prediction problems in clinical analytics &mdash; identifying rare cancer events in a general population with noisy outcomes.</p>
-
-        <p>Colorectal cancer prediction in a general, unscreened population is fundamentally different from predicting outcomes in a controlled study or curated registry. Our model must find signal in a population where only 1 in 277 patients will receive a CRC diagnosis within the prediction window, using routinely collected clinical data that was never designed for this purpose.</p>
-
-        <div class="callout callout-success">
-          <p class="callout-title">Putting AUPRC in Perspective</p>
-          <p>At a prevalence of 0.36%, a model that guesses randomly scores an AUPRC of <strong>0.004</strong>. Published machine learning models on rare clinical events typically achieve AUPRC in the range of 0.05 to 0.10, which is considered strong performance. Our model achieves <strong>0.0534</strong> &mdash; approximately <strong>13&times;</strong> better than random, placing it in the upper range of published models for rare clinical events.</p>
-        </div>
-
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 2: Published CRC Model Comparison Table
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:36px; color:#1a1a1a;">Published CRC Model Comparison</h3>
-
-        <p>The most widely cited machine-learning CRC prediction model in the published literature is <strong>ColonFlag</strong>, developed by Medial EarlySign (Kfar Malal, Israel) and validated on a Kaiser Permanente Northern California (KPNC) cohort of 308,721 patients. The validation study was published in <em>Clinical Gastroenterology and Hepatology</em> (2020) and funded by Medial Research &mdash; the company that developed the algorithm being evaluated.</p>
-
-        <p>ColonFlag uses an ensemble of decision trees trained on <strong>CBC (Complete Blood Count) parameters only</strong> &mdash; hemoglobin, MCV, RDW, and other red cell indices &mdash; augmented by age and gender. The clinical intuition is sound: CRC often causes slow GI blood loss, which manifests as changes in CBC values before symptoms appear. However, this means ColonFlag is functionally a <em>blood loss detector</em>, not a comprehensive CRC risk model.</p>
-
-        <table class="comparison-table" style="border-left: 4px solid #006598;">
-          <thead>
-            <tr>
-              <th scope="col">Dimension</th>
-              <th scope="col">ColonFlag (Schneider et&nbsp;al. 2020)</th>
-              <th scope="col">Our Model</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="row-label">Study Design</td>
-              <td>Nested case-control within KPNC (retrospective)</td>
-              <td>Prospective cohort at Mercy and Lucem</td>
-            </tr>
-            <tr>
-              <td class="row-label">Population</td>
-              <td>308,721 (ages 50&ndash;75 with CBC, 1996&ndash;2015)</td>
-              <td>858,000+ (ages 45+, unscreened, 2023&ndash;2024)</td>
-            </tr>
-            <tr>
-              <td class="row-label">Outcome Verification</td>
-              <td>Kaiser Cancer Registry (&gt;98% capture)</td>
-              <td>ICD-10 diagnosis codes with targeted validation</td>
-            </tr>
-            <tr>
-              <td class="row-label">Positive Rate</td>
-              <td>1.95% (6,019 CRC cases)</td>
-              <td>0.36% (~5.4&times; rarer events)</td>
-            </tr>
-            <tr>
-              <td class="row-label">Feature Scope</td>
-              <td>~8&ndash;10 features (CBC + age + gender)</td>
-              <td>~425 engineered &rarr; 165 candidates &rarr; 28 final features</td>
-            </tr>
-            <tr>
-              <td class="row-label">Feature Sources</td>
-              <td>Single lab panel</td>
-              <td>8 clinical categories (labs, vitals, Dx, meds, procedures, visits)</td>
-            </tr>
-            <tr>
-              <td class="row-label">AUROC</td>
-              <td>0.78 (95% CI: 0.77&ndash;0.78)</td>
-              <td><strong>0.8268</strong></td>
-            </tr>
-            <tr>
-              <td class="row-label">Sensitivity (at 97% specificity)</td>
-              <td>35.4% (95% CI: 33.8&ndash;36.7%)</td>
-              <td><span class="placeholder">[pending]</span></td>
-            </tr>
-            <tr>
-              <td class="row-label">Key Metric</td>
-              <td>OR 17.7&times; (high vs. low score); early-stage OR 13.1&times;</td>
-              <td><strong>21&times; lift</strong> at top 1%</td>
-            </tr>
-            <tr>
-              <td class="row-label">Proximal vs. Distal</td>
-              <td>Proximal OR 34.7&times; vs. distal OR 12.1&times; (3&times; gap)</td>
-              <td><span class="placeholder">[--]</span></td>
-            </tr>
-            <tr>
-              <td class="row-label">Development</td>
-              <td>Medial Research (vendor-funded study)</td>
-              <td>Internal Mercy and Lucem development</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <p style="font-size:0.85rem; color:#666; margin-top:8px;">Schneider JL et al., &ldquo;Validation of an Algorithm to Identify Patients at Risk for Colorectal Cancer Based on Laboratory Test and Demographic Data in Diverse, Community-Based Population,&rdquo; <em>Clin Gastroenterol Hepatol</em> 2020;18(12):2734&ndash;2741. Study funded by Medial Research.</p>
-
-        <div class="callout callout-info">
-          <p class="callout-title">Key Insight from ColonFlag&rsquo;s Validation</p>
-          <p>ColonFlag&rsquo;s most revealing finding is its <strong>3&times; performance gap between proximal and distal cancers</strong> (OR 34.7 vs. 12.1). Proximal (right-sided) tumors cause more occult bleeding, which CBC parameters detect well. Distal tumors produce different symptom profiles that a CBC-only model largely misses. Our model&rsquo;s multi-source approach &mdash; incorporating diagnoses, medications, procedures, and visit patterns alongside labs &mdash; is designed to capture both presentations.</p>
-        </div>
-
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 3: Why Our Problem Is Harder
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:36px; color:#1a1a1a;">Why Our Problem Is Harder</h3>
-
-        <p>Published CRC prediction studies typically use controlled populations with registry-confirmed outcomes. Schneider et al. used Kaiser Permanente&rsquo;s Cancer Registry, which captures over 98% of all CRC diagnoses in their patient population. Their positive rate was 1.95% &mdash; more than <strong>five times higher</strong> than ours.</p>
-
-        <p>This difference is not just a number. It means:</p>
-
-        <ul>
-          <li><strong>5&times; fewer positive cases to learn from</strong> per 1,000 patients &mdash; the model has dramatically less signal to work with</li>
-          <li><strong>Noisier outcome labels</strong> &mdash; we use ICD-10 codes rather than a cancer registry with &gt;98% capture rate, which means some true positives are missed and some coded cases may be uncertain</li>
-          <li><strong>Higher false positive cost</strong> &mdash; at 0.36% prevalence, even a highly specific model will flag many more false positives than true positives</li>
-          <li><strong>Contemporary, unscreened population</strong> &mdash; our 2023&ndash;2024 cohort reflects current screening patterns, while Schneider et al. spans 1996&ndash;2015 (a period of evolving screening guidelines)</li>
-        </ul>
-
-        <p>We are building a model that works in the messy reality of everyday clinical practice &mdash; not in a curated research dataset with near-perfect outcome labeling and 5&times; the signal density.</p>
-
-        <div class="callout callout-success">
-          <p>Despite operating on a harder problem with noisier outcomes and a positive rate 5&times; lower than published benchmarks, our model achieves <strong>21&times; lift at the top 1%</strong> and an AUPRC of 0.0534. This suggests the clinical signals in Mercy and Lucem&rsquo;s data carry genuine predictive value for CRC risk.</p>
-        </div>
-
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 4: The Previous Approach: EarlySign LGIFlag
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:36px; color:#1a1a1a;">For Context: The Previous Approach Under Consideration</h3>
-
-        <p>Before this project, the approach under consideration was licensing Medial EarlySign&rsquo;s LGIFlag product &mdash; an off-the-shelf vendor model that uses only CBC lab values, age, and gender (approximately 8&ndash;10 features). LGIFlag was trained on 466,107 Israeli patients from Maccabi Healthcare Services and validated on U.S. populations including Kaiser Permanente Northern California and Northwest.</p>
-
-        <p>LGIFlag and ColonFlag share the same fundamental approach (CBC-based ensemble trees by the same company), but LGIFlag is the <em>commercial product</em> while the Schneider study is the independent validation. The key question is whether a model trained on a different population, using a single data source, can outperform a model trained on Mercy and Lucem&rsquo;s own patients using 8 clinical categories.</p>
-
-        <table class="comparison-table" style="border-left: 4px solid #006598;">
-          <thead>
-            <tr>
-              <th scope="col">Dimension</th>
-              <th scope="col">EarlySign LGIFlag</th>
-              <th scope="col">Our Model</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="row-label">Development</td>
-              <td>Off-the-shelf vendor product (black box)</td>
-              <td>Built in-house on Mercy data</td>
-            </tr>
-            <tr>
-              <td class="row-label">Training Data</td>
-              <td>466,107 Israeli patients (Maccabi Healthcare)</td>
-              <td>858,000+ Mercy and Lucem patients</td>
-            </tr>
-            <tr>
-              <td class="row-label">Feature Scope</td>
-              <td>CBC labs + age + gender (~8&ndash;10 features)</td>
-              <td>8 clinical categories (~425 &rarr; 165 &rarr; 28 features)</td>
-            </tr>
-            <tr>
-              <td class="row-label">Clinical Signal</td>
-              <td>Blood loss only (anemia via CBC)</td>
-              <td>Blood loss + GI symptoms + medications + procedures + visit patterns</td>
-            </tr>
-            <tr>
-              <td class="row-label">Customization</td>
-              <td>None &mdash; same model for all customers</td>
-              <td>Trained on Mercy and Lucem&rsquo;s patient population</td>
-            </tr>
-
-            <tr>
-              <td class="row-label">Ongoing Cost</td>
-              <td>Per-patient licensing fees</td>
-              <td>Internal maintenance and retraining</td>
-            </tr>
-            <tr>
-              <td class="row-label">Validation</td>
-              <td>Validated on KPNC, KPNW, UK THIN</td>
-              <td>Validated on held-out Mercy and Lucem patients (same population as training)</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="callout callout-info">
-          <p class="callout-title">Why &ldquo;Trained on Our Own Data&rdquo; Matters</p>
-          <p>A model trained on Israeli or Kaiser Permanente patients reflects <em>those</em> populations&rsquo; disease patterns, lab reference ranges, and clinical workflows. Mercy and Lucem&rsquo;s patient population spans urban, suburban, and rural communities across four states with different demographics, comorbidity profiles, and care access patterns. A model trained on Mercy and Lucem data inherently captures these local patterns &mdash; including the specific way Mercy clinicians order tests, prescribe medications, and document diagnoses.</p>
-        </div>
-
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 5: Scope of Work
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:36px; color:#1a1a1a;">What This Project Encompasses</h3>
-
-        <p>This effort represents a comprehensive, ground-up approach to clinical risk prediction:</p>
-
-        <ul style="list-style: none; padding-left: 0; margin: 20px 0;">
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Cohort creation with stratified patient-level splitting across 858,000+ observations
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Feature engineering across 8 clinical categories from raw EHR data
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Over 425 features engineered from raw clinical data, statistically reduced to 165 candidates
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Hierarchical correlation clustering with data-driven threshold optimization
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            28 iterative winnowing rounds with multi-criteria safeguards per round
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            5-fold cross-validation stability analysis across all feature sets
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Automated parsimony-aware model selection (Occam&rsquo;s razor applied to ML)
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            6 model variants testing data availability and medication robustness
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Production model training with SHAP-based feature importance analysis
-          </li>
-          <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
-            <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
-            Each of the 6 models built from scratch through the complete pipeline
-          </li>
-        </ul>
-
-        <p style="font-style: italic; color: #333;">Every model, every feature selection decision, and every validation step is documented and reproducible.</p>
-
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 6: Frequently Asked Questions & Limitations
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:36px; color:#1a1a1a;">Frequently Asked Questions</h3>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Why not include colonoscopy as a feature?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p>Patients who have completed a colonoscopy are <strong>already excluded from the cohort</strong>. This model targets the unscreened population &mdash; patients who have not yet had a screening colonoscopy. Including colonoscopy as a feature would be circular: the model would learn &ldquo;patients without a colonoscopy are at risk,&rdquo; which is the population definition, not a clinical signal.</p>
-          </div>
-        </div>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Why exclude CEA, CA19-9, and FOBT/FIT from the lab features?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p><strong>CEA</strong> (Carcinoembryonic Antigen) and <strong>CA19-9</strong> are tumor markers ordered almost exclusively when a clinician already suspects cancer. Including them would mean the model detects the doctor&rsquo;s suspicion, not an independent clinical signal. <strong>FOBT/FIT</strong> is itself a CRC screening test &mdash; a positive result <em>is</em> the detection mechanism, not a predictor of future disease.</p>
-            <p>We preserved <strong>CA-125</strong> because it is an ovarian cancer marker, not CRC-specific, and is ordered for a wide range of clinical reasons.</p>
-          </div>
-        </div>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>What about social determinants (smoking, alcohol, drug use)?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p>All ~30 social determinant features from Book 3 were <strong>excluded due to data quality issues</strong>. In our EHR, 78% of patients have a default &ldquo;never smoker&rdquo; status &mdash; an artifact of Epic workflow design where the default is retained unless actively changed. This produced <em>inverted</em> risk relationships (e.g., &ldquo;never smokers&rdquo; appeared higher-risk because the group included many patients whose status was never assessed). Rather than model documentation artifacts, we excluded the entire social factors category.</p>
-            <p>If Mercy and Lucem improves social history data capture in the future, these features could be re-evaluated.</p>
-          </div>
-        </div>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>How does the model handle patients with little or no clinical history?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p>The model includes an <span class="feature-code">OBS_MONTHS_PRIOR</span> feature (months of prior observation) and a <span class="feature-code">HAS_FULL_24M_HISTORY</span> flag. Patients with limited history will have mostly zero or null values for clinical features (no labs, no diagnoses, no medications). The model will produce a <strong>lower-confidence prediction</strong> for these patients &mdash; which is appropriate, since there is genuinely less information available.</p>
-            <p>In deployment, patients with very sparse data could be flagged separately for clinical review rather than relying solely on the model score.</p>
-          </div>
-        </div>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Why build 2 model variants instead of just one?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p>The two variants answer specific questions about <strong>performance and portability</strong>:</p>
-            <ul>
-              <li><strong>Full Data</strong> &mdash; what is the best possible performance with all available Mercy clinical data? This is the gold standard.</li>
-              <li><strong>FHIR Portable</strong> &mdash; how well can we do using only high-availability FHIR features? This measures the cost of maximum cross-hospital portability.</li>
-            </ul>
-            <p>Comparing these variants reveals whether the full EHR data significantly outperforms a FHIR-only model. If FHIR Portable performs nearly as well, the model can be deployed across any Cures Act&ndash;compliant hospital without custom integrations.</p>
-          </div>
-        </div>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Can this model be deployed at another health system?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p>The model was trained on Mercy and Lucem data and would need <strong>retraining or validation</strong> before deployment elsewhere. However, the feature engineering pipeline is designed for portability:</p>
-            <ul>
-              <li>All features map to standard terminologies (ICD-10, LOINC, RxNorm, CPT) &mdash; see <a href="appendix_b_feature_catalog.html" style="color:#006598; font-weight:600;">Appendix B</a></li>
-              <li>The FHIR Portable variant uses only standardized features available across all Cures Act&ndash;compliant hospitals</li>
-
-            </ul>
-            <p>A partner institution would need to: (1) map their EHR data to the same feature definitions, (2) retrain the model on their population, and (3) validate on held-out data. The feature engineering notebooks and standard code references are designed to make step 1 straightforward.</p>
-          </div>
-        </div>
-
-        <div class="collapsible">
-          <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-            <h4>Why use AUPRC instead of AUROC as the primary metric?</h4>
-            <span class="collapse-icon">&#9660;</span>
-          </div>
-          <div class="collapsible-body">
-            <p>At a prevalence of 0.36%, <strong>AUROC is misleadingly optimistic</strong>. A model that correctly classifies 99.6% of negatives achieves a high AUROC even if it misses most positives. AUPRC (Area Under the Precision-Recall Curve) focuses on what actually matters: among the patients the model flags as high-risk, how many truly have CRC (precision), and among all CRC cases, how many does the model find (recall)?</p>
-            <p>A random classifier achieves AUPRC of 0.004 at this prevalence (0.36%). Published ML models on rare clinical events typically achieve AUPRC of 0.05&ndash;0.10, which represents a 12&ndash;25&times; improvement over random. We report both metrics, but AUPRC drives our model selection decisions.</p>
-          </div>
-        </div>
-
-        <h3 style="margin-top:36px; color:#1a1a1a;">Known Limitations</h3>
-
-        <div class="callout callout-warning">
-          <p class="callout-title">Important Context for Interpreting Results</p>
-          <ul style="margin-bottom:0;">
-            <li style="margin-bottom:10px;">
-              <strong>Outcome ascertainment:</strong> CRC cases are identified via ICD-10 diagnosis codes, not a cancer registry. Some true cases may be missed (false negatives in the outcome label), and some coded cases may reflect rule-out workups rather than confirmed diagnoses. This adds noise that likely <em>depresses</em> measured performance relative to what the model would achieve with registry-quality labels.
-            </li>
-            <li style="margin-bottom:10px;">
-              <strong>Single health system:</strong> All data comes from Mercy and Lucem&rsquo;s EHR. Clinical workflows, documentation patterns, lab ordering practices, and patient demographics are specific to Mercy and Lucem&rsquo;s service area. External validation would be needed before generalizing results.
-            </li>
-            <li style="margin-bottom:10px;">
-              <strong>Temporal scope:</strong> The cohort spans January 2023 through September 2024. This captures current clinical practice but represents a relatively short observation window. Longer-term validation would strengthen confidence in temporal stability.
-            </li>
-            <li style="margin-bottom:10px;">
-              <strong>Prediction, not causation:</strong> The model identifies statistical associations between clinical features and subsequent CRC diagnosis. It does not establish causal relationships. A high risk score means &ldquo;patients with this clinical profile are more likely to be diagnosed with CRC&rdquo; &mdash; not &ldquo;these features cause CRC.&rdquo;
-            </li>
-            <li style="margin-bottom:10px;">
-              <strong>Not a replacement for screening:</strong> This model is designed to <em>prioritize</em> patients for screening, not to replace colonoscopy or other established screening methods. A low risk score does not mean a patient should skip recommended screening.
-            </li>
-            <li>
-              <strong>Social determinants gap:</strong> Due to EHR data quality issues (see FAQ above), the model does not incorporate smoking, alcohol use, or other social/behavioral risk factors that are clinically relevant to CRC risk.
-            </li>
-          </ul>
-        </div>
-
-        <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-             SECTION 7: Next Steps
-             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-        <h3 style="margin-top:36px; color:#1a1a1a;">Looking Forward</h3>
-
-        <p>The Mercy Full Data model is the <strong>gold standard</strong> &mdash; the best performance achievable with complete data. The FHIR Portable variant quantifies the performance cost of using only standard FHIR features. The question now is: how close can we get to this gold standard using only the features universally available via FHIR?</p>
-
-        <p style="font-weight:600; margin-top:20px; margin-bottom:12px; color:#006598;">Immediate next steps:</p>
+        <h3 style="margin-top:28px; color:#1a1a1a;">Immediate Action Items</h3>
 
         <ol style="list-style: none; padding-left: 0; counter-reset: step-counter; margin: 0 0 24px 0;">
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">1.</span>
-            <strong>Lucem reviews the feature catalog</strong> &mdash; <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B</a> lists every feature by clinical category with standard codes (ICD-10, LOINC, CPT). Lucem identifies which features are universally available in their EHR.
+            <strong>Lucem determines universally available features</strong> &mdash; review the candidate feature list in <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B</a> and decide which features are universally available across all target hospitals.
           </li>
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">2.</span>
-            <strong>Automated feature selection</strong> on the Lucem-available feature subset &mdash; the same 5-phase pipeline (clustering, SHAP winnowing, CV stability, parsimony selection, production training) runs on the constrained feature set.
+            <strong>Rebuild the FHIR Portable model</strong> on the agreed-upon feature set. The feature selection pipeline reruns once with the finalized set to produce the turnkey deployment model.
           </li>
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">3.</span>
-            <strong>Hyperparameter tuning and calibration</strong> &mdash; Optuna optimization followed by isotonic calibration and quantile transformation to produce a 0&ndash;100 risk score.
+            <strong>Hyperparameter tuning &amp; calibration</strong> &mdash; Optuna tuning on the rebuilt model, followed by isotonic calibration + quantile transformation to produce a 0&ndash;100 risk score and clinical high-risk flag.
           </li>
           <li style="padding: 12px 16px 12px 52px; position: relative; margin-bottom: 8px; background: #f5f7fa; border-radius: 6px; border-left: 4px solid #bf5412; counter-increment: step-counter;">
             <span style="position: absolute; left: 14px; top: 11px; font-weight: 700; color: #bf5412; font-size: 1.1rem;">4.</span>
@@ -2571,12 +2281,37 @@
           </li>
         </ol>
 
+        <hr class="divider">
+
+        <h3 style="margin-top:28px; color:#1a1a1a;">What Lucem Needs to Provide</h3>
+
         <div class="callout callout-info">
-          <p class="callout-title">Action Item for Lucem</p>
-          <p>Review the complete feature list in <a href="appendix_b_feature_catalog.html" style="color:#006598; font-weight:600;">Appendix B: Feature Catalog</a> &mdash; particularly the &ldquo;All Features&rdquo; tab at the end, which consolidates all features from every clinical category into a single reference list. For each feature, identify whether the underlying data is available and reliable in Lucem&rsquo;s EHR. This determines the feature set for the portable production model.</p>
+          <p class="callout-title">Feature Availability Confirmation</p>
+          <p>The FHIR Portable model currently uses 31 features drawn from standard FHIR R4 data. To finalize the turnkey product, Lucem should review the full candidate feature list in <a href="appendix_b_feature_catalog.html" style="color:#006598; font-weight:600;">Appendix B</a> and determine which features they believe are universally available across target hospitals.</p>
+          <p style="margin-top:10px;">The current model delivers <strong>20&times; lift at top 1%</strong> and <strong>5&times; at top 10%</strong> with its 31-feature set. Lucem may determine that fewer or more features than the current set are universally available &mdash; the model will be rebuilt once on the agreed-upon feature set, and performance will be re-evaluated on the final configuration.</p>
         </div>
 
-        <p>Detailed per-model feature lists are in <a href="appendix_a_model_features.html" style="color: #006598; font-weight: 600;">Appendix A: Per-Model Features</a>.</p>
+        <hr class="divider">
+
+        <h3 style="margin-top:28px; color:#1a1a1a;">Reference Materials</h3>
+        <div class="metric-cards">
+          <div class="metric-card" style="text-align:left; padding:16px;">
+            <div style="font-weight:700; color:#006598; margin-bottom:6px;">Appendix A</div>
+            <div style="font-size:0.88rem; color:#555;"><a href="appendix_a_model_features.html" style="color:#006598;">Per-Model Features</a> &mdash; final feature sets with SHAP importance rankings</div>
+          </div>
+          <div class="metric-card" style="text-align:left; padding:16px;">
+            <div style="font-weight:700; color:#006598; margin-bottom:6px;">Appendix B</div>
+            <div style="font-size:0.88rem; color:#555;"><a href="appendix_b_feature_catalog.html" style="color:#006598;">Feature Catalog</a> &mdash; all 169 candidate features with FHIR availability</div>
+          </div>
+          <div class="metric-card" style="text-align:left; padding:16px;">
+            <div style="font-weight:700; color:#006598; margin-bottom:6px;">Appendix C</div>
+            <div style="font-size:0.88rem; color:#555;"><a href="appendix_c_technical_context.html" style="color:#006598;">Technical Context</a> &mdash; published model comparisons, FAQ, and known limitations</div>
+          </div>
+          <div class="metric-card" style="text-align:left; padding:16px;">
+            <div style="font-weight:700; color:#006598; margin-bottom:6px;">Appendix D</div>
+            <div style="font-size:0.88rem; color:#555;"><a href="appendix_d_cohort_selection.html" style="color:#006598;">Cohort Selection</a> &mdash; inference population scope, training cohort methodology, and label quality</div>
+          </div>
+        </div>
 
       </div>
 
@@ -2592,6 +2327,8 @@
     <div class="footer-links">
       <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
       <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_c_technical_context.html">Appendix C: Technical Context</a>
+      <a href="appendix_d_cohort_selection.html">Appendix D: Cohort Selection</a>
     </div>
   </footer>
 

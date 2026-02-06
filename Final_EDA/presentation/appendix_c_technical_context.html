@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appendix C: Technical Context | Mercy and Lucem Clinical Analytics</title>
+  <style>
+    /* ========================================================
+       RESET & BASE STYLES
+       ======================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #333333;
+      background-color: #ffffff;
+      line-height: 1.6;
+    }
+
+    /* ========================================================
+       MERCY BRAND COLOR VARIABLES (used via direct values)
+       Primary:    Bahama Blue  #006598
+       Accent:     Fiery Orange #bf5412
+       Background: White #ffffff / Light Gray #f5f7fa
+       Text:       Dark Gray #333333 / Headings #1a1a1a
+       ======================================================== */
+
+    /* ========================================================
+       NAV BAR
+       ======================================================== */
+    .nav-bar {
+      background-color: #006598;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .nav-bar .nav-brand {
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .nav-bar .nav-links {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .nav-bar .nav-links a {
+      color: rgba(255, 255, 255, 0.85);
+      text-decoration: none;
+      font-size: 0.82rem;
+      padding: 6px 14px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-bar .nav-links a:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    .nav-bar .nav-links a.nav-active {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    /* ========================================================
+       HEADER
+       ======================================================== */
+    .header {
+      background: linear-gradient(135deg, #006598 0%, #004d73 100%);
+      color: #ffffff;
+      padding: 48px 24px 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .header .subtitle {
+      font-size: 1.1rem;
+      font-weight: 300;
+      opacity: 0.9;
+      margin-bottom: 4px;
+    }
+
+    .header .header-meta {
+      font-size: 0.85rem;
+      opacity: 0.7;
+      margin-top: 12px;
+    }
+
+    /* ========================================================
+       MAIN CONTAINER
+       ======================================================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ========================================================
+       SECTION HEADERS
+       ======================================================== */
+    .section-header {
+      color: #006598;
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e0e7ed;
+    }
+
+    h2 {
+      color: #1a1a1a;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      color: #1a1a1a;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      color: #333333;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      line-height: 1.65;
+    }
+
+    /* ========================================================
+       CALLOUT BOXES
+       ======================================================== */
+    .callout {
+      padding: 16px 20px;
+      border-radius: 6px;
+      margin: 20px 0;
+      border-left: 4px solid #006598;
+      background-color: #f0f6fa;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .callout p:last-child {
+      margin-bottom: 0;
+    }
+
+    .callout-info {
+      border-left-color: #006598;
+      background-color: #f0f6fa;
+    }
+
+    .callout-success {
+      border-left-color: #2e7d32;
+      background-color: #f1f8e9;
+    }
+
+    .callout-warning {
+      border-left-color: #bf5412;
+      background-color: #fff3e8;
+    }
+
+    .callout-title {
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+    }
+
+    /* ========================================================
+       COMPARISON TABLE
+       ======================================================== */
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      min-width: 500px;
+    }
+
+    .comparison-table thead th {
+      background-color: #006598;
+      color: #ffffff;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.85rem;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .comparison-table thead th:first-child {
+      border-top-left-radius: 8px;
+    }
+
+    .comparison-table thead th:last-child {
+      border-top-right-radius: 8px;
+    }
+
+    .comparison-table tbody td {
+      padding: 10px 16px;
+      border-bottom: 1px solid #eaeef2;
+      color: #333333;
+    }
+
+    .comparison-table tbody tr:nth-child(even) {
+      background-color: #f9fafb;
+    }
+
+    .comparison-table tbody tr:hover {
+      background-color: #f0f6fa;
+    }
+
+    .comparison-table tbody tr:last-child td:first-child {
+      border-bottom-left-radius: 8px;
+    }
+
+    .comparison-table tbody tr:last-child td:last-child {
+      border-bottom-right-radius: 8px;
+    }
+
+    .comparison-table .row-label {
+      font-weight: 600;
+      color: #1a1a1a;
+      white-space: nowrap;
+    }
+
+    /* ========================================================
+       COLLAPSIBLE SECTIONS
+       ======================================================== */
+    .collapsible {
+      margin: 20px 0;
+      border: 1px solid #e0e7ed;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background-color: #f5f7fa;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+
+    .collapsible-header:hover {
+      background-color: #eaeef2;
+    }
+
+    .collapsible-header h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #006598;
+      font-weight: 600;
+    }
+
+    .collapsible-header .collapse-icon {
+      font-size: 0.8rem;
+      color: #006598;
+      transition: transform 0.25s ease;
+      font-weight: 700;
+    }
+
+    .collapsible-header .collapse-icon.open {
+      transform: rotate(180deg);
+    }
+
+    .collapsible-body {
+      display: none;
+      padding: 16px 20px;
+      background-color: #ffffff;
+    }
+
+    .collapsible-body.open {
+      display: block;
+    }
+
+    /* ========================================================
+       DIVIDER
+       ======================================================== */
+    .divider {
+      border: none;
+      border-top: 1px solid #e0e7ed;
+      margin: 32px 0;
+    }
+
+    /* ========================================================
+       LISTS
+       ======================================================== */
+    ul, ol {
+      margin-bottom: 14px;
+      padding-left: 24px;
+    }
+
+    li {
+      margin-bottom: 6px;
+      line-height: 1.55;
+    }
+
+    /* ========================================================
+       STRONG / EMPHASIS UTILITIES
+       ======================================================== */
+    strong {
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    em {
+      color: #555555;
+    }
+
+    .text-accent {
+      color: #bf5412;
+      font-weight: 600;
+    }
+
+    .text-primary {
+      color: #006598;
+      font-weight: 600;
+    }
+
+    .text-muted {
+      color: #888888;
+      font-size: 0.88rem;
+    }
+
+    /* ========================================================
+       FOOTER
+       ======================================================== */
+    footer {
+      background-color: #f5f7fa;
+      border-top: 3px solid #006598;
+      padding: 28px 24px;
+      text-align: center;
+      margin-top: 48px;
+    }
+
+    footer p {
+      color: #666666;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+
+    footer .tagline {
+      color: #006598;
+      font-style: italic;
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-top: 8px;
+    }
+
+    footer .footer-links {
+      margin-top: 12px;
+    }
+
+    footer .footer-links a {
+      color: #006598;
+      text-decoration: none;
+      font-size: 0.82rem;
+      margin: 0 12px;
+      transition: color 0.2s ease;
+    }
+
+    footer .footer-links a:hover {
+      color: #bf5412;
+      text-decoration: underline;
+    }
+
+    /* ========================================================
+       RESPONSIVE
+       ======================================================== */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.6rem;
+      }
+
+      .header .subtitle {
+        font-size: 0.95rem;
+      }
+
+      .nav-bar {
+        flex-direction: column;
+        height: auto;
+        padding: 8px 16px;
+        gap: 4px;
+      }
+
+      .nav-bar .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .container {
+        padding: 0 16px;
+      }
+    }
+
+    /* ========================================================
+       PRINT STYLES
+       ======================================================== */
+    @media print {
+      .nav-bar {
+        display: none;
+      }
+
+      .header {
+        background: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .collapsible-body {
+        display: block !important;
+      }
+
+      .comparison-table thead th {
+        background-color: #006598 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      footer {
+        page-break-before: always;
+      }
+
+      body {
+        font-size: 11pt;
+      }
+
+      .container {
+        max-width: 100%;
+      }
+    }
+
+    /* ========================================================
+       ACCESSIBILITY
+       ======================================================== */
+    /* Skip navigation link */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 8px;
+      background: #006598;
+      color: #ffffff;
+      padding: 8px 16px;
+      z-index: 10000;
+      font-size: 0.9rem;
+      border-radius: 0 0 4px 4px;
+      text-decoration: none;
+    }
+    .skip-link:focus {
+      top: 0;
+    }
+
+    /* Focus indicators */
+    .nav-links a:focus-visible,
+    .collapsible-header:focus-visible,
+    a:focus-visible,
+    button:focus-visible {
+      outline: 3px solid #bf5412;
+      outline-offset: 2px;
+    }
+
+    /* Screen-reader-only class */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ============================================================
+       NAV BAR
+       ============================================================ -->
+  <nav class="nav-bar" aria-label="Site navigation">
+    <div class="nav-brand">Mercy and Lucem Clinical Analytics</div>
+    <div class="nav-links" role="navigation" aria-label="Page navigation">
+      <a href="crc_model_results.html">Main Results</a>
+      <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
+      <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_c_technical_context.html" class="nav-active" aria-current="page">Appendix C: Technical Context</a>
+      <a href="appendix_d_cohort_selection.html">Appendix D: Cohort Selection</a>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header class="header" role="banner">
+    <h1>Appendix C: Technical Context</h1>
+    <p class="subtitle">Published Model Comparisons, FAQ, and Known Limitations</p>
+  </header>
+
+  <!-- ============================================================
+       MAIN CONTENT
+       ============================================================ -->
+  <main id="main-content" class="container" style="padding-top: 36px; padding-bottom: 48px;">
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 1: Our Results in Context
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <h3 style="margin-top:28px; color:#1a1a1a;">Our Results in Context</h3>
+
+    <p>The results discussed in this section are from the <strong>Mercy Full Data (Standard)</strong> model &mdash; our most comprehensive variant trained on all available Mercy data. The FHIR Portable model (31 features, test AUPRC 0.0478, 19.9&times; lift) delivers comparable performance using only standard FHIR features.</p>
+
+    <p>These results represent strong performance on one of the most challenging prediction problems in clinical analytics &mdash; identifying rare cancer events in a general population with noisy outcomes.</p>
+
+    <p>Colorectal cancer prediction in a general, unscreened population is fundamentally different from predicting outcomes in a controlled study or curated registry. Our model must find signal in a population where only 1 in 277 patients will receive a CRC diagnosis within the prediction window, using routinely collected clinical data that was never designed for this purpose.</p>
+
+    <div class="callout callout-success">
+      <p class="callout-title">Putting AUPRC in Perspective</p>
+      <p>At a prevalence of 0.36%, a model that guesses randomly scores an AUPRC of <strong>0.0036</strong>. Published CRC models report AUPRC of 0.05&ndash;0.10, but at prevalence rates of 1&ndash;2% &mdash; a 3&ndash;5&times; easier problem. Our Full Data model achieves <strong>0.0622</strong> (17&times; above random) despite working at nearly 5&times; lower prevalence, and the FHIR Portable model achieves <strong>0.0478</strong> (13&times; above random). Both exceed the performance typically seen at comparable prevalence rates.</p>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 2: Published CRC Model Comparison
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <h3 style="margin-top:36px; color:#1a1a1a;">Published CRC Model Comparison</h3>
+
+    <p>The most widely cited machine-learning CRC prediction model in the published literature is <strong>ColonFlag</strong>, developed by Medial EarlySign (Kfar Malal, Israel) and validated on a Kaiser Permanente Northern California (KPNC) cohort of 308,721 patients. The validation study was published in <em>Clinical Gastroenterology and Hepatology</em> (2020) and funded by Medial Research &mdash; the company that developed the algorithm being evaluated.</p>
+
+    <p>ColonFlag uses an ensemble of decision trees trained on <strong>CBC (Complete Blood Count) parameters only</strong> &mdash; hemoglobin, MCV, RDW, and other red cell indices &mdash; augmented by age and gender. The clinical intuition is sound: CRC often causes slow GI blood loss, which manifests as changes in CBC values before symptoms appear. However, this means ColonFlag is functionally a <em>blood loss detector</em>, not a comprehensive CRC risk model.</p>
+
+    <table class="comparison-table" style="border-left: 4px solid #006598;">
+      <thead>
+        <tr>
+          <th scope="col">Dimension</th>
+          <th scope="col">ColonFlag (Schneider et&nbsp;al. 2020)</th>
+          <th scope="col">Our Model</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-label">Study Design</td>
+          <td>Nested case-control within KPNC (retrospective)</td>
+          <td>Prospective cohort at Mercy and Lucem</td>
+        </tr>
+        <tr>
+          <td class="row-label">Population</td>
+          <td>308,721 (ages 50&ndash;75 with CBC, 1996&ndash;2015)</td>
+          <td>858,000+ (ages 45+, unscreened, 2023&ndash;2024)</td>
+        </tr>
+        <tr>
+          <td class="row-label">Outcome Verification</td>
+          <td>Kaiser Cancer Registry (&gt;98% capture)</td>
+          <td>ICD-10 diagnosis codes with targeted validation</td>
+        </tr>
+        <tr>
+          <td class="row-label">Positive Rate</td>
+          <td>1.95% (6,019 CRC cases)</td>
+          <td>0.36% (~5.4&times; rarer events)</td>
+        </tr>
+        <tr>
+          <td class="row-label">Feature Scope</td>
+          <td>~8&ndash;10 features (CBC + age + gender)</td>
+          <td>~425 engineered &rarr; 169 candidates &rarr; 30 final features</td>
+        </tr>
+        <tr>
+          <td class="row-label">Feature Sources</td>
+          <td>Single lab panel</td>
+          <td>8 clinical categories (labs, vitals, Dx, meds, procedures, visits)</td>
+        </tr>
+        <tr>
+          <td class="row-label">AUROC</td>
+          <td>0.78 (95% CI: 0.77&ndash;0.78)</td>
+          <td><strong>0.8308</strong></td>
+        </tr>
+        <tr>
+          <td class="row-label">Sensitivity (at 97% specificity)</td>
+          <td>35.4% (95% CI: 33.8&ndash;36.7%)</td>
+          <td>&mdash;</td>
+        </tr>
+        <tr>
+          <td class="row-label">Key Metric</td>
+          <td>OR 17.7&times; (high vs. low score); early-stage OR 13.1&times;</td>
+          <td><strong>22&times; lift</strong> at top 1%</td>
+        </tr>
+        <tr>
+          <td class="row-label">Proximal vs. Distal</td>
+          <td>Proximal OR 34.7&times; vs. distal OR 12.1&times; (3&times; gap)</td>
+          <td>&mdash;</td>
+        </tr>
+        <tr>
+          <td class="row-label">Development</td>
+          <td>Medial Research (vendor-funded study)</td>
+          <td>Internal Mercy and Lucem development</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-size:0.85rem; color:#666; margin-top:8px;">Schneider JL et al., &ldquo;Validation of an Algorithm to Identify Patients at Risk for Colorectal Cancer Based on Laboratory Test and Demographic Data in Diverse, Community-Based Population,&rdquo; <em>Clin Gastroenterol Hepatol</em> 2020;18(12):2734&ndash;2741. Study funded by Medial Research.</p>
+
+    <div class="callout callout-info">
+      <p class="callout-title">Key Insight from ColonFlag&rsquo;s Validation</p>
+      <p>ColonFlag&rsquo;s most revealing finding is its <strong>3&times; performance gap between proximal and distal cancers</strong> (OR 34.7 vs. 12.1). Proximal (right-sided) tumors cause more occult bleeding, which CBC parameters detect well. Distal tumors produce different symptom profiles that a CBC-only model largely misses. Our model&rsquo;s multi-source approach &mdash; incorporating diagnoses, medications, procedures, and visit patterns alongside labs &mdash; is designed to capture both presentations.</p>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 3: Why Our Problem Is Harder
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <h3 style="margin-top:36px; color:#1a1a1a;">Why Our Problem Is Harder</h3>
+
+    <p>Published CRC prediction studies typically use controlled populations with registry-confirmed outcomes. Schneider et al. used Kaiser Permanente&rsquo;s Cancer Registry, which captures over 98% of all CRC diagnoses in their patient population. Their positive rate was 1.95% &mdash; more than <strong>five times higher</strong> than ours.</p>
+
+    <p>This difference is not just a number. It means:</p>
+
+    <ul>
+      <li><strong>5&times; fewer positive cases to learn from</strong> per 1,000 patients &mdash; the model has dramatically less signal to work with</li>
+      <li><strong>Noisier outcome labels</strong> &mdash; we use ICD-10 codes rather than a cancer registry with &gt;98% capture rate, which means some true positives are missed and some coded cases may be uncertain</li>
+      <li><strong>Higher false positive cost</strong> &mdash; at 0.36% prevalence, even a highly specific model will flag many more false positives than true positives</li>
+      <li><strong>Contemporary, unscreened population</strong> &mdash; our 2023&ndash;2024 cohort reflects current screening patterns, while Schneider et al. spans 1996&ndash;2015 (a period of evolving screening guidelines)</li>
+    </ul>
+
+    <p>We are building a model that works in the messy reality of everyday clinical practice &mdash; not in a curated research dataset with near-perfect outcome labeling and 5&times; the signal density.</p>
+
+    <div class="callout callout-success">
+      <p>Despite operating on a harder problem with noisier outcomes and a positive rate 5&times; lower than published benchmarks, our model achieves <strong>22&times; lift at the top 1%</strong> and an AUPRC of 0.0622. This suggests the clinical signals in Mercy and Lucem&rsquo;s data carry genuine predictive value for CRC risk.</p>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 4: The Previous Approach
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <h3 style="margin-top:36px; color:#1a1a1a;">For Context: The Previous Approach Under Consideration</h3>
+
+    <p>Before this project, the approach under consideration was licensing Medial EarlySign&rsquo;s LGIFlag product &mdash; an off-the-shelf vendor model that uses only CBC lab values, age, and gender (approximately 8&ndash;10 features). LGIFlag was trained on 466,107 Israeli patients from Maccabi Healthcare Services and validated on U.S. populations including Kaiser Permanente Northern California and Northwest.</p>
+
+    <p>LGIFlag and ColonFlag share the same fundamental approach (CBC-based ensemble trees by the same company), but LGIFlag is the <em>commercial product</em> while the Schneider study is the independent validation. The key question is whether a model trained on a different population, using a single data source, can outperform a model trained on Mercy and Lucem&rsquo;s own patients using 8 clinical categories.</p>
+
+    <table class="comparison-table" style="border-left: 4px solid #006598;">
+      <thead>
+        <tr>
+          <th scope="col">Dimension</th>
+          <th scope="col">EarlySign LGIFlag</th>
+          <th scope="col">Our Model</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="row-label">Development</td>
+          <td>Off-the-shelf vendor product (black box)</td>
+          <td>Built in-house on Mercy data</td>
+        </tr>
+        <tr>
+          <td class="row-label">Training Data</td>
+          <td>466,107 Israeli patients (Maccabi Healthcare)</td>
+          <td>858,000+ Mercy and Lucem patients</td>
+        </tr>
+        <tr>
+          <td class="row-label">Feature Scope</td>
+          <td>CBC labs + age + gender (~8&ndash;10 features)</td>
+          <td>8 clinical categories (~425 &rarr; 169 &rarr; 30 features)</td>
+        </tr>
+        <tr>
+          <td class="row-label">Clinical Signal</td>
+          <td>Blood loss only (anemia via CBC)</td>
+          <td>Blood loss + GI symptoms + medications + procedures + visit patterns</td>
+        </tr>
+        <tr>
+          <td class="row-label">Customization</td>
+          <td>None &mdash; same model for all customers</td>
+          <td>Trained on Mercy and Lucem&rsquo;s patient population</td>
+        </tr>
+        <tr>
+          <td class="row-label">Ongoing Cost</td>
+          <td>Per-patient licensing fees</td>
+          <td>Internal maintenance and retraining</td>
+        </tr>
+        <tr>
+          <td class="row-label">Validation</td>
+          <td>Validated on KPNC, KPNW, UK THIN</td>
+          <td>Validated on held-out Mercy and Lucem patients (same population as training)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-info">
+      <p class="callout-title">Why &ldquo;Trained on Our Own Data&rdquo; Matters</p>
+      <p>A model trained on Israeli or Kaiser Permanente patients reflects <em>those</em> populations&rsquo; disease patterns, lab reference ranges, and clinical workflows. Mercy and Lucem&rsquo;s patient population spans urban, suburban, and rural communities across four states with different demographics, comorbidity profiles, and care access patterns. A model trained on Mercy and Lucem data inherently captures these local patterns &mdash; including the specific way Mercy clinicians order tests, prescribe medications, and document diagnoses.</p>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 5: Scope of Work
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <h3 style="margin-top:36px; color:#1a1a1a;">What This Project Encompasses</h3>
+
+    <p>This effort represents a comprehensive, ground-up approach to clinical risk prediction:</p>
+
+    <ul style="list-style: none; padding-left: 0; margin: 20px 0;">
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Cohort creation with stratified patient-level splitting across 858,000+ observations
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Feature engineering across 8 clinical categories from raw EHR data
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Over 425 features engineered from raw clinical data, statistically reduced to 169 candidates
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Hierarchical correlation clustering with data-driven threshold optimization
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        29 iterative winnowing rounds with multi-criteria safeguards per round
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        5-fold cross-validation stability analysis across all feature sets
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Automated parsimony-aware model selection (Occam&rsquo;s razor applied to ML)
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        2 model variants testing data availability and portability
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Production model training with SHAP-based feature importance analysis
+      </li>
+      <li style="padding: 8px 0 8px 28px; position: relative; border-left: 3px solid #006598; margin-bottom: 6px; background: #f9fbfd;">
+        <span style="position: absolute; left: 8px; color: #006598; font-weight: bold;">&bull;</span>
+        Each of the 2 models built from scratch through the complete pipeline
+      </li>
+    </ul>
+
+    <p style="font-style: italic; color: #333;">Every model, every feature selection decision, and every validation step is documented and reproducible.</p>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 6: Frequently Asked Questions
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <h3 style="margin-top:36px; color:#1a1a1a;">Frequently Asked Questions</h3>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>Why not include colonoscopy as a feature?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>Patients who have completed a colonoscopy are already excluded from the cohort. The model&rsquo;s target population is <strong>unscreened patients</strong> &mdash; those who have not had a colonoscopy within the guideline-recommended timeframe. Including colonoscopy as a feature would be circular: the model would learn that &ldquo;patients who get colonoscopies are more likely to be diagnosed with CRC,&rdquo; which is true but clinically useless. The point of the model is to identify patients who should be prioritized for screening <em>before</em> they receive it.</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>Why exclude CEA, CA19-9, and FOBT/FIT from the lab features?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>CEA and CA19-9 are tumor markers ordered almost exclusively when a clinician already suspects malignancy. Including them means the model detects <em>the doctor&rsquo;s suspicion</em>, not an independent clinical signal. Similarly, FOBT/FIT are CRC screening tests &mdash; a positive result <em>is</em> the detection mechanism, not a predictor of future disease. Including any of these creates circular reasoning in a model designed for <em>early</em> identification.</p>
+        <p>All other lab features (CBC, metabolic panel, liver enzymes, iron studies, etc.) are routine tests ordered for many clinical reasons and remain appropriate predictors.</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>What about social determinants (smoking, alcohol, drug use)?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>All ~30 social determinant features were excluded due to data quality issues in the EHR. Social history fields (smoking status, alcohol use, drug use) are inconsistently documented, frequently missing, and often outdated. In our cohort, many of these fields have &gt;80% missingness or contain stale values that don&rsquo;t reflect current behavior.</p>
+        <p>Including features with this level of missingness would force the model to either (a) impute values with high uncertainty, adding noise, or (b) learn that &ldquo;missing social history&rdquo; is itself predictive &mdash; which reflects documentation patterns, not clinical risk. Neither outcome improves the model&rsquo;s clinical utility. If EHR documentation of social determinants improves in the future, these features should be reconsidered.</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>How does the model handle patients with little or no clinical history?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>The model includes <strong>OBS_MONTHS_PRIOR</strong> (in the Full Data variant), which captures how many months of clinical history are available for each patient. Patients with sparse histories will have many features at zero or baseline values, and the model learns to interpret this context. Additionally, the cohort requires patients to be active in the Mercy system, so complete &ldquo;blank slate&rdquo; patients are rare.</p>
+        <p>For the FHIR Portable variant, OBS_MONTHS_PRIOR is excluded (not available in standard FHIR), so the model relies entirely on the clinical features that are present. In practice, most patients in the cohort have at least some lab work or visit history to provide signal.</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>Why build 2 model variants instead of just one?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>The two variants answer specific questions about performance and portability:</p>
+        <ul>
+          <li><strong>Full Data</strong> answers: &ldquo;What is the best possible performance using everything available in the Mercy EHR?&rdquo; This is the gold standard for internal deployment.</li>
+          <li><strong>FHIR Portable</strong> answers: &ldquo;How much performance do we lose if we restrict to features available via standard FHIR R4 APIs?&rdquo; This variant enables cross-hospital deployment without requiring access to proprietary scheduling, MAR, or non-standard lab data.</li>
+        </ul>
+        <p>If the FHIR Portable model performs comparably to the Full Data model, it suggests the core clinical signal is captured by widely available data &mdash; making the model a candidate for deployment beyond Mercy and Lucem.</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>Can this model be deployed at another health system?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>The model was trained on Mercy and Lucem data and would need retraining or validation on a new population before deployment elsewhere. However, the <strong>FHIR Portable variant</strong> was specifically designed with cross-hospital deployment in mind &mdash; it uses only features available through standard FHIR R4 APIs, which most U.S. hospitals support.</p>
+        <p>The full feature catalog (see <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>) documents FHIR availability for every candidate feature, making it straightforward to assess which features a new health system could provide. The feature engineering pipeline and model training code are fully documented and reproducible.</p>
+      </div>
+    </div>
+
+    <div class="collapsible">
+      <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+        <h4>Why use AUPRC instead of AUROC as the primary metric?</h4>
+        <span class="collapse-icon">&#9660;</span>
+      </div>
+      <div class="collapsible-body">
+        <p>At a prevalence of 0.36%, AUROC is misleadingly optimistic. AUROC measures the model&rsquo;s ability to distinguish positives from negatives across all thresholds, but at extreme class imbalance, even a mediocre model can achieve a high AUROC by correctly classifying the overwhelming majority of negatives. A model that flags 1% of patients could have an AUROC of 0.85 while still missing most actual CRC cases.</p>
+        <p><strong>AUPRC (Area Under the Precision-Recall Curve)</strong> directly measures what matters: among patients the model flags as high-risk, how many actually have CRC (precision), and among all CRC patients, how many does the model catch (recall). At 0.36% prevalence, random performance is an AUPRC of 0.0036 &mdash; making it immediately obvious how much value a model adds above chance. Our Full Data model&rsquo;s AUPRC of 0.0622 represents a 17&times; improvement over random, which is a much more honest assessment of clinical utility than an AUROC of 0.83.</p>
+      </div>
+    </div>
+
+    <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         SECTION 7: Known Limitations
+         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+    <hr class="divider">
+
+    <h3 style="margin-top:36px; color:#1a1a1a;">Known Limitations</h3>
+
+    <div class="callout callout-warning">
+      <p class="callout-title">Important Context for Interpreting Results</p>
+      <ul style="margin-bottom:0;">
+        <li style="margin-bottom:10px;">
+          <strong>Outcome ascertainment:</strong> CRC cases are identified via ICD-10 diagnosis codes, not a cancer registry. Some true cases may be missed (false negatives in the outcome label), and some coded cases may reflect rule-out workups rather than confirmed diagnoses. This adds noise that likely <em>depresses</em> measured performance relative to what the model would achieve with registry-quality labels.
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>Single health system:</strong> All data comes from Mercy and Lucem&rsquo;s EHR. Clinical workflows, documentation patterns, lab ordering practices, and patient demographics are specific to Mercy and Lucem&rsquo;s service area. External validation would be needed before generalizing results.
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>Temporal scope:</strong> The cohort spans January 2023 through September 2024. This captures current clinical practice but represents a relatively short observation window. Longer-term validation would strengthen confidence in temporal stability.
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>Prediction, not causation:</strong> The model identifies statistical associations between clinical features and subsequent CRC diagnosis. It does not establish causal relationships. A high risk score means &ldquo;patients with this clinical profile are more likely to be diagnosed with CRC&rdquo; &mdash; not &ldquo;these features cause CRC.&rdquo;
+        </li>
+        <li style="margin-bottom:10px;">
+          <strong>Not a replacement for screening:</strong> This model is designed to <em>prioritize</em> patients for screening, not to replace colonoscopy or other established screening methods. A low risk score does not mean a patient should skip recommended screening.
+        </li>
+        <li>
+          <strong>Social determinants gap:</strong> Due to EHR data quality issues (see FAQ above), the model does not incorporate smoking, alcohol use, or other social/behavioral risk factors that are clinically relevant to CRC risk.
+        </li>
+      </ul>
+    </div>
+
+  </main>
+
+  <!-- ============================================================
+       FOOTER
+       ============================================================ -->
+  <footer role="contentinfo">
+    <p>Generated for Mercy and Lucem Clinical Analytics | February 2026</p>
+    <p class="tagline">&ldquo;Your life is our life&rsquo;s work&rdquo;</p>
+    <div class="footer-links">
+      <a href="crc_model_results.html">Main Results</a>
+      <a href="appendix_a_model_features.html">Appendix A: Model Features</a>
+      <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_d_cohort_selection.html">Appendix D: Cohort Selection</a>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       JAVASCRIPT
+       ============================================================ -->
+  <script>
+    (function() {
+      'use strict';
+
+      /* ----------------------------------------------------------
+         COLLAPSIBLE SECTIONS (with ARIA and keyboard support)
+         ---------------------------------------------------------- */
+      function toggleCollapsible(header) {
+        var collapsible = header.closest('.collapsible');
+        if (!collapsible) return;
+
+        var body = collapsible.querySelector('.collapsible-body');
+        var icon = header.querySelector('.collapse-icon');
+        var isOpen = body && body.classList.contains('open');
+
+        if (body) body.classList.toggle('open');
+        if (icon) icon.classList.toggle('open');
+        header.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      }
+
+      document.addEventListener('click', function(e) {
+        var header = e.target.closest('.collapsible-header');
+        if (header) toggleCollapsible(header);
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          var header = e.target.closest('.collapsible-header');
+          if (header) {
+            e.preventDefault();
+            toggleCollapsible(header);
+          }
+        }
+      });
+
+    })();
+  </script>
+
+</body>
+</html>

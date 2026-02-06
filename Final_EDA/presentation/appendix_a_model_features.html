@@ -999,6 +999,8 @@
       <a href="crc_model_results.html">Main Results</a>
       <a href="appendix_a_model_features.html" class="nav-active" aria-current="page">Appendix A: Model Features</a>
       <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_c_technical_context.html">Appendix C: Technical Context</a>
+      <a href="appendix_d_cohort_selection.html">Appendix D: Cohort Selection</a>
     </div>
   </nav>
 
@@ -1016,11 +1018,7 @@
   <main id="main-content" class="container">
     <div class="tab-nav" role="tablist" aria-label="Model variants">
       <button class="tab-btn active" role="tab" id="btn-tab1" aria-controls="tab1" aria-selected="true" data-tab="tab1" tabindex="0">Full Data</button>
-      <button class="tab-btn" role="tab" id="btn-tab2" aria-controls="tab2" aria-selected="false" data-tab="tab2" tabindex="-1">Full Data (MA)</button>
-      <button class="tab-btn" role="tab" id="btn-tab3" aria-controls="tab3" aria-selected="false" data-tab="tab3" tabindex="-1">No Visit</button>
-      <button class="tab-btn" role="tab" id="btn-tab4" aria-controls="tab4" aria-selected="false" data-tab="tab4" tabindex="-1">No Visit (MA)</button>
-      <button class="tab-btn" role="tab" id="btn-tab5" aria-controls="tab5" aria-selected="false" data-tab="tab5" tabindex="-1">No Demo/Visit</button>
-      <button class="tab-btn" role="tab" id="btn-tab6" aria-controls="tab6" aria-selected="false" data-tab="tab6" tabindex="-1">No Demo/Visit (MA)</button>
+      <button class="tab-btn" role="tab" id="btn-tab2" aria-controls="tab2" aria-selected="false" data-tab="tab2" tabindex="-1">FHIR Portable</button>
     </div>
 
     <!-- ============================================================
@@ -1029,20 +1027,20 @@
     <div class="tab-content">
 
       <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 1: Mercy and Lucem Full Data (Standard)
+           TAB 1: Mercy and Lucem Full Data
            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
       <div class="tab-pane active" id="tab1" role="tabpanel" aria-labelledby="btn-tab1" tabindex="0">
-        <h2 class="section-header">Mercy and Lucem Full Data &mdash; Standard</h2>
+        <h2 class="section-header">Mercy and Lucem Full Data</h2>
 
         <!-- Model Description -->
         <div class="callout callout-info">
-          <p><strong>Mercy and Lucem Full Data (Standard)</strong> &mdash; Uses all 8 clinical data categories as input. After 29 rounds of iterative winnowing with SD-based parsimony selection, 28 final features from 5 categories survived from 165 candidates. Notably, all medication and procedure features were eliminated &mdash; the model relies entirely on vitals, diagnoses, visit patterns, labs, and demographics.</p>
+          <p><strong>Mercy and Lucem Full Data</strong> &mdash; Uses all 8 clinical data categories as input. After 29 rounds of iterative winnowing with SD-based parsimony selection, 30 final features from 5 categories survived from 169 candidates. All medication and procedure features were eliminated.</p>
         </div>
 
         <!-- Summary Stats -->
         <div class="metric-cards">
           <div class="metric-card">
-            <div class="metric-value">28</div>
+            <div class="metric-value">30</div>
             <div class="metric-label">Total Features</div>
           </div>
           <div class="metric-card">
@@ -1050,13 +1048,13 @@
             <div class="metric-label">Categories Represented</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">0.0534</div>
+            <div class="metric-value">0.0622</div>
             <div class="metric-label">Test AUPRC</div>
           </div>
         </div>
 
         <!-- Category 1: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge">8 features</span></h4>
+        <h4 class="section-header">Vitals <span class="mercy-badge">7 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead><tr>
@@ -1068,49 +1066,44 @@
               <tr>
                 <td><code>vit_SBP_VARIABILITY_6M</code></td>
                 <td>Standard deviation of systolic blood pressure readings over 6 months</td>
-                <td>0.2421 (9.4%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_WEIGHT_OZ</code></td>
-                <td>Most recent weight measurement (ounces)</td>
-                <td>0.1994 (7.8%)</td>
+                <td>0.2422 (8.4%)</td>
               </tr>
               <tr>
                 <td><code>vit_WEIGHT_TRAJECTORY_SLOPE</code></td>
                 <td>Linear slope of weight measurements over lookback period</td>
-                <td>0.1786 (7.0%)</td>
+                <td>0.1611 (5.6%)</td>
               </tr>
               <tr>
                 <td><code>vit_RECENCY_WEIGHT</code></td>
                 <td>Ordinal-binned days since last weight measurement</td>
-                <td>0.1220 (4.8%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_MAX_WEIGHT_LOSS_PCT_60D</code></td>
-                <td>Maximum percentage weight loss in any 60-day window</td>
-                <td>0.1156 (4.5%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_vital_recency_score</code></td>
-                <td>Composite recency score across all vital sign types</td>
-                <td>0.0814 (3.2%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_BMI</code></td>
-                <td>Most recent body mass index</td>
-                <td>0.0709 (2.8%)</td>
+                <td>0.1508 (5.3%)</td>
               </tr>
               <tr>
                 <td><code>vit_BP_SYSTOLIC</code></td>
                 <td>Most recent systolic blood pressure</td>
-                <td>0.0580 (2.3%)</td>
+                <td>0.0979 (3.4%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_MAX_WEIGHT_LOSS_PCT_60D</code></td>
+                <td>Maximum percentage weight loss in any 60-day window</td>
+                <td>0.0962 (3.3%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_VITAL_RECENCY_SCORE</code></td>
+                <td>Composite recency score across all vital sign types</td>
+                <td>0.0871 (3.0%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_PULSE</code></td>
+                <td>Most recent resting pulse measurement</td>
+                <td>0.0830 (2.9%)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Category 2: ICD-10 Diagnoses -->
-        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge">6 features</span></h4>
+        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge">8 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead><tr>
@@ -1122,32 +1115,42 @@
               <tr>
                 <td><code>icd_HIGH_RISK_HISTORY</code></td>
                 <td>Composite flag for high-risk diagnostic history (polyps, IBD, prior malignancy)</td>
-                <td>0.1688 (6.6%)</td>
+                <td>0.1212 (4.2%)</td>
               </tr>
               <tr>
-                <td><code>icd_SYMPTOM_BURDEN_12MO</code></td>
-                <td>Count of distinct CRC-related symptom categories in past 12 months</td>
-                <td>0.0823 (3.2%)</td>
+                <td><code>icd_MALIGNANCY_FLAG_EVER</code></td>
+                <td>Any prior malignancy diagnosis (any site)</td>
+                <td>0.0780 (2.7%)</td>
               </tr>
               <tr>
                 <td><code>icd_CHARLSON_SCORE_12MO</code></td>
                 <td>Charlson Comorbidity Index calculated from 12-month ICD-10 history</td>
-                <td>0.0362 (1.4%)</td>
+                <td>0.0571 (2.0%)</td>
+              </tr>
+              <tr>
+                <td><code>icd_PAIN_FLAG_12MO</code></td>
+                <td>Abdominal or pelvic pain diagnosis in past 12 months</td>
+                <td>0.0407 (1.4%)</td>
               </tr>
               <tr>
                 <td><code>icd_BLEED_CNT_12MO</code></td>
                 <td>Count of GI/rectal bleeding diagnosis encounters in past 12 months</td>
-                <td>0.0314 (1.2%)</td>
+                <td>0.0242 (0.8%)</td>
               </tr>
               <tr>
                 <td><code>icd_IRON_DEF_ANEMIA_FLAG_12MO</code></td>
                 <td>Iron deficiency anemia diagnosis in past 12 months (D50.*)</td>
-                <td>0.0276 (1.1%)</td>
+                <td>0.0234 (0.8%)</td>
               </tr>
               <tr>
-                <td><code>icd_COMBINED_COMORBIDITY_12MO</code></td>
-                <td>Combined Charlson + Elixhauser comorbidity score</td>
-                <td>0.0249 (1.0%)</td>
+                <td><code>icd_ANEMIA_FLAG_12MO</code></td>
+                <td>Any anemia diagnosis in past 12 months (D50&ndash;D64)</td>
+                <td>0.0217 (0.8%)</td>
+              </tr>
+              <tr>
+                <td><code>icd_BLEED_FLAG_12MO</code></td>
+                <td>Any GI/rectal bleeding diagnosis in past 12 months</td>
+                <td>0.0167 (0.6%)</td>
               </tr>
             </tbody>
           </table>
@@ -1164,41 +1167,41 @@
             </tr></thead>
             <tbody>
               <tr>
-                <td><code>visit_outpatient_visits_12mo</code></td>
+                <td><code>visit_OUTPATIENT_VISITS_12MO</code></td>
                 <td>Count of outpatient visits in past 12 months</td>
-                <td>0.1406 (5.5%)</td>
+                <td>0.1742 (6.1%)</td>
               </tr>
               <tr>
-                <td><code>visit_acute_care_reliance</code></td>
-                <td>Ratio of ED + inpatient visits to total visits (acute care dependence)</td>
-                <td>0.1016 (4.0%)</td>
+                <td><code>visit_ED_LAST_12_MONTHS</code></td>
+                <td>ED visits in past 12 months</td>
+                <td>0.1084 (3.8%)</td>
               </tr>
               <tr>
-                <td><code>visit_gi_symptom_op_visits_12mo</code></td>
-                <td>Outpatient visits with GI symptom diagnoses in past 12 months</td>
-                <td>0.0394 (1.5%)</td>
+                <td><code>visit_PCP_VISITS_12MO</code></td>
+                <td>PCP visits in past 12 months</td>
+                <td>0.1075 (3.7%)</td>
               </tr>
               <tr>
-                <td><code>visit_total_gi_symptom_visits_12mo</code></td>
+                <td><code>visit_TOTAL_GI_SYMPTOM_VISITS_12MO</code></td>
                 <td>Total visits (any setting) with GI symptom diagnoses in past 12 months</td>
-                <td>0.0354 (1.4%)</td>
+                <td>0.0447 (1.6%)</td>
               </tr>
               <tr>
-                <td><code>visit_gi_visits_24mo</code></td>
-                <td>GI-related visits (any type) in past 24 months</td>
-                <td>0.0206 (0.8%)</td>
+                <td><code>visit_GI_SYMPTOM_OP_VISITS_12MO</code></td>
+                <td>Outpatient visits with GI symptom diagnoses in past 12 months</td>
+                <td>0.0428 (1.5%)</td>
               </tr>
               <tr>
-                <td><code>visit_gi_symptoms_no_specialist</code></td>
+                <td><code>visit_GI_SYMPTOMS_NO_SPECIALIST</code></td>
                 <td>GI symptoms documented but no GI specialist referral (care gap)</td>
-                <td>0.0139 (0.5%)</td>
+                <td>0.0188 (0.7%)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Category 4: Laboratory Results -->
-        <h4 class="section-header">Laboratory Results <span class="mercy-badge">5 features</span></h4>
+        <h4 class="section-header">Laboratory Results <span class="mercy-badge">6 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead><tr>
@@ -1210,27 +1213,32 @@
               <tr>
                 <td><code>lab_AST_VALUE</code></td>
                 <td>Most recent aspartate aminotransferase (liver enzyme) value</td>
-                <td>0.1423 (5.6%)</td>
+                <td>0.1516 (5.3%)</td>
               </tr>
               <tr>
                 <td><code>lab_ALBUMIN_VALUE</code></td>
                 <td>Most recent serum albumin (nutritional/liver function marker)</td>
-                <td>0.1180 (4.6%)</td>
+                <td>0.1447 (5.0%)</td>
+              </tr>
+              <tr>
+                <td><code>lab_PLATELETS_VALUE</code></td>
+                <td>Most recent platelet count</td>
+                <td>0.1014 (3.5%)</td>
               </tr>
               <tr>
                 <td><code>lab_HEMOGLOBIN_VALUE</code></td>
                 <td>Most recent hemoglobin level (anemia indicator)</td>
-                <td>0.0807 (3.1%)</td>
+                <td>0.1012 (3.5%)</td>
               </tr>
               <tr>
                 <td><code>lab_IRON_SATURATION_PCT</code></td>
                 <td>Iron saturation percentage (TSAT = iron / TIBC)</td>
-                <td>0.0256 (1.0%)</td>
+                <td>0.0268 (0.9%)</td>
               </tr>
               <tr>
-                <td><code>lab_comprehensive_iron_deficiency</code></td>
-                <td>Composite iron deficiency score combining ferritin, TSAT, and TIBC</td>
-                <td>0.0208 (0.8%)</td>
+                <td><code>lab_COMPREHENSIVE_IRON_DEFICIENCY</code></td>
+                <td>Composite iron deficiency flag combining ferritin, TSAT, hemoglobin, and MCV</td>
+                <td>0.0188 (0.7%)</td>
               </tr>
             </tbody>
           </table>
@@ -1249,17 +1257,17 @@
               <tr>
                 <td><code>HAS_PCP_AT_END</code></td>
                 <td>Whether patient has an assigned primary care provider at end of observation period</td>
-                <td>0.1764 (6.9%)</td>
+                <td>0.1941 (6.8%)</td>
               </tr>
               <tr>
                 <td><code>AGE_GROUP</code></td>
                 <td>Age category (45&ndash;49 / 50&ndash;54 / 55&ndash;64 / 65&ndash;74 / 75+)</td>
-                <td>0.1492 (5.8%)</td>
+                <td>0.1881 (6.5%)</td>
               </tr>
               <tr>
                 <td><code>IS_FEMALE</code></td>
                 <td>Patient sex indicator (female = 1)</td>
-                <td>0.0628 (2.5%)</td>
+                <td>0.1480 (5.2%)</td>
               </tr>
             </tbody>
           </table>
@@ -1280,32 +1288,46 @@
 
 
       <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 2: Mercy and Lucem Full Data (Med-Averse)
+           TAB 2: FHIR Portable
            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
       <div class="tab-pane" id="tab2" role="tabpanel" aria-labelledby="btn-tab2" tabindex="0" hidden>
-        <h2 class="section-header">Mercy and Lucem Full Data &mdash; Med-Averse</h2>
+        <h2 class="section-header">FHIR Portable</h2>
 
-        <div class="callout callout-info">
-          <p><strong>Mercy and Lucem Full Data (Med-Averse)</strong> &mdash; Uses all 8 clinical data categories as input. Medication features deprioritized during winnowing (5% tiebreak band). 30 final features from 5 categories survived from 165 candidates. All medication and procedure features were eliminated.</p>
+        <!-- Model Description -->
+        <div class="callout" style="border-left-color: #7b1fa2; background-color: #f3e5f5;">
+          <p><strong>FHIR Portable</strong> &mdash; Uses only features available in standard US FHIR R4 implementations. Excludes visit history, PCP status, inpatient meds, and specialty labs. After 14 rounds of iterative winnowing with SD-based parsimony selection, 31 final features from 6 categories survived from 118 candidates. Unlike Full Data, this model retains outpatient medication and procedure features.</p>
         </div>
 
+        <!-- Summary Stats -->
         <div class="metric-cards">
           <div class="metric-card">
-            <div class="metric-value">30</div>
+            <div class="metric-value">31</div>
             <div class="metric-label">Total Features</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">5</div>
+            <div class="metric-value">6</div>
             <div class="metric-label">Categories Represented</div>
           </div>
           <div class="metric-card">
-            <div class="metric-value">0.0460</div>
+            <div class="metric-value">0.0478</div>
             <div class="metric-label">Test AUPRC</div>
           </div>
         </div>
 
+        <!-- Exclusions Callout -->
+        <div class="callout callout-warning" style="margin-bottom: 24px;">
+          <p><strong>Excluded feature categories:</strong> The FHIR Portable model excludes features not reliably available in standard US FHIR R4 implementations:</p>
+          <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
+            <li>All inpatient medications (<code>inp_med_*</code>) &mdash; MAR data not available in FHIR</li>
+            <li>All visit history (<code>visit_*</code>) &mdash; scheduling data is not clinical FHIR data</li>
+            <li>Demographics: <code>HAS_PCP_AT_END</code>, <code>HAS_FULL_24M_HISTORY</code>, <code>OBS_MONTHS_PRIOR</code></li>
+            <li>Specialty labs: <code>lab_CRP_*</code>, <code>lab_ESR_*</code>, <code>lab_CA125_*</code>, <code>lab_INFLAMMATORY_BURDEN</code>, systemic inflammation index</li>
+            <li>Specialty procedures: transfusions, iron infusions, hemorrhoid procedures, anemia treatment intensity, acute bleeding pattern</li>
+          </ul>
+        </div>
+
         <!-- Category 1: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge">8 features</span></h4>
+        <h4 class="section-header">Vitals <span class="mercy-badge">11 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead><tr>
@@ -1317,42 +1339,57 @@
               <tr>
                 <td><code>vit_SBP_VARIABILITY_6M</code></td>
                 <td>Standard deviation of systolic blood pressure readings over 6 months</td>
-                <td>0.2472 (9.9%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_WEIGHT_OZ</code></td>
-                <td>Most recent weight measurement (ounces)</td>
-                <td>0.1799 (7.2%)</td>
+                <td>0.2759 (15.1%)</td>
               </tr>
               <tr>
                 <td><code>vit_WEIGHT_TRAJECTORY_SLOPE</code></td>
                 <td>Linear slope of weight measurements over lookback period</td>
-                <td>0.1585 (6.3%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_RECENCY_WEIGHT</code></td>
-                <td>Ordinal-binned days since last weight measurement</td>
-                <td>0.1125 (4.5%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_MAX_WEIGHT_LOSS_PCT_60D</code></td>
-                <td>Maximum percentage weight loss in any 60-day window</td>
-                <td>0.1017 (4.1%)</td>
-              </tr>
-              <tr>
-                <td><code>vit_vital_recency_score</code></td>
-                <td>Composite recency score across all vital sign types</td>
-                <td>0.0804 (3.2%)</td>
+                <td>0.1767 (9.7%)</td>
               </tr>
               <tr>
                 <td><code>vit_BMI</code></td>
                 <td>Most recent body mass index</td>
-                <td>0.0545 (2.2%)</td>
+                <td>0.1421 (7.8%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_MAX_WEIGHT_LOSS_PCT_60D</code></td>
+                <td>Maximum percentage weight loss in any 60-day window</td>
+                <td>0.1210 (6.6%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_RECENCY_WEIGHT</code></td>
+                <td>Ordinal-binned days since last weight measurement</td>
+                <td>0.1097 (6.0%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_VITAL_RECENCY_SCORE</code></td>
+                <td>Composite recency score across all vital sign types</td>
+                <td>0.0811 (4.4%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_PULSE_PRESSURE</code></td>
+                <td>Difference between systolic and diastolic blood pressure</td>
+                <td>0.0492 (2.7%)</td>
               </tr>
               <tr>
                 <td><code>vit_BP_SYSTOLIC</code></td>
                 <td>Most recent systolic blood pressure</td>
-                <td>0.0449 (1.8%)</td>
+                <td>0.0423 (2.3%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_PULSE</code></td>
+                <td>Most recent resting pulse measurement</td>
+                <td>0.0338 (1.9%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_WEIGHT_CHANGE_PCT_6M</code></td>
+                <td>Percentage change in weight over 6 months</td>
+                <td>0.0085 (0.5%)</td>
+              </tr>
+              <tr>
+                <td><code>vit_CACHEXIA_RISK_SCORE</code></td>
+                <td>Composite score combining weight loss, BMI decline, and albumin</td>
+                <td>0.0016 (0.1%)</td>
               </tr>
             </tbody>
           </table>
@@ -1371,37 +1408,37 @@
               <tr>
                 <td><code>icd_HIGH_RISK_HISTORY</code></td>
                 <td>Composite flag for high-risk diagnostic history (polyps, IBD, prior malignancy)</td>
-                <td>0.1051 (4.2%)</td>
-              </tr>
-              <tr>
-                <td><code>icd_SYMPTOM_BURDEN_12MO</code></td>
-                <td>Count of distinct CRC-related symptom categories in past 12 months</td>
-                <td>0.0782 (3.1%)</td>
+                <td>0.0931 (5.1%)</td>
               </tr>
               <tr>
                 <td><code>icd_MALIGNANCY_FLAG_EVER</code></td>
-                <td>Any prior malignancy diagnosis in full history</td>
-                <td>0.0756 (3.0%)</td>
+                <td>Any prior malignancy diagnosis (any site)</td>
+                <td>0.0578 (3.2%)</td>
               </tr>
               <tr>
-                <td><code>icd_ELIXHAUSER_SCORE_12MO</code></td>
-                <td>Elixhauser comorbidity score from 12-month ICD-10 history</td>
-                <td>0.0361 (1.4%)</td>
-              </tr>
-              <tr>
-                <td><code>icd_CHARLSON_SCORE_12MO</code></td>
-                <td>Charlson Comorbidity Index from 12-month ICD-10 history</td>
-                <td>0.0302 (1.2%)</td>
+                <td><code>icd_IRON_DEF_ANEMIA_FLAG_12MO</code></td>
+                <td>Iron deficiency anemia diagnosis in past 12 months (D50.*)</td>
+                <td>0.0452 (2.5%)</td>
               </tr>
               <tr>
                 <td><code>icd_BLEED_CNT_12MO</code></td>
                 <td>Count of GI/rectal bleeding diagnosis encounters in past 12 months</td>
-                <td>0.0276 (1.1%)</td>
+                <td>0.0436 (2.4%)</td>
+              </tr>
+              <tr>
+                <td><code>icd_COMBINED_COMORBIDITY_12MO</code></td>
+                <td>Combined comorbidity burden score from 12-month diagnosis history</td>
+                <td>0.0403 (2.2%)</td>
               </tr>
               <tr>
                 <td><code>icd_ANEMIA_FLAG_12MO</code></td>
-                <td>Any anemia diagnosis in past 12 months</td>
-                <td>0.0203 (0.8%)</td>
+                <td>Any anemia diagnosis in past 12 months (D50&ndash;D64)</td>
+                <td>0.0275 (1.5%)</td>
+              </tr>
+              <tr>
+                <td><code>icd_POLYPS_FLAG_EVER</code></td>
+                <td>Any prior polyp diagnosis (adenomatous or hyperplastic)</td>
+                <td>0.0241 (1.3%)</td>
               </tr>
             </tbody>
           </table>
@@ -1418,89 +1455,45 @@
             </tr></thead>
             <tbody>
               <tr>
-                <td><code>lab_AST_VALUE</code></td>
-                <td>Most recent aspartate aminotransferase (liver enzyme) value</td>
-                <td>0.1253 (5.0%)</td>
-              </tr>
-              <tr>
-                <td><code>lab_ALBUMIN_VALUE</code></td>
-                <td>Most recent serum albumin (nutritional/liver function marker)</td>
-                <td>0.0868 (3.5%)</td>
-              </tr>
-              <tr>
                 <td><code>lab_PLATELETS_VALUE</code></td>
                 <td>Most recent platelet count</td>
-                <td>0.0723 (2.9%)</td>
-              </tr>
-              <tr>
-                <td><code>lab_ALK_PHOS_VALUE</code></td>
-                <td>Most recent alkaline phosphatase (liver/bone marker)</td>
-                <td>0.0620 (2.5%)</td>
+                <td>0.0581 (3.2%)</td>
               </tr>
               <tr>
                 <td><code>lab_HEMOGLOBIN_VALUE</code></td>
                 <td>Most recent hemoglobin level (anemia indicator)</td>
-                <td>0.0584 (2.3%)</td>
+                <td>0.0570 (3.1%)</td>
+              </tr>
+              <tr>
+                <td><code>lab_ALT_AST_RATIO</code></td>
+                <td>Ratio of ALT to AST liver enzymes (De Ritis ratio)</td>
+                <td>0.0411 (2.2%)</td>
+              </tr>
+              <tr>
+                <td><code>lab_FERRITIN_VALUE</code></td>
+                <td>Most recent serum ferritin level (iron stores indicator)</td>
+                <td>0.0191 (1.0%)</td>
               </tr>
               <tr>
                 <td><code>lab_IRON_SATURATION_PCT</code></td>
                 <td>Iron saturation percentage (TSAT = iron / TIBC)</td>
-                <td>0.0214 (0.9%)</td>
+                <td>0.0148 (0.8%)</td>
               </tr>
               <tr>
-                <td><code>lab_comprehensive_iron_deficiency</code></td>
-                <td>Composite iron deficiency score combining ferritin, TSAT, and TIBC</td>
-                <td>0.0167 (0.7%)</td>
+                <td><code>lab_COMPREHENSIVE_IRON_DEFICIENCY</code></td>
+                <td>Composite iron deficiency flag combining ferritin, TSAT, hemoglobin, and MCV</td>
+                <td>0.0142 (0.8%)</td>
+              </tr>
+              <tr>
+                <td><code>lab_ANEMIA_GRADE</code></td>
+                <td>Ordinal anemia severity grade based on hemoglobin thresholds</td>
+                <td>0.0099 (0.5%)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Category 4: Visit History -->
-        <h4 class="section-header">Visit History <span class="mercy-badge">6 features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><code>visit_outpatient_visits_12mo</code></td>
-                <td>Count of outpatient visits in past 12 months</td>
-                <td>0.1300 (5.2%)</td>
-              </tr>
-              <tr>
-                <td><code>visit_acute_care_reliance</code></td>
-                <td>Ratio of ED + inpatient visits to total visits</td>
-                <td>0.0837 (3.3%)</td>
-              </tr>
-              <tr>
-                <td><code>visit_total_gi_symptom_visits_12mo</code></td>
-                <td>Total visits with GI symptom diagnoses in past 12 months</td>
-                <td>0.0387 (1.5%)</td>
-              </tr>
-              <tr>
-                <td><code>visit_gi_symptom_op_visits_12mo</code></td>
-                <td>Outpatient visits with GI symptom diagnoses in past 12 months</td>
-                <td>0.0358 (1.4%)</td>
-              </tr>
-              <tr>
-                <td><code>visit_gi_visits_24mo</code></td>
-                <td>GI-related visits in past 24 months</td>
-                <td>0.0191 (0.8%)</td>
-              </tr>
-              <tr>
-                <td><code>visit_gi_symptoms_no_specialist</code></td>
-                <td>GI symptoms documented but no GI specialist referral (care gap)</td>
-                <td>0.0159 (0.6%)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 5: Demographics -->
+        <!-- Category 4: Demographics -->
         <h4 class="section-header">Demographics <span class="mercy-badge">2 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
@@ -1511,158 +1504,21 @@
             </tr></thead>
             <tbody>
               <tr>
-                <td><code>HAS_PCP_AT_END</code></td>
-                <td>Whether patient has an assigned primary care provider at end of observation period</td>
-                <td>0.1533 (6.1%)</td>
+                <td><code>AGE_GROUP</code></td>
+                <td>Age category (45&ndash;49 / 50&ndash;54 / 55&ndash;64 / 65&ndash;74 / 75+)</td>
+                <td>0.0970 (5.3%)</td>
               </tr>
               <tr>
                 <td><code>IS_FEMALE</code></td>
                 <td>Patient sex indicator (female = 1)</td>
-                <td>0.0631 (2.5%)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="callout callout-info" style="margin-top: 24px;">
-          <p><strong>Med-Averse effect:</strong> The 5% tiebreak band successfully eliminated all medication features. Compared to the Standard model (28 features), the Med-Averse model retains 2 additional features (30 total) but draws from more ICD-10 and lab features to compensate for the lost medication signal. Test Lift@1% is comparable (21.9x vs 21.2x Standard).</p>
-        </div>
-      </div>
-
-        <!-- Summary Stats -->
-        <div class="metric-cards">
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Total Features</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Categories Represented</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[--]</span></div>
-            <div class="metric-label">Test AUPRC</div>
-          </div>
-        </div>
-
-        <!-- Category 1: Demographics -->
-        <h4 class="section-header">Demographics <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 2: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 3: ICD-10 Diagnoses -->
-        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 4: Laboratory Results -->
-        <h4 class="section-header">Laboratory Results <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td>0.0904 (5.0%)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Category 5: Outpatient Medications -->
-        <h4 class="section-header">Outpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
+        <h4 class="section-header">Outpatient Medications <span class="mercy-badge">2 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead><tr>
@@ -1672,26 +1528,21 @@
             </tr></thead>
             <tbody>
               <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td><code>out_med_BROAD_ABX_RECENCY</code></td>
+                <td>Ordinal recency of broad-spectrum antibiotic prescription</td>
+                <td>0.0132 (0.7%)</td>
               </tr>
               <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td><code>out_med_GI_SYMPTOM_MEDS</code></td>
+                <td>Active prescriptions for GI symptom management medications</td>
+                <td>0.0034 (0.2%)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Category 6: Inpatient Medications -->
-        <h4 class="section-header">Inpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
+        <!-- Category 6: Procedures -->
+        <h4 class="section-header">Procedures <span class="mercy-badge">2 features</span></h4>
         <div class="table-wrapper">
           <table class="comparison-table">
             <thead><tr>
@@ -1701,80 +1552,21 @@
             </tr></thead>
             <tbody>
               <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td><code>proc_TOTAL_IMAGING_COUNT_12MO</code></td>
+                <td>Total count of imaging procedures (CT, MRI, X-ray) in past 12 months</td>
+                <td>0.0278 (1.5%)</td>
               </tr>
               <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
+                <td><code>proc_SEVERE_ANEMIA_TREATMENT_FLAG</code></td>
+                <td>Flag for severe anemia treatment procedures (transfusion or IV iron)</td>
+                <td>0.0067 (0.4%)</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Category 7: Visit History -->
-        <h4 class="section-header">Visit History <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 8: Procedures -->
-        <h4 class="section-header">Procedures <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="callout" style="border-left-color: #7b1fa2; background-color: #f3e5f5; margin-top: 24px;">
+          <p><strong>Key difference from Full Data:</strong> The FHIR Portable model uses 6 categories vs. 5 for Full Data. Without visit history and PCP data, it compensates with additional vital sign derivatives (11 vs. 7), plus outpatient medication and procedure signals that Full Data winnowed away. The 18 features shared between both models form a stable core; each model adds 12&ndash;13 unique features suited to its available data.</p>
         </div>
 
         <!-- Cross-links -->
@@ -1785,944 +1577,6 @@
           View <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B: Feature Catalog</a> &rarr;
         </p>
       </div><!-- /tab2 -->
-
-
-      <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 3: No Visit Data (Standard)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-      <div class="tab-pane" id="tab3" role="tabpanel" aria-labelledby="btn-tab3" tabindex="0" hidden>
-        <h2 class="section-header">Mercy and Lucem &mdash; No Visit Data (Standard)</h2>
-
-        <!-- Model Description -->
-        <div class="callout callout-info">
-          <p><strong>Mercy and Lucem &mdash; No Visit Data (Standard)</strong> &mdash; Excludes all visit history features (Book 6, <code>visit_</code> prefix). Tests whether visit utilization patterns add predictive value beyond clinical signals. <span class="placeholder">[N]</span> final features selected from ~145 candidates.</p>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="metric-cards">
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Total Features</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Categories Represented</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[--]</span></div>
-            <div class="metric-label">Test AUPRC</div>
-          </div>
-        </div>
-
-        <!-- Category 1: Demographics -->
-        <h4 class="section-header">Demographics <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 2: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 3: ICD-10 Diagnoses -->
-        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 4: Laboratory Results -->
-        <h4 class="section-header">Laboratory Results <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 5: Outpatient Medications -->
-        <h4 class="section-header">Outpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 6: Inpatient Medications -->
-        <h4 class="section-header">Inpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 7: Visit History (EXCLUDED) -->
-        <div style="background:#f0f0f0; border:1px dashed #ccc; border-radius:8px; padding:16px 20px; margin-bottom:24px; color:#888;">
-          <h4 style="color:#999; margin-bottom:4px;">Visit History</h4>
-          <p style="font-style:italic; font-size:0.9rem;">Excluded from this model variant</p>
-        </div>
-
-        <!-- Category 8: Procedures -->
-        <h4 class="section-header">Procedures <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Cross-links -->
-        <hr class="divider">
-        <p style="text-align:center; font-size:0.95rem;">
-          &larr; Back to <a href="crc_model_results.html" style="color:#006598;">Main Results</a>
-          &nbsp;|&nbsp;
-          View <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B: Feature Catalog</a> &rarr;
-        </p>
-      </div><!-- /tab3 -->
-
-
-      <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 4: No Visit Data (Med-Averse)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-      <div class="tab-pane" id="tab4" role="tabpanel" aria-labelledby="btn-tab4" tabindex="0" hidden>
-        <h2 class="section-header">Mercy and Lucem &mdash; No Visit Data (Med-Averse)</h2>
-
-        <!-- Model Description -->
-        <div class="callout callout-info">
-          <p><strong>Mercy and Lucem &mdash; No Visit Data (Med-Averse)</strong> &mdash; Excludes all visit history features. Medication features are deprioritized during selection via 5% tiebreak band. <span class="placeholder">[N]</span> final features selected from ~145 candidates.</p>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="metric-cards">
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Total Features</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Categories Represented</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[--]</span></div>
-            <div class="metric-label">Test AUPRC</div>
-          </div>
-        </div>
-
-        <!-- Category 1: Demographics -->
-        <h4 class="section-header">Demographics <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 2: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 3: ICD-10 Diagnoses -->
-        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 4: Laboratory Results -->
-        <h4 class="section-header">Laboratory Results <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 5: Outpatient Medications -->
-        <h4 class="section-header">Outpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 6: Inpatient Medications -->
-        <h4 class="section-header">Inpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 7: Visit History (EXCLUDED) -->
-        <div style="background:#f0f0f0; border:1px dashed #ccc; border-radius:8px; padding:16px 20px; margin-bottom:24px; color:#888;">
-          <h4 style="color:#999; margin-bottom:4px;">Visit History</h4>
-          <p style="font-style:italic; font-size:0.9rem;">Excluded from this model variant</p>
-        </div>
-
-        <!-- Category 8: Procedures -->
-        <h4 class="section-header">Procedures <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Cross-links -->
-        <hr class="divider">
-        <p style="text-align:center; font-size:0.95rem;">
-          &larr; Back to <a href="crc_model_results.html" style="color:#006598;">Main Results</a>
-          &nbsp;|&nbsp;
-          View <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B: Feature Catalog</a> &rarr;
-        </p>
-      </div><!-- /tab4 -->
-
-
-      <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 5: No Demo/Visit Data (Standard)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-      <div class="tab-pane" id="tab5" role="tabpanel" aria-labelledby="btn-tab5" tabindex="0" hidden>
-        <h2 class="section-header">Mercy and Lucem &mdash; No Demographic or Visit Data (Standard)</h2>
-
-        <!-- Model Description -->
-        <div class="callout callout-info">
-          <p><strong>Mercy and Lucem &mdash; No Demographic or Visit Data (Standard)</strong> &mdash; Excludes both visit history features and demographic features (age, gender, race, marital status, PCP assignment, observation history). Tests whether the model can predict using only clinical signals &mdash; labs, vitals, diagnoses, medications, and procedures. <span class="placeholder">[N]</span> final features selected from ~133 candidates.</p>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="metric-cards">
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Total Features</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Categories Represented</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[--]</span></div>
-            <div class="metric-label">Test AUPRC</div>
-          </div>
-        </div>
-
-        <!-- Category 1: Demographics (EXCLUDED) -->
-        <div style="background:#f0f0f0; border:1px dashed #ccc; border-radius:8px; padding:16px 20px; margin-bottom:24px; color:#888;">
-          <h4 style="color:#999; margin-bottom:4px;">Demographics</h4>
-          <p style="font-style:italic; font-size:0.9rem;">Excluded from this model variant</p>
-        </div>
-
-        <!-- Category 2: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 3: ICD-10 Diagnoses -->
-        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 4: Laboratory Results -->
-        <h4 class="section-header">Laboratory Results <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 5: Outpatient Medications -->
-        <h4 class="section-header">Outpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 6: Inpatient Medications -->
-        <h4 class="section-header">Inpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 7: Visit History (EXCLUDED) -->
-        <div style="background:#f0f0f0; border:1px dashed #ccc; border-radius:8px; padding:16px 20px; margin-bottom:24px; color:#888;">
-          <h4 style="color:#999; margin-bottom:4px;">Visit History</h4>
-          <p style="font-style:italic; font-size:0.9rem;">Excluded from this model variant</p>
-        </div>
-
-        <!-- Category 8: Procedures -->
-        <h4 class="section-header">Procedures <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Cross-links -->
-        <hr class="divider">
-        <p style="text-align:center; font-size:0.95rem;">
-          &larr; Back to <a href="crc_model_results.html" style="color:#006598;">Main Results</a>
-          &nbsp;|&nbsp;
-          View <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B: Feature Catalog</a> &rarr;
-        </p>
-      </div><!-- /tab5 -->
-
-
-      <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-           TAB 6: No Demo/Visit Data (Med-Averse)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-      <div class="tab-pane" id="tab6" role="tabpanel" aria-labelledby="btn-tab6" tabindex="0" hidden>
-        <h2 class="section-header">Mercy and Lucem &mdash; No Demographic or Visit Data (Med-Averse)</h2>
-
-        <!-- Model Description -->
-        <div class="callout callout-info">
-          <p><strong>Mercy and Lucem &mdash; No Demographic or Visit Data (Med-Averse)</strong> &mdash; Excludes both visit history features and demographic features. Medication features are deprioritized during selection via 5% tiebreak band. The most constrained model variant &mdash; relies purely on clinical signals with reduced medication dependency. <span class="placeholder">[N]</span> final features selected from ~133 candidates.</p>
-        </div>
-
-        <!-- Summary Stats -->
-        <div class="metric-cards">
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Total Features</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[N]</span></div>
-            <div class="metric-label">Categories Represented</div>
-          </div>
-          <div class="metric-card">
-            <div class="metric-value"><span class="placeholder">[--]</span></div>
-            <div class="metric-label">Test AUPRC</div>
-          </div>
-        </div>
-
-        <!-- Category 1: Demographics (EXCLUDED) -->
-        <div style="background:#f0f0f0; border:1px dashed #ccc; border-radius:8px; padding:16px 20px; margin-bottom:24px; color:#888;">
-          <h4 style="color:#999; margin-bottom:4px;">Demographics</h4>
-          <p style="font-style:italic; font-size:0.9rem;">Excluded from this model variant</p>
-        </div>
-
-        <!-- Category 2: Vitals -->
-        <h4 class="section-header">Vitals <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 3: ICD-10 Diagnoses -->
-        <h4 class="section-header">ICD-10 Diagnoses <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 4: Laboratory Results -->
-        <h4 class="section-header">Laboratory Results <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 5: Outpatient Medications -->
-        <h4 class="section-header">Outpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 6: Inpatient Medications -->
-        <h4 class="section-header">Inpatient Medications <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Category 7: Visit History (EXCLUDED) -->
-        <div style="background:#f0f0f0; border:1px dashed #ccc; border-radius:8px; padding:16px 20px; margin-bottom:24px; color:#888;">
-          <h4 style="color:#999; margin-bottom:4px;">Visit History</h4>
-          <p style="font-style:italic; font-size:0.9rem;">Excluded from this model variant</p>
-        </div>
-
-        <!-- Category 8: Procedures -->
-        <h4 class="section-header">Procedures <span class="mercy-badge"><span class="placeholder">[N]</span> features</span></h4>
-        <div class="table-wrapper">
-          <table class="comparison-table">
-            <thead><tr>
-              <th scope="col">Feature</th>
-              <th scope="col">Derivation</th>
-              <th scope="col">SHAP Value</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-              <tr>
-                <td><span class="placeholder">[feature_name]</span></td>
-                <td><span class="placeholder">[derivation]</span></td>
-                <td><span class="placeholder">[--]</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Cross-links -->
-        <hr class="divider">
-        <p style="text-align:center; font-size:0.95rem;">
-          &larr; Back to <a href="crc_model_results.html" style="color:#006598;">Main Results</a>
-          &nbsp;|&nbsp;
-          View <a href="appendix_b_feature_catalog.html" style="color:#006598;">Appendix B: Feature Catalog</a> &rarr;
-        </p>
-      </div><!-- /tab6 -->
 
     </div><!-- /tab-content -->
   </main><!-- /main content -->
@@ -2736,6 +1590,8 @@
     <div class="footer-links">
       <a href="crc_model_results.html">Main Results</a>
       <a href="appendix_b_feature_catalog.html">Appendix B: Feature Catalog</a>
+      <a href="appendix_c_technical_context.html">Appendix C: Technical Context</a>
+      <a href="appendix_d_cohort_selection.html">Appendix D: Cohort Selection</a>
     </div>
   </footer>
 
